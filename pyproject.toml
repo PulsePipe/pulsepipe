@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "pulsepipe"
+version = "0.1.0"
+description = "Ingestion and Clinical Normalization Framework for Healthcare Data"
+authors = ["Amir Abrams amirabrams@mail.com"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "pulsepipe", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+pydantic = "^2.5.3"
+xmltodict = "^0.14.2"
+pyyaml = "^6.0.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+mypy = "^1.8"
+black = "^24.3"
+isort = "^5.13"
+coverage = "^7.4"
+types-python-dateutil = "^2.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/pulsepipe", "tests"]
+strict = true
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]

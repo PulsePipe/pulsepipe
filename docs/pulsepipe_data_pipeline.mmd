@@ -1,0 +1,15 @@
+graph TD
+    A["Ingest: HL7 v2, FHIR, CDA, Plain Text, Custom Template"]
+    B["Normalize: Extract Clinical Text and Metadata"]
+    C["De-identify: Presidio + Clinical NER"]
+    D["Chunk: Create Embedding Chunks + Metadata"]
+    E["Embed: ClinicalBERT, GPT-4, DeepSeek, Future Models"]
+    F["Vector Store: Pinecone, Weaviate, FAISS"]
+    G["PulsePilot UI (Optional): React + FastAPI"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G

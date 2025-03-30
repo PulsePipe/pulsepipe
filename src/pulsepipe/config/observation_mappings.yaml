@@ -1,0 +1,7 @@
+overrides:
+  category:
+    "imaging": "imaging"
+    "diagnostic-test": "diagnostic_test"
+  loinc:
+    "55284-4": "vital_signs"        # BP panel as vital sign
+    "12345-6": "diagnostic_test"    # Custom diagnostic test code

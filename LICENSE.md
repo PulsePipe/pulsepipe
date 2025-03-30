@@ -14,6 +14,16 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+Additional Permission under GNU AGPL version 3 section 7:
+
+As the copyright holder, Amir Abrams grants a Public Benefit Exception described 
+in the LICENSE-EXCEPTIONS.md file. This exception permits hospitals, academic 
+institutions, government agencies, non-profits, and individual researchers to 
+deploy and modify PulsePipe for non-commercial and public benefit purposes without 
+triggering AGPL version 3 section 13 obligations.
+
+See LICENSE-EXCEPTIONS.md for full terms.
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 

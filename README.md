@@ -87,7 +87,9 @@ By using AGPL:
 - We ensure that if you run PulsePipe as part of a distributed system or as a service, you must share back your improvements.
 - This protects the broader healthcare community while allowing commercial use under clear terms.
 
-Read the full license in the [`LICENSE`](./LICENSE) file.
+Non-profits, hospitals, academic institutions, government organizations, and individual researchers may use, modify, and deploy PulsePipe for **non-commercial** purposes without triggering AGPL Section 13.
+
+For full details, see the [LICENSE](./LICENSE.md) and [LICENSE-EXCEPTIONS](./LICENSE-EXCEPTIONS.md) files.
 
 ---
 

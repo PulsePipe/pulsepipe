@@ -20,9 +20,9 @@ This document outlines the planned milestones and future direction of the PulseP
     - OpenAI GPT-3 / GPT-4
     - DeepSeek
 - [ ] Vector database integration:
-    - Pinecone
-    - Weaviate
-    - FAISS
+    - Pinecone [ ]
+    - Weaviate [ ]
+    - FAISS [ ]
 - [ ] Optional PulsePilot UI (React + FastAPI)
 - [x] Python package with `pydantic` validation
 - [ ] Python developer tooling:
@@ -90,6 +90,7 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] Support for healthcare-specific LLM fine-tuning:
     - Transfer learning pipeline
     - Embedding + supervised task workflows
+- [ ] SaaS Offering for PulsePilot.
 - [ ] Distributed / parallelized embedding pipeline:
     - Embedding workers
     - Chunk-level parallelism

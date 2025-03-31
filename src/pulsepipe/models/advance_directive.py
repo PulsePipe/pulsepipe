@@ -22,10 +22,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 class AdvanceDirective(BaseModel):
-    directive_type: str                      # e.g., "DNR", "Full Code", "Advance Directive on file"
+    directive_type: Optional[str]             # e.g., "DNR", "Full Code", "Advance Directive on file"
     code: Optional[str]                       # Local or SNOMED code
     coding_method: Optional[str]
-    status: Optional[str]                      # e.g., "Active", "Rescinded"
+    status: Optional[str]                     # e.g., "Active", "Rescinded"
     effective_date: Optional[str]
     expiration_date: Optional[str]
     notes: Optional[str]                      # Free-text detail, e.g., location of paper copy

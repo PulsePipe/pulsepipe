@@ -31,7 +31,7 @@ class MicrobiologySensitivity(BaseModel):
 class MicrobiologyOrganism(BaseModel):
     organism_code: Optional[str]
     coding_method: Optional[str]
-    organism_name: str
+    organism_name: Optional[str]
     colony_count: Optional[str]
     sensitivities: List[MicrobiologySensitivity] = []
 

@@ -22,7 +22,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 class FunctionalStatus(BaseModel):
-    description: str                         # e.g., "Ambulatory with walker", "Needs assistance with ADLs"
+    description: Optional[str]                # e.g., "Ambulatory with walker", "Needs assistance with ADLs"
     code: Optional[str]                       # SNOMED or local code
     coding_method: Optional[str]
     status_date: Optional[str]                # Date this status was assessed

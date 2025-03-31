@@ -18,22 +18,19 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------ 
+
 import json
 import logging
-from .base import Ingester
 from pulsepipe.models import PulseClinicalContent
+from .fhir_utils.base_mapper import MAPPER_REGISTRY
 from pulsepipe.utils.xml_to_json import xml_to_json
-from pulsepipe.ingesters.fhir_utils.registry import get_resource_handlers
 
 logger = logging.getLogger(__name__)
 
-
-class FHIRIngester(Ingester):
-    def __init__(self):
-        self.resource_handlers = get_resource_handlers()
-
+class FHIRIngester:
     def parse(self, raw_data: str) -> PulseClinicalContent:
-        raw_data = raw_data.strip()
+        if not raw_data.strip():
+            raise ValueError("Empty data received")
 
         try:
             data = json.loads(raw_data)
@@ -43,27 +40,43 @@ class FHIRIngester(Ingester):
         if "resourceType" not in data:
             raise ValueError("Missing resourceType, not a valid FHIR resource.")
 
-        content = PulseClinicalContent()
+        content = PulseClinicalContent(
+            patient=None,
+            encounter=None,
+            vital_signs=[],
+            allergies=[],
+            immunizations=[],
+            diagnoses=[],
+            problem_list=[],
+            procedures=[],
+            medications=[],
+            payors=[],
+            mar=[],
+            notes=[],
+            imaging=[],
+            lab=[],
+            pathology=[],
+            diagnostic_test=[],
+            microbiology=[],
+            blood_bank=[],
+            family_history=[],
+            social_history=[],
+            advance_directives=[],
+            functional_status=[],
+            order=[],
+            implant=[],
+        )
 
         if data["resourceType"] == "Bundle":
-            self._parse_bundle(data, content)
+            for entry in data.get("entry", []):
+                self._map_resource(entry.get("resource", {}), content)
         else:
-            self._dispatch(data, content)
+            self._map_resource(data, content)
 
         return content
 
-    def _parse_bundle(self, bundle: dict, content: PulseClinicalContent):
-        for entry in bundle.get("entry", []):
-            resource = entry.get("resource")
-            if not resource or "resourceType" not in resource:
-                logger.warning("Skipping entry with missing resource or resourceType.")
-                continue
-            self._dispatch(resource, content)
-
-    def _dispatch(self, resource: dict, content: PulseClinicalContent):
-        resource_type = resource["resourceType"]
-        handler = self.resource_handlers.get(resource_type)
-        if handler:
-            handler(resource, content)
-        else:
-            logger.info(f"Skipping unsupported resourceType: {resource_type}")
+    def _map_resource(self, resource: dict, content: PulseClinicalContent):
+        for mapper in MAPPER_REGISTRY:
+            if mapper.accepts(resource):
+                mapper.map(resource, content)
+                break

@@ -18,60 +18,68 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+# src/pulsepipe/ingesters/fhir_utils/patient_mapper.py
 
 from datetime import datetime
-from pulsepipe.models import PatientInfo, PatientPreferences
+from pulsepipe.models import PatientInfo, PatientPreferences, PulseClinicalContent
+from .base_mapper import BaseFHIRMapper, fhir_mapper
 
-def map_patient(resource: dict) -> PatientInfo:
-    patient_id = resource.get("id")
-    gender = resource.get("gender")
+@fhir_mapper("Patient")
+class PatientMapper(BaseFHIRMapper):
+    def map(self, resource: dict, content: PulseClinicalContent) -> None:
+        patient_id = resource.get("id")
+        gender = resource.get("gender")
 
-    # Date of Birth
-    birth_date = resource.get("birthDate")
-    dob_year = None
-    over_90 = False
-    if birth_date:
-        try:
-            year = int(birth_date.split("-")[0])
-            age = datetime.now().year - year
-            if age >= 90:
-                over_90 = True
-            else:
-                dob_year = year
-        except Exception:
-            pass
+        # Date of Birth & Over-90 check
+        birth_date = resource.get("birthDate")
+        dob_year = None
+        over_90 = False
+        geographic_area = None
+    
+        if birth_date:
+            try:
+                year = int(birth_date.split("-")[0])
+                age = datetime.now().year - year
+                if age >= 90:
+                    over_90 = True
+                else:
+                    dob_year = year
+            except Exception:
+                pass
 
-    # Internal Identifiers
-    identifiers = {}
-    for identifier in resource.get("identifier", []):
-        system = identifier.get("system")
-        value = identifier.get("value")
-        if system and value:
-            identifiers[system] = value
+        # Identifiers
+        identifiers = {}
+        for identifier in resource.get("identifier", []):
+            system = identifier.get("system")
+            value = identifier.get("value")
+            if system and value:
+                identifiers[system] = value
 
-    # Preferences (FHIR Communication)
-    preferences = []
-    for comm in resource.get("communication", []):
-        preferred_language = None
-        if "language" in comm:
-            preferred_language = comm["language"].get("text") or \
-                                 comm["language"].get("coding", [{}])[0].get("display")
+        # Preferences (FHIR Communication)
+        preferences = []
+        for comm in resource.get("communication", []):
+            preferred_language = None
+            if "language" in comm:
+                preferred_language = comm["language"].get("text") or \
+                                     comm["language"].get("coding", [{}])[0].get("display")
 
-        requires_interpreter = comm.get("preferred", False)
+            requires_interpreter = comm.get("preferred", False)
 
-        preferences.append(PatientPreferences(
-            preferred_language=preferred_language,
-            communication_method=None,  # Needs custom mapping if you use extensions
-            requires_interpreter=requires_interpreter,
-            preferred_contact_time=None,
-            notes=None
-        ))
+            preferences.append(PatientPreferences(
+                preferred_language=preferred_language,
+                communication_method=None,  # Extend later if needed
+                requires_interpreter=requires_interpreter,
+                preferred_contact_time=None,
+                notes=None
+            ))
 
-    return PatientInfo(
-        id=patient_id,
-        gender=gender,
-        dob_year=dob_year,
-        over_90=over_90,
-        identifiers=identifiers,
-        preferences=preferences or None,
-    )
+        # Assign into content
+        content.patient = PatientInfo(
+            id=patient_id,
+            gender=gender,
+            dob_year=dob_year,
+            over_90=over_90,
+            identifiers=identifiers,
+            preferences=preferences or None,
+            geographic_area=geographic_area,
+        )

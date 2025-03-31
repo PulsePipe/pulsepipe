@@ -18,21 +18,23 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+from typing import Type, List, Optional
 
-from pulsepipe.ingesters.fhir_utils import (
-    patient_mapper,
-    encounter_mapper,
-    allergy_mapper,
-    observation_mapper,
-    immunization_mapper
-)
+MAPPER_REGISTRY: List["BaseFHIRMapper"] = []
 
+class BaseFHIRMapper:
+    resource_type: Optional[str] = None
 
-def get_resource_handlers():
-    return {
-        "Patient": lambda r, c: setattr(c, "patient", patient_mapper.map_patient(r)),
-        "Encounter": lambda r, c: setattr(c, "encounter", encounter_mapper.map_encounter(r)),
-        "AllergyIntolerance": lambda r, c: c.allergies.append(allergy_mapper.map_allergy(r)),
-        "Observation": lambda r, c: observation_mapper.map_observation(r, c),
-        "Immunization": lambda r, c: c.immunizations.append(immunization_mapper.map_immunization(r)),
-    }
+    def accepts(self, resource: dict) -> bool:
+        return resource.get("resourceType") == self.resource_type
+
+    def map(self, resource: dict, content) -> None:
+        raise NotImplementedError
+
+def fhir_mapper(resource_type: str):
+    def decorator(cls: Type[BaseFHIRMapper]):
+        cls.resource_type = resource_type
+        instance = cls()
+        MAPPER_REGISTRY.append(instance)
+        return cls
+    return decorator

@@ -18,13 +18,20 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-from typing import Optional
-from pydantic import BaseModel
 
-class Allergy(BaseModel):
-    substance: Optional[str]
-    coding_method: Optional[str]
-    reaction: Optional[str]
-    severity: Optional[str]
-    onset: Optional[str]
-    patient_id: Optional[str]
+# --------------------------------------------------------------------
+# PulsePipe - FHIR Mappers Auto-registration
+# --------------------------------------------------------------------
+# This file ensures all mappers are loaded and registered via @fhir_mapper
+# --------------------------------------------------------------------
+
+from . import (
+    patient_mapper,
+    encounter_mapper,
+    allergy_mapper,
+    immunization_mapper,
+    observation_mapper,
+    base_mapper,
+    extractors,
+    observation_helpers,
+)

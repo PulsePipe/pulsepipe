@@ -3,33 +3,48 @@
 PulsePipe — The Open AI-Ready Pipeline for Healthcare Data  
 Copyright (C) 2025 Amir Abrams
 
-## Public Benefit Exception to AGPL-3.0
+---
 
-The copyright holder (Amir Abrams) grants the following additional exception:
+## Public Benefit Exception under AGPL-3.0 Section 7
 
-### Permitted Public Benefit Use
+In addition to the terms of the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) (AGPL-3.0), the copyright holder, Amir Abrams, grants the following exception:
 
-Hospitals, academic institutions, governmental agencies, non-profit organizations, and individual researchers are permitted to use, modify, and deploy PulsePipe **without triggering the requirements of AGPL-3.0 Section 13**, provided that:
+### ✅ Permitted Public Benefit Use
 
-- The resulting system is used **solely for non-commercial, academic, research, or public benefit purposes**.
-- No part of the system is offered as a commercial product or commercial hosted service.
+The following entities may use, modify, and deploy PulsePipe **without triggering the requirements of AGPL-3.0 Section 13** (commonly known as the "network use disclosure" or "SaaS clause"), provided the usage is strictly for non-commercial, academic, research, or public benefit purposes:
 
-### Notes:
-- This exception **waives the network use disclosure** requirement (AGPL Section 13) for qualified non-commercial users.
-- All other terms of the AGPL-3.0 license apply, including source code availability if the software is distributed.
+- Hospitals and healthcare providers (non-profit and public)
+- Academic institutions
+- Governmental agencies
+- Non-profit organizations
+- Individual researchers
 
-### Commercial Use
-
-If you are:
-- A for-profit healthcare organization
-- A commercial AI company
-- A provider of SaaS or hosted AI services using PulsePipe
-- Embedding PulsePipe in a commercial application
-
-You must either:
-1. Comply fully with the **AGPL-3.0** license, including Section 13 obligations.
-2. Contact Amir Abrams for a **commercial license**.
+### ✅ Conditions
+- The system must be used **solely** for non-commercial and public benefit purposes.
+- The system must **not** be offered as part of a commercial service, commercial product, or paid hosted solution.
+- This exception **does not waive** other AGPL-3.0 obligations when distributing or modifying PulsePipe source code.
 
 ---
 
-This exception ensures that PulsePipe remains available for **research**, **education**, and **public service** while protecting the commons from unreciprocated commercial exploitation.
+## ⚠️ Commercial Use
+
+For-profit entities or commercial applications must either:
+
+1. Fully comply with the AGPL-3.0, including Section 13 obligations, **or**
+2. Obtain a separate **commercial license** from Amir Abrams.
+
+### Examples of commercial use include:
+- SaaS platforms embedding PulsePipe
+- Commercial AI healthcare products
+- For-profit hosted services
+- Integrations into proprietary software sold or licensed to third parties
+
+---
+
+## Purpose of this Exception
+
+This exception is intended to encourage the use of PulsePipe in the service of **healthcare research**, **academic work**, and **public benefit** without imposing network-use restrictions on non-commercial users, while preserving the protections of AGPL-3.0 against unreciprocated commercial exploitation.
+
+For licensing questions, please contact Amir Abrams.
+
+---

@@ -18,9 +18,14 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-from pulsepipe.ingesters.fhir_utils.allergy_mapper import allergy_mapper
+# tests/test_fhir_allergy_mapper.py
+
+from pulsepipe.ingesters.fhir_utils.allergy_mapper import AllergyMapper
+from pulsepipe.models import PulseClinicalContent
 
 def test_allergy_mapper_cases():
+    mapper = AllergyMapper()
+
     # Case 1: Active allergy
     allergy_res = {
         "resourceType": "AllergyIntolerance",
@@ -30,7 +35,37 @@ def test_allergy_mapper_cases():
         "onsetDateTime": "2020-01-01T00:00:00Z",
         "patient": {"reference": "Patient/patient-1"}
     }
-    allergy = allergy_mapper.map_allergy(allergy_res)
+
+    mapper = AllergyMapper()
+    content = PulseClinicalContent(
+        patient=None,
+        encounter=None,
+        vital_signs=[],
+        allergies=[],
+        immunizations=[],
+        diagnoses=[],
+        problem_list=[],
+        procedures=[],
+        medications=[],
+        payors=[],
+        mar=[],
+        notes=[],
+        imaging=[],
+        lab=[],
+        pathology=[],
+        diagnostic_test=[],
+        microbiology=[],
+        blood_bank=[],
+        family_history=[],
+        social_history=[],
+        advance_directives=[],
+        functional_status=[],
+        order=[],
+        implant=[]
+    )
+    mapper.map(allergy_res, content)
+    assert len(content.allergies) == 1
+    allergy = content.allergies[0]
     assert allergy.substance == "Penicillin"
     assert allergy.reaction == "Rash"
 
@@ -40,9 +75,37 @@ def test_allergy_mapper_cases():
         "clinicalStatus": {"coding": [{"code": "inactive"}]},
         "patient": {"reference": "Patient/patient-1"}
     }
-    no_allergy = allergy_mapper.map_allergy(no_allergy_res)
+
+    content = PulseClinicalContent(  # fresh content
+        patient=None,
+        encounter=None,
+        vital_signs=[],
+        allergies=[],
+        immunizations=[],
+        diagnoses=[],
+        problem_list=[],
+        procedures=[],
+        medications=[],
+        payors=[],
+        mar=[],
+        notes=[],
+        imaging=[],
+        lab=[],
+        pathology=[],
+        diagnostic_test=[],
+        microbiology=[],
+        blood_bank=[],
+        family_history=[],
+        social_history=[],
+        advance_directives=[],
+        functional_status=[],
+        order=[],
+        implant=[]
+    )
+    
+    mapper = AllergyMapper()
+    mapper.map(no_allergy_res, content)
+    assert len(content.allergies) == 1
+    no_allergy = content.allergies[0]
     assert no_allergy.substance == "No Known Allergies"
     assert no_allergy.reaction is None
-
-    # Case 3: No AllergyIntolerance present handled at the Bundle level by the ingester
-    # No AllergyIntolerance resource = content.allergies == []

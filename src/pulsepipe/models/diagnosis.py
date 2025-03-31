@@ -24,7 +24,7 @@ from pydantic import BaseModel
 class Diagnosis(BaseModel):
     code: Optional[str]
     coding_method: Optional[str]
-    description: str
+    description: Optional[str]
     onset_date: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]

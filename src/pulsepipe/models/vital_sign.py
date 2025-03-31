@@ -22,7 +22,7 @@ from typing import Optional, Union
 from pydantic import BaseModel
 
 class VitalSign(BaseModel):
-    code: str
+    code: Optional[str]
     coding_method: Optional[str]
     display: Optional[str]
     value: Union[str, float]

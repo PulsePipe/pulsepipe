@@ -22,9 +22,9 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 class BloodBankFinding(BaseModel):
-    code: str
+    code: Optional[str]
     coding_method: Optional[str]        
-    test_name: str                    # ABO, Rh, Antibody Screen, Crossmatch
+    test_name: Optional[str]                    # ABO, Rh, Antibody Screen, Crossmatch
     result: Optional[str]
     interpretation: Optional[str]     # e.g., Compatible, Incompatible, Positive
     comment: Optional[str]

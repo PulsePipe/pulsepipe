@@ -27,7 +27,8 @@ def test_basic_model_instantiation():
         dob_year=1983,
         gender="female",
         identifiers={"mrn": "456789"},
-        preferences=[]
+        preferences=[],
+        geographic_area="Unknown"
     )
 
     content = PulseClinicalContent(

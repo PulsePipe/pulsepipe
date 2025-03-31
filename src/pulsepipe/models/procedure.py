@@ -28,7 +28,7 @@ class ProcedureProvider(BaseModel):
 class Procedure(BaseModel):
     code: Optional[str]
     coding_method: Optional[str]
-    description: str
+    description: Optional[str]
     performed_date: Optional[str]
     status: Optional[str]
     providers: List[ProcedureProvider] = []

@@ -21,9 +21,8 @@
 import pytest
 from pulsepipe.ingesters.fhir_ingester import FHIRIngester
 
-
 def test_fhir_ingester_parse_empty():
     ingester = FHIRIngester()
-    result = ingester.parse("")
-    assert isinstance(result, dict)
-    assert result == {}
+    with pytest.raises(ValueError, match="Empty data received"):
+        ingester.parse("")
+

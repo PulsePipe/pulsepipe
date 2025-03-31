@@ -18,9 +18,9 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
 import json
 from pulsepipe.ingesters.fhir_ingester import FHIRIngester
-
 
 def test_parse_bundle_with_multiple_resources():
     ingester = FHIRIngester()

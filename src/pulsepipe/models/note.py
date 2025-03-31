@@ -22,10 +22,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Note(BaseModel):
-    note_type_code: str                      # e.g., "DS" = Discharge Summary, "PN" = Progress Note
-    text: str                                # The actual note content
-    timestamp: str                           # ISO 8601 datetime (required)
+    note_type_code: Optional[str] = None     # e.g., "DS" = Discharge Summary, "PN" = Progress Note
+    text: Optional[str] = None               # The actual note content
+    timestamp: Optional[str] = None          # ISO 8601 datetime (required)
     author_id: Optional[str] = None          # EHR or system-level user ID
     author_name: Optional[str] = None        # Displayable name (optional)
-    patient_id: Optional[str]                   
-    encounter_id: Optional[str]
+    patient_id: Optional[str] = None                  
+    encounter_id: Optional[str] = None

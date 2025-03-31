@@ -24,7 +24,7 @@ from pydantic import BaseModel
 class Medication(BaseModel):
     code: Optional[str]
     coding_method: Optional[str]
-    name: str
+    name: Optional[str]
     dose: Optional[str]
     route: Optional[str]
     frequency: Optional[str]

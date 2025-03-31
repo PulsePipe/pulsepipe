@@ -22,7 +22,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 class SocialHistory(BaseModel):
-    description: str                           # "Smoker", "Alcohol Use", "Homelessness"
+    description: Optional[str]                  # "Smoker", "Alcohol Use", "Homelessness"
     code: Optional[str]                         # SNOMED or local
     coding_method: Optional[str]
     status: Optional[str]                       # current, former, never

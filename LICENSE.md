@@ -1,29 +1,3 @@
-PulsePipe: Healthcare-Grade Data Ingestion, Mapping, and Normalization Toolkit
-Copyright (C) 2025 Amir Abrams
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-Additional Permission under GNU AGPL version 3 section 7:
-
-As the copyright holder, Amir Abrams grants a Public Benefit Exception described 
-in the LICENSE-EXCEPTIONS.md file. This exception permits hospitals, academic 
-institutions, government agencies, non-profits, and individual researchers to 
-deploy and modify PulsePipe for non-commercial and public benefit purposes without 
-triggering AGPL version 3 section 13 obligations.
-
-See LICENSE-EXCEPTIONS.md for full terms.
-
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -685,3 +659,5 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+For additional permissions and public benefit exceptions, see LICENSE-EXCEPTIONS.md.

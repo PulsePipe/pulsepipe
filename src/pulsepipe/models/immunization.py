@@ -22,7 +22,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Immunization(BaseModel):
-    vaccine_code: str
+    vaccine_code: Optional[str]
     coding_method: Optional[str]
     description: Optional[str]
     date_administered: Optional[str]

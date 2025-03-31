@@ -18,47 +18,43 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+# src/pulsepipe/ingesters/fhir_utils/allergy_mapper.py
 
-from pulsepipe.models import Allergy
-from .extractors import (
-    extract_patient_reference,
-)
+from pulsepipe.models import Allergy, PulseClinicalContent
+from .base_mapper import BaseFHIRMapper, fhir_mapper
+from .extractors import extract_patient_reference
 
-def map_allergy(resource: dict) -> Allergy:
-    patient_id = extract_patient_reference(resource)
+@fhir_mapper("AllergyIntolerance")
+class AllergyMapper(BaseFHIRMapper):
+    def map(self, resource: dict, content: PulseClinicalContent) -> None:
+        patient_id = extract_patient_reference(resource)
+        clinical_status = resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code")
 
-    clinical_status = resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code")
+        if clinical_status == "inactive":
+            allergy = Allergy(
+                substance="No Known Allergies",
+                coding_method=None,
+                reaction=None,
+                severity=None,
+                onset=None,
+                patient_id=patient_id,
+            )
+        else:
+            substance = resource.get("code", {}).get("text") or \
+                        resource.get("code", {}).get("coding", [{}])[0].get("display")
 
-    # Case 1: Explicitly no known allergies
-    if clinical_status == "inactive":
-        return Allergy(
-            substance="No Known Allergies",
-            coding_method=None,
-            reaction=None,
-            severity=None,
-            onset=None,
-            patient_id=patient_id,
-        )
+            coding_method = resource.get("code", {}).get("coding", [{}])[0].get("system")
+            reaction = resource.get("reaction", [{}])[0].get("description")
+            severity = resource.get("reaction", [{}])[0].get("severity")
+            onset = resource.get("onsetDateTime")
 
-    # Case 2: Real allergy present
-    substance = resource.get("code", {}).get("text") or \
-                resource.get("code", {}).get("coding", [{}])[0].get("display")
+            allergy = Allergy(
+                substance=substance or "Unknown",
+                coding_method=coding_method,
+                reaction=reaction,
+                severity=severity,
+                onset=onset,
+                patient_id=patient_id,
+            )
 
-    coding_method = resource.get("code", {}).get("coding", [{}])[0].get("system")
-
-    reaction = None
-    severity = None
-    if "reaction" in resource and resource["reaction"]:
-        reaction = resource["reaction"][0].get("description")
-        severity = resource["reaction"][0].get("severity")
-
-    onset = resource.get("onsetDateTime")
-
-    return Allergy(
-        substance=substance or "Unknown",
-        coding_method=coding_method,
-        reaction=reaction,
-        severity=severity,
-        onset=onset,
-        patient_id=patient_id,
-    )
+        content.allergies.append(allergy)

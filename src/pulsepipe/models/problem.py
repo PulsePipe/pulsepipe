@@ -22,9 +22,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Problem(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: str
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+    code: Optional[str] = None
+    coding_method: Optional[str] = None
+    description: Optional[str] = None
+    onset_date: Optional[str] = None
+    patient_id: Optional[str] = None
+    encounter_id: Optional[str] = None

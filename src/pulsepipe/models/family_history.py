@@ -22,8 +22,8 @@ from typing import Optional
 from pydantic import BaseModel
 
 class FamilyHistory(BaseModel):
-    condition: str                              # "Diabetes Mellitus", "Breast Cancer"
-    code: Optional[str]                         # ICD, SNOMED, etc.
+    condition: Optional[str]                     # "Diabetes Mellitus", "Breast Cancer"
+    code: Optional[str]                          # ICD, SNOMED, etc.
     coding_method: Optional[str]
     relative: Optional[str]                      # mother, father, sibling, child
     status: Optional[str]                        # e.g., affected, carrier, unknown

@@ -19,7 +19,6 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from .pulse_canonical_message import PulseCanonicalMessage
-from .builder import CanonicalBuilder
-from .schema_version import CANONICAL_SCHEMA_VERSION
-from .types import IngestorType
+from .base_mapper import MAPPER_REGISTRY
+
+__all__ = ["MAPPER_REGISTRY"]

@@ -4,7 +4,7 @@ This document outlines the planned milestones and future direction of the PulseP
 
 ---
 
-## ✅ MVP Scope (Completed or Near Completion)
+## ✅ MVP Scope
 
 - [x] Canonical Clinical Content Model (Pulse Canonical Model)
 - [ ] YAML-based configuration (ingestor registration, pipelines, vector dbs, deid)
@@ -27,7 +27,7 @@ This document outlines the planned milestones and future direction of the PulseP
 - [x] Python package with `pydantic` validation
 - [ ] Python developer tooling:
     - Poetry [x]
-    - Pytest [ ]
+    - Pytest [x]
     - Mypy [ ]
 
 ---
@@ -64,6 +64,12 @@ This document outlines the planned milestones and future direction of the PulseP
     - Enhanced search UX
     - Visualization components (embedding space plots, concept graph)
 - [ ] OpenAPI & GraphQL endpoints for programmatic access
+- [ ] AI-Assisted Data Profiling & Normalization Suggestion Engine (PulsePilot Exclusive)
+    - Automatic detection of unmapped or inconsistent data fields.
+    - AI-powered recommendations for data normalization and FHIR mapping.
+    - Schema drift detection.
+    - Interactive UI for reviewing and exporting recommendations.
+    - Embedding-based similarity and terminology-assisted suggestions.
 
 ---
 
@@ -109,7 +115,6 @@ This document outlines the planned milestones and future direction of the PulseP
     - API documentation
     - Deployment guides (cloud + on-prem)
     - Example pipelines
-
 
 ---
 

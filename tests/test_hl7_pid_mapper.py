@@ -19,37 +19,20 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import logging
+# tests/test_pid_mapper.py
+
+import unittest
 from hl7apy.parser import parse_message
+from pulsepipe.ingesters.hl7v2_utils.pid_mapper import PIDMapper
 from pulsepipe.models import PulseClinicalContent
 
-# Explicitly import all mappers here to trigger their registration
-from .hl7v2_utils import base_mapper
-from .hl7v2_utils import pid_mapper  # Always include
-# from .hl7v2_utils import obx_mapper  # Uncomment when you implement it
-# from .hl7v2_utils import al1_mapper
-# from .hl7v2_utils import dg1_mapper
-# ... add others as needed
+class TestPIDMapper(unittest.TestCase):
+    def test_pid_mapper_basic(self):
+        hl7_message = "MSH|^~\\&|HOSPITAL|HOSPITAL|||202503311200||ADT^A01|MSG00001|P|2.5\r" \
+              "EVN|A01|202503311200\r" \
+              "PID|1||123456^^^HOSP^MR||DOE^JOHN||19320101|M|||123 Main St^^Boston^MA^02115^USA||(555)555-1212|||EN|M|Catholic|MR|123456"
 
-logger = logging.getLogger(__name__)
-
-class HL7v2Ingester:
-    def parse(self, raw_data: str) -> PulseClinicalContent:
-        if not raw_data.strip():
-            raise ValueError("Empty HL7v2 data received")
-
-        try:
-            message = parse_message(raw_data, validation_level="T")
-            pid_segment = next(s for s in message.children if s.name == "PID")
-
-            # ✅ Diagnostic prints (put these temporarily)
-            print(message.version)
-            print([field.name for field in pid_segment.children])
-
-        except Exception as e:
-            logger.exception("HL7v2 parsing error")
-            raise ValueError("Failed to parse HL7v2 message") from e
-
+        message = parse_message(hl7_message)
         content = PulseClinicalContent(
             patient=None,
             encounter=None,
@@ -77,19 +60,26 @@ class HL7v2Ingester:
             implant=[],
         )
 
-        # Iterate over all segments
-        for segment in message.children:
-            self._map_segment(segment, content)
+        pid_segment = next(s for s in message.children if s.name == "PID")
+        mapper = PIDMapper()
+        self.assertTrue(mapper.accepts(pid_segment))
 
-        return content
+        mapper.map(pid_segment, content)
 
-    def _map_segment(self, segment, content: PulseClinicalContent):
-        # Go through the registry and apply the first matching mapper
-        for mapper in base_mapper.MAPPER_REGISTRY:
-            if mapper.accepts(segment):
-                try:
-                    mapper.map(segment, content)
-                    logger.debug(f"Mapped segment {segment.name} using {mapper.__class__.__name__}")
-                except Exception as e:
-                    logger.exception(f"Error mapping segment {segment.name} with {mapper.__class__.__name__}")
-                break  # Only one mapper should handle a segment
+        # ✅ Assertions
+        self.assertIsNotNone(content.patient)
+        self.assertEqual(content.patient.id, "123456")
+        self.assertEqual(content.patient.gender, "M")
+        self.assertEqual(content.patient.dob_year, 1932)
+        self.assertTrue(content.patient.over_90)
+        self.assertEqual(content.patient.geographic_area, "USA 02115")  # Country & ZIP code
+        self.assertEqual(content.patient.identifiers.get("MR"), "123456")
+        
+        # ✅ Preferences
+        prefs = content.patient.preferences[0] if content.patient.preferences else None
+        self.assertIsNotNone(prefs)
+        self.assertEqual(prefs.preferred_language, "EN")
+        self.assertEqual(prefs.communication_method, "Phone")
+
+if __name__ == "__main__":
+    unittest.main()

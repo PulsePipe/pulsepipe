@@ -180,6 +180,18 @@ files = [
 test = ["pytest (>=6)"]
 
 [[package]]
+name = "hl7apy"
+version = "1.3.5"
+description = "HL7apy: a lightweight Python library to parse, create and handle HL7 v2.x messages"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "hl7apy-1.3.5-py2.py3-none-any.whl", hash = "sha256:c8b80ff5ad020bf9c1e68a6395cf45cb78db621f65569d1798c46eb1b657e27b"},
+    {file = "hl7apy-1.3.5.tar.gz", hash = "sha256:4ed02ae574ddcf9084b389bfcaf1e9023c4b2f4dfa2ce4ab42c430c4180a03fe"},
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.1.0"
 description = "brain-dead simple config-ini parsing"
@@ -646,4 +658,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "920ee83c1d29665ba2ce1c3d06f1fe09dd56079c23a48140384a2d709e203f82"
+content-hash = "6b9815bd749d252b832b0b77d210bebd96b21e1fd04e2c94053c7b8c4edaea8a"

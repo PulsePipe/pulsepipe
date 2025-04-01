@@ -19,7 +19,14 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from .pulse_canonical_message import PulseCanonicalMessage
-from .builder import CanonicalBuilder
-from .schema_version import CANONICAL_SCHEMA_VERSION
-from .types import IngestorType
+MAPPER_REGISTRY = []
+
+class HL7v2Mapper:
+    def accepts(self, segment) -> bool:
+        raise NotImplementedError
+
+    def map(self, segment, content):
+        raise NotImplementedError
+
+def register_mapper(mapper):
+    MAPPER_REGISTRY.append(mapper)

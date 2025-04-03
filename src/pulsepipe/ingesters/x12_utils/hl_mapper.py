@@ -19,13 +19,25 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
-from pydantic import BaseModel
+from .base_mapper import BaseX12Mapper
 
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+class HLMapper(BaseX12Mapper):
+    def accepts(self, segment_id: str) -> bool:
+        return segment_id == "HL"
+
+    def map(self, segment_id: str, elements: list, content, cache: dict):
+        hl_id = elements[0]
+        hl_parent = elements[1] if len(elements) > 1 else None
+        hl_code = elements[2] if len(elements) > 2 else None
+
+        cache["hl_id"] = hl_id
+        cache["hl_parent"] = hl_parent
+        cache["hl_code"] = hl_code
+
+        # optionally track hierarchy for later if you need nested relationships
+        cache.setdefault("hl_hierarchy", {})[hl_id] = {
+            "parent": hl_parent,
+            "code": hl_code
+        }
+
+        print(f"HL Detected: id={hl_id}, parent={hl_parent}, code={hl_code}")

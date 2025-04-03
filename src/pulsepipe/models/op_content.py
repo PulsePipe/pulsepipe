@@ -19,13 +19,19 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
 from pydantic import BaseModel
+from .billing import Claim, Charge, Payment, Adjustment
+from .prior_authorization import PriorAuthorization
+from typing import Optional, List
 
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+class PulseOperationalContent(BaseModel):
+    transaction_type: Optional[str]  # e.g., '837P', '835', '278'
+    interchange_control_number: Optional[str]
+    functional_group_control_number: Optional[str]
+    organization_id: Optional[str]
+
+    claims: List[Claim] = []
+    charges: List[Charge] = []
+    payments: List[Payment] = []
+    adjustments: List[Adjustment] = []
+    prior_authorizations: List[PriorAuthorization] = []

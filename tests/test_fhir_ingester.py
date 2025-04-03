@@ -25,4 +25,3 @@ def test_fhir_ingester_parse_empty():
     ingester = FHIRIngester()
     with pytest.raises(ValueError, match="Empty data received"):
         ingester.parse("")
-

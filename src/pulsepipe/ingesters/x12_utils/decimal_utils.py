@@ -19,13 +19,30 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
-from pydantic import BaseModel
+from decimal import Decimal, InvalidOperation
+import logging
 
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+logger = logging.getLogger(__name__)
+
+def parse_x12_decimal(value: str, implied_decimal_places: int = 2) -> Decimal:
+    """
+    Parses an X12 numeric value with implied decimals.
+
+    Example:
+        '1500' -> Decimal('15.00') if implied_decimal_places=2
+        '15.00' -> Decimal('15.00') if decimal point present
+    """
+    try:
+        if not value or value.strip() == '':
+            return Decimal("0.00")
+
+        value = value.strip()
+
+        if '.' in value:
+            return Decimal(value)
+
+        return Decimal(value) / (10 ** implied_decimal_places)
+
+    except InvalidOperation:
+        logger.warning(f"Invalid decimal value encountered: '{value}'")
+        return Decimal("0.00")

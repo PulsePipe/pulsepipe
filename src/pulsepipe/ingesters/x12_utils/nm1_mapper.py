@@ -19,13 +19,20 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
-from pydantic import BaseModel
+from .base_mapper import BaseX12Mapper
 
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+class NM1Mapper(BaseX12Mapper):
+    def accepts(self, segment_id: str) -> bool:
+        return segment_id == "NM1"
+
+    def map(self, segment_id: str, elements: list, content, cache: dict):
+        entity_id = elements[1]
+
+        if entity_id == "QC":  # Patient
+            cache["patient_id"] = elements[9] if len(elements) > 9 else None
+
+        elif entity_id == "82":  # Rendering Provider
+            cache["rendering_provider_id"] = elements[9] if len(elements) > 9 else None
+
+        elif entity_id == "PR":  # Payer
+            cache["payer_id"] = elements[9] if len(elements) > 9 else None

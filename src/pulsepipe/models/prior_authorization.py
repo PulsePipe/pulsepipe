@@ -19,13 +19,17 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
+class PriorAuthorization(BaseModel):
+    auth_id: Optional[str]
     patient_id: Optional[str]
-    encounter_id: Optional[str]
+    provider_id: Optional[str]
+    requested_procedure: Optional[str]
+    auth_type: Optional[str]
+    review_status: Optional[str]
+    service_dates: Optional[List[datetime]]
+    diagnosis_codes: Optional[List[str]]
+    organization_id: Optional[str]

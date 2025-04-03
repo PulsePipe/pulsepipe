@@ -18,7 +18,6 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# src/pulsepipe/ingesters/fhir_utils/allergy_mapper.py
 
 from .patient import PatientInfo, PatientPreferences
 from .encounter import EncounterInfo, EncounterProvider
@@ -47,3 +46,6 @@ from .functional_status import FunctionalStatus
 from .order import Order
 from .implant import Implant
 from .message_cache import MessageCache
+from .billing import Charge, Payment, Adjustment, Claim
+from .op_content import PulseOperationalContent
+from .prior_authorization import PriorAuthorization

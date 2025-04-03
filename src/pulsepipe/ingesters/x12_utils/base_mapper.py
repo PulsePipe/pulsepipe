@@ -19,13 +19,17 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
-from pydantic import BaseModel
+from pulsepipe.models import MessageCache
 
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+MAPPER_REGISTRY = []
+
+class BaseX12Mapper:
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        MAPPER_REGISTRY.append(cls())
+
+    def accepts(self, segment_id: str) -> bool:
+        raise NotImplementedError("Mapper must implement `accepts()`")
+
+    def map(self, segment_id: str, elements: list, content, cache: MessageCache):
+        raise NotImplementedError("Mapper must implement `map()`")

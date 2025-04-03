@@ -29,4 +29,5 @@ __all__ = [
     "HL7v2Ingester",
     "CDAIngester",
     "PlainTextIngester",
+    "X12Ingester",
 ]

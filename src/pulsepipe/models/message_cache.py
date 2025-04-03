@@ -26,4 +26,5 @@ class MessageCache(BaseModel):
     patient_id: Optional[str] = None
     encounter_id: Optional[str] = None
     order_id: Optional[str] = None
+    claim_id: Optional[str] = None
     resource_index: Dict[str, Any] = {}

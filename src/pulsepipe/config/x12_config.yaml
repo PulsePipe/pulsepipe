@@ -15,17 +15,23 @@
 # We welcome community contributions — if you make it better, 
 # share it back. The whole healthcare ecosystem wins.
 # ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
+# 
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-from typing import Optional
-from pydantic import BaseModel
-
-class Diagnosis(BaseModel):
-    code: Optional[str]
-    coding_method: Optional[str]
-    description: Optional[str]
-    onset_date: Optional[str]
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
+payer_specific:
+  AHC:
+    allow_negative_plb: true
+    remittance_note: "American Healthcare format notes"
+  RCBS:
+    allow_negative_plb: false
+    cas_adjustment_types:
+      - contractual
+      - copay
+      - deductible
+    remittance_note: "Red Cross format notes"
+  
+defaults:
+  decimal_precision: 2
+  currency: "USD"
+  provider_adjustment_behavior: "attach_to_claim"

@@ -21,7 +21,7 @@
 
 import logging
 from hl7apy.parser import parse_message
-from pulsepipe.models import PulseClinicalContent
+from pulsepipe.models import PulseClinicalContent, MessageCache
 
 # Explicitly import all mappers here to trigger their registration
 from .hl7v2_utils import base_mapper
@@ -38,6 +38,8 @@ class HL7v2Ingester:
         if not raw_data.strip():
             raise ValueError("Empty HL7v2 data received")
 
+        cache: MessageCache = {"patient_id": None, "encounter_id": None}
+        
         try:
             message = parse_message(raw_data, validation_level="T")
             pid_segment = next(s for s in message.children if s.name == "PID")
@@ -79,16 +81,16 @@ class HL7v2Ingester:
 
         # Iterate over all segments
         for segment in message.children:
-            self._map_segment(segment, content)
+            self._map_segment(segment, content, cache)
 
         return content
 
-    def _map_segment(self, segment, content: PulseClinicalContent):
+    def _map_segment(self, segment, content: PulseClinicalContent, cache: dict):
         # Go through the registry and apply the first matching mapper
         for mapper in base_mapper.MAPPER_REGISTRY:
             if mapper.accepts(segment):
                 try:
-                    mapper.map(segment, content)
+                    mapper.map(segment, content, cache)
                     logger.debug(f"Mapped segment {segment.name} using {mapper.__class__.__name__}")
                 except Exception as e:
                     logger.exception(f"Error mapping segment {segment.name} with {mapper.__class__.__name__}")

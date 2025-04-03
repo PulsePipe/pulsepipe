@@ -35,14 +35,15 @@ from .note import Note
 from .lab import LabReport, LabObservation
 from .imaging import ImagingReport
 from .imaging import ImagingFinding
-from .microbiology import MicrobiologyReport
-from .blood_bank import BloodBankReport
+from .microbiology import MicrobiologyReport, MicrobiologySensitivity, MicrobiologyOrganism
+from .blood_bank import BloodBankReport, BloodBankFinding
 from .family_history import FamilyHistory
 from .social_history import SocialHistory
 from .diagnostic_test import DiagnosticTest
 from .clinical_content import PulseClinicalContent
-from .pathology import PathologyReport
+from .pathology import PathologyReport, PathologyFinding
 from .advance_directive import AdvanceDirective
 from .functional_status import FunctionalStatus
 from .order import Order
 from .implant import Implant
+from .message_cache import MessageCache

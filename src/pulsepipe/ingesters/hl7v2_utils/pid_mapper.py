@@ -36,7 +36,7 @@ class PIDMapper(HL7v2Mapper):
     def accepts(self, segment: Segment) -> bool:
         return segment.name == "PID"
 
-    def map(self, segment: Segment, content):
+    def map(self, segment: Segment, content, cache):
         identifiers = {}
 
         # PID-3 - Identifiers

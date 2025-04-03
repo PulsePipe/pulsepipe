@@ -25,7 +25,7 @@ class HL7v2Mapper:
     def accepts(self, segment) -> bool:
         raise NotImplementedError
 
-    def map(self, segment, content):
+    def map(self, segment, content, cache):
         raise NotImplementedError
 
 def register_mapper(mapper):

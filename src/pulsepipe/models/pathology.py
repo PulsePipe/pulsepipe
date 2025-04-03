@@ -18,6 +18,7 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -31,6 +32,7 @@ class PathologyReport(BaseModel):
     report_id: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]
+    test_name: Optional[str] = None
     specimen: Optional[str]               # e.g., "Breast biopsy", "Lung nodule"
     procedure: Optional[str]              # e.g., "Needle biopsy", "Surgical resection"
     collection_date: Optional[str]

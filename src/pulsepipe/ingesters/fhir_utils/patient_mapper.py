@@ -18,15 +18,15 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# src/pulsepipe/ingesters/fhir_utils/patient_mapper.py
 
 from datetime import datetime
-from pulsepipe.models import PatientInfo, PatientPreferences, PulseClinicalContent
+from pulsepipe.models import PatientInfo, PatientPreferences, PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 
 @fhir_mapper("Patient")
 class PatientMapper(BaseFHIRMapper):
-    def map(self, resource: dict, content: PulseClinicalContent) -> None:
+    RESOURCE_TYPE = "Patient" 
+    def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
         patient_id = resource.get("id")
         gender = resource.get("gender")
 

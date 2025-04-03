@@ -18,13 +18,20 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# tests/test_fhir_allergy_mapper.py
 
+import pytest
 from pulsepipe.ingesters.fhir_utils.allergy_mapper import AllergyMapper
-from pulsepipe.models import PulseClinicalContent
+from pulsepipe.models import PulseClinicalContent, MessageCache
 
 def test_allergy_mapper_cases():
     mapper = AllergyMapper()
+
+    cache: MessageCache = {
+        "patient_id": "C12345",
+        "encounter_id": "V09876",
+        "order_id": None,
+        "resource_index": {},
+    }
 
     # Case 1: Active allergy
     allergy_res = {
@@ -63,7 +70,7 @@ def test_allergy_mapper_cases():
         order=[],
         implant=[]
     )
-    mapper.map(allergy_res, content)
+    mapper.map(allergy_res, content, cache)
     assert len(content.allergies) == 1
     allergy = content.allergies[0]
     assert allergy.substance == "Penicillin"
@@ -104,7 +111,7 @@ def test_allergy_mapper_cases():
     )
     
     mapper = AllergyMapper()
-    mapper.map(no_allergy_res, content)
+    mapper.map(no_allergy_res, content, cache)
     assert len(content.allergies) == 1
     no_allergy = content.allergies[0]
     assert no_allergy.substance == "No Known Allergies"

@@ -1,3 +1,4 @@
+
 # ------------------------------------------------------------------------------
 # PulsePipe — Ingest, Normalize, De-ID, Embed. Healthcare Data, AI-Ready.
 # https://github.com/PulsePipe/pulsepipe
@@ -18,41 +19,42 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# src/pulsepipe/ingesters/fhir_utils/immunization_mapper.py
 
-from pulsepipe.models import Immunization, PulseClinicalContent, MessageCache
+from pulsepipe.models import PulseClinicalContent, Problem, Diagnosis, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference, extract_encounter_reference
 
-@fhir_mapper("Immunization")
-class ImmunizationMapper(BaseFHIRMapper):
-    RESOURCE_TYPE = "Immunization"
+@fhir_mapper("Condition")
+class ConditionMapper(BaseFHIRMapper):
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
-        vaccine_coding = resource.get("vaccineCode", {}).get("coding", [{}])[0]
-
-        vaccine_code = vaccine_coding.get("code")
-        coding_method = vaccine_coding.get("system")
-        description = resource.get("vaccineCode", {}).get("text") or vaccine_coding.get("display")
-
-        date_administered = resource.get("occurrenceDateTime")
-        status = resource.get("status")
-        lot_number = resource.get("lotNumber")
-
-        patient_id = extract_patient_reference(resource) or cache.get("patient_id")
-        encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
-
-        immunization = Immunization(
-            vaccine_code=vaccine_code or "Unknown",
-            coding_method=coding_method,
-            description=description,
-            date_administered=date_administered,
-            status=status,
-            lot_number=lot_number,
-            patient_id=patient_id,
-            encounter_id=encounter_id
+        categories = resource.get("category", [])
+        is_problem = any(
+            c.get("coding", [{}])[0].get("code") == "problem-list-item" for c in categories
         )
 
-        content.immunizations.append(immunization)
+        if is_problem:
+            content.problem_list.append(self.parse_problem(resource))
+        else:
+            content.diagnoses.append(self.parse_diagnosis(resource))
 
+    def parse_problem(self, resource: dict, cache: MessageCache) -> Problem:
+        patient_id = extract_patient_reference(resource) or cache.get("patient_id")
+        encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
+        return Problem(
+            problem_id=resource.get("id"),
+            description=resource.get("code", {}).get("text") or "Unknown",
+            status=resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code") or "unknown",
+            patient_id=patient_id,
+            encounter_id=encounter_id,
+        )
 
-
+    def parse_diagnosis(self, resource: dict, cache: MessageCache) -> Diagnosis:
+        patient_id = extract_patient_reference(resource) or cache.get("patient_id")
+        encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
+        return Diagnosis(
+            diagnosis_id=resource.get("id"),
+            description=resource.get("code", {}).get("text") or "Unknown",
+            status=resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code") or "unknown",
+            patient_id=patient_id,
+            encounter_id=encounter_id,
+        )

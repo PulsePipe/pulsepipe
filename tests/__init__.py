@@ -18,24 +18,5 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+# tests/test_fhir_allergy_mapper.py
 
-# --------------------------------------------------------------------
-# PulsePipe - FHIR Mappers Auto-registration
-# --------------------------------------------------------------------
-# This file ensures all mappers are loaded and registered via @fhir_mapper
-# --------------------------------------------------------------------
-
-from . import (
-    patient_mapper,
-    encounter_mapper,
-    allergy_mapper,
-    immunization_mapper,
-    observation_mapper,
-    base_mapper,
-    extractors,
-    observation_helpers,
-    condition_mapper,
-    medication_mapper,
-    diagnostic_report_mapper,
-    problem_list_mapper,
-)

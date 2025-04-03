@@ -19,23 +19,11 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# --------------------------------------------------------------------
-# PulsePipe - FHIR Mappers Auto-registration
-# --------------------------------------------------------------------
-# This file ensures all mappers are loaded and registered via @fhir_mapper
-# --------------------------------------------------------------------
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
 
-from . import (
-    patient_mapper,
-    encounter_mapper,
-    allergy_mapper,
-    immunization_mapper,
-    observation_mapper,
-    base_mapper,
-    extractors,
-    observation_helpers,
-    condition_mapper,
-    medication_mapper,
-    diagnostic_report_mapper,
-    problem_list_mapper,
-)
+class MessageCache(BaseModel):
+    patient_id: Optional[str] = None
+    encounter_id: Optional[str] = None
+    order_id: Optional[str] = None
+    resource_index: Dict[str, Any] = {}

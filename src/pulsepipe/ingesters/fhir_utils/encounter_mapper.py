@@ -21,13 +21,15 @@
 # src/pulsepipe/ingesters/fhir_utils/encounter_mapper.py
 
 from typing import List, Optional
-from pulsepipe.models import EncounterInfo, EncounterProvider, PulseClinicalContent
+from pulsepipe.models import EncounterInfo, EncounterProvider, PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference
 
 @fhir_mapper("Encounter")
 class EncounterMapper(BaseFHIRMapper):
-    def map(self, resource: dict, content: PulseClinicalContent) -> None:
+    RESOURCE_TYPE = "Encounter"
+    def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
+        patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         content.encounter = EncounterInfo(
             id=resource.get("id"),
             admit_date=resource.get("period", {}).get("start"),
@@ -38,7 +40,7 @@ class EncounterMapper(BaseFHIRMapper):
             reason_code=self.extract_reason_code(resource),
             reason_coding_method=self.extract_reason_coding_method(resource),
             visit_type=self.extract_visit_type(resource),
-            patient_id=extract_patient_reference(resource),
+            patient_id=patient_id,
             providers=self.extract_providers(resource),
         )
 

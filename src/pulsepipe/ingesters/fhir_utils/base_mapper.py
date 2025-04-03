@@ -18,6 +18,7 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
 from typing import Type, List, Optional
 
 MAPPER_REGISTRY: List["BaseFHIRMapper"] = []
@@ -26,9 +27,9 @@ class BaseFHIRMapper:
     resource_type: Optional[str] = None
 
     def accepts(self, resource: dict) -> bool:
-        return resource.get("resourceType") == self.resource_type
+        return (resource.get("resourceType") or "").lower() == (getattr(self, "RESOURCE_TYPE", "") or "").lower()
 
-    def map(self, resource: dict, content) -> None:
+    def map(self, resource: dict, content, cache) -> None:
         raise NotImplementedError
 
 def fhir_mapper(resource_type: str):

@@ -18,41 +18,31 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# src/pulsepipe/ingesters/fhir_utils/immunization_mapper.py
 
-from pulsepipe.models import Immunization, PulseClinicalContent, MessageCache
+from pulsepipe.models import Problem, PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference, extract_encounter_reference
 
-@fhir_mapper("Immunization")
-class ImmunizationMapper(BaseFHIRMapper):
-    RESOURCE_TYPE = "Immunization"
+@fhir_mapper("Condition")
+class ProblemListMapper(BaseFHIRMapper):
+    RESOURCE_TYPE = "Condition"
+
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
-        vaccine_coding = resource.get("vaccineCode", {}).get("coding", [{}])[0]
-
-        vaccine_code = vaccine_coding.get("code")
-        coding_method = vaccine_coding.get("system")
-        description = resource.get("vaccineCode", {}).get("text") or vaccine_coding.get("display")
-
-        date_administered = resource.get("occurrenceDateTime")
-        status = resource.get("status")
-        lot_number = resource.get("lotNumber")
+        # Only accept problem-list items
+        categories = [c.get("coding", [{}])[0].get("code") for c in resource.get("category", [])]
+        if "problem-list-item" not in categories:
+            return
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
-
-        immunization = Immunization(
-            vaccine_code=vaccine_code or "Unknown",
-            coding_method=coding_method,
-            description=description,
-            date_administered=date_administered,
-            status=status,
-            lot_number=lot_number,
+        print("🔥 Problem List patient id:", patient_id)
+        problem = Problem(
+            code=resource.get("code", {}).get("coding", [{}])[0].get("code"),
+            coding_method=resource.get("code", {}).get("coding", [{}])[0].get("system"),
+            description=resource.get("code", {}).get("text"),
+            onset_date=resource.get("onsetDateTime"),
             patient_id=patient_id,
-            encounter_id=encounter_id
+            encounter_id=encounter_id,
         )
 
-        content.immunizations.append(immunization)
-
-
-
+        content.problem_list.append(problem)

@@ -39,8 +39,8 @@ class MicrobiologyReport(BaseModel):
     report_id: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]
-    collection_date: Optional[str]
-    result_date: Optional[str]
-    source_site: Optional[str]       # blood, urine, sputum
+    collection_date: Optional[str] = "Unknown"
+    result_date: Optional[str]  = "Unknown"
+    source_site: Optional[str]  = "Unknown"     # blood, urine, sputum
     organisms: List[MicrobiologyOrganism] = []
     comment: Optional[str]

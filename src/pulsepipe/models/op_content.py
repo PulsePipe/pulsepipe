@@ -20,9 +20,10 @@
 # ------------------------------------------------------------------------------
 
 from pydantic import BaseModel
+from typing import Optional, List
 from .billing import Claim, Charge, Payment, Adjustment
 from .prior_authorization import PriorAuthorization
-from typing import Optional, List
+
 
 class PulseOperationalContent(BaseModel):
     transaction_type: Optional[str]  # e.g., '837P', '835', '278'

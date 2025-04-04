@@ -27,6 +27,7 @@ from .x12_utils import (
     svc_mapper,
     cas_mapper,
     nm1_mapper,
+    plb_mapper,
     svc_mapper,
 )
 
@@ -88,6 +89,7 @@ class X12Ingester:
                         'HC': '837',
                         'HP': '835',
                         'HI': '278'  # Prior Authorizations
+                        'HP': '835'
                     }.get(parts[1], 'UNKNOWN')
                 if len(parts) > 6:
                     meta["functional_group_control_number"] = parts[6]

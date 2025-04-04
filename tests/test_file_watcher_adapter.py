@@ -19,28 +19,39 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
+import asyncio
 from pathlib import Path
+import pytest
+from pulsepipe.adapters.file_watcher import FileWatcherAdapter
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+@pytest.mark.asyncio
+async def test_file_watcher_adapter_enqueues_data(tmp_path):
+    ingest_path = tmp_path / "fixtures"
+    ingest_path.mkdir(parents=True, exist_ok=True)
 
+    adapter_config = {
+        "watch_path": str(ingest_path),
+        "extensions": [".json"],
+        "bookmark_file": ".bookmark.dat"
+    }
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+    adapter = FileWatcherAdapter(adapter_config)
+    queue = asyncio.Queue()
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
+    task = asyncio.create_task(adapter.run(queue))
 
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    test_content = '{"resourceType": "Patient", "id": "test-patient"}'
+    test_file = ingest_path / "test_patient.json"
+
+    await asyncio.sleep(0.5)
+    test_file.write_text(test_content, encoding='utf-8')
+
+    try:
+        raw_data = await asyncio.wait_for(queue.get(), timeout=3)
+    except asyncio.TimeoutError:
+        task.cancel()
+        pytest.fail("Adapter did not enqueue data in time.")
+
+    assert raw_data == test_content
+
+    task.cancel()

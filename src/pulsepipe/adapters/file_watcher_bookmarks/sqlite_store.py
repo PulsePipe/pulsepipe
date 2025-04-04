@@ -19,28 +19,31 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+import sqlite3
+from .base import BookmarkStore
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+class SQLiteBookmarkStore(BookmarkStore):
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+        self._ensure_schema()
 
+    def _ensure_schema(self):
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                path TEXT PRIMARY KEY,
+                status TEXT,
+                processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.conn.commit()
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+    def is_processed(self, path: str) -> bool:
+        result = self.conn.execute("SELECT 1 FROM bookmarks WHERE path = ?", (path,)).fetchone()
+        return result is not None
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
-
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    def mark_processed(self, path: str, status: str = "processed"):
+        self.conn.execute(
+            "INSERT OR IGNORE INTO bookmarks (path, status) VALUES (?, ?)",
+            (path, status)
+        )
+        self.conn.commit()

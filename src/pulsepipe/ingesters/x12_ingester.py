@@ -51,7 +51,7 @@ class X12Ingester:
                 interchange_control_number=meta.get("interchange_control_number", "UNKNOWN"),
                 functional_group_control_number=meta.get("functional_group_control_number", "UNKNOWN"),
                 organization_id="UNKNOWN",  # For now unless you pass it externally
-                claims=[], charges=[], payments=[], adjustments=[]
+                claims=[], charges=[], payments=[], adjustments=[], prior_authorizations=[]
             )
 
             for segment_text in segments:
@@ -87,6 +87,8 @@ class X12Ingester:
                 if len(parts) > 1:
                     meta["transaction_type"] = {
                         'HC': '837',
+                        'HP': '835',
+                        'HI': '278'  # Prior Authorizations
                         'HP': '835'
                     }.get(parts[1], 'UNKNOWN')
                 if len(parts) > 6:

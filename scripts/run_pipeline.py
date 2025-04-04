@@ -19,28 +19,31 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+import asyncio
+from pulsepipe.utils.config_loader import load_config
+from pulsepipe.utils.factory import create_adapter, create_ingester
+from pulsepipe.ingesters.ingestion_engine import IngestionEngine
+from pulsepipe.utils.log_factory import LogFactory
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+def safe_load_config(path):
+    try:
+        return load_config(path)
+    except Exception as e:
+        print(f"❌ Failed to load config from {path}: {e}")
+        raise
 
+async def main():
+    config = safe_load_config("pulsepipe.yaml")
+    LogFactory.init_from_config(config.get("logging", {}))
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+    adapter_config = safe_load_config("adapter.yaml")["adapter"]
+    ingester_config = safe_load_config("ingester.yaml")["ingester"]
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
+    adapter = create_adapter(adapter_config)
+    ingester = create_ingester(ingester_config)
 
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    engine = IngestionEngine(adapter, ingester)
+    await engine.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())

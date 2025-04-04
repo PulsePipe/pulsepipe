@@ -19,28 +19,31 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+import asyncio
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+class IngestionEngine:
+    def __init__(self, adapter, ingester):
+        self.adapter = adapter
+        self.ingester = ingester
+        self.queue = asyncio.Queue()
 
+    async def process(self):
+        while True:
+            raw_data = await self.queue.get()
+            try:
+                result = self.ingester.parse(raw_data)
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+                # ✅ Print PulseClinicalContent nicely
+                print("🧪 Common Data Model Results:")
+                print(result.json(indent=2))
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
-
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+            except Exception as e:
+                print(f"❌ Ingestion error: {e}")
+            finally:
+                self.queue.task_done()
+    
+    async def run(self):
+        await asyncio.gather(
+            self.adapter.run(self.queue),
+            *[self.process() for _ in range(4)]  # 4 parallel workers
+        )

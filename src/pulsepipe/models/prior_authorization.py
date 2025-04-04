@@ -19,28 +19,17 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+from typing import List, Optional
+from pydantic import BaseModel
+from datetime import datetime
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
-
-
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
-
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
-
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+class PriorAuthorization(BaseModel):
+    auth_id: Optional[str]
+    patient_id: Optional[str]
+    provider_id: Optional[str]
+    requested_procedure: Optional[str]
+    auth_type: Optional[str]
+    review_status: Optional[str]
+    service_dates: Optional[List[datetime]]
+    diagnosis_codes: Optional[List[str]]
+    organization_id: Optional[str]

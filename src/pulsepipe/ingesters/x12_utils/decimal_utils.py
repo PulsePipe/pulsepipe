@@ -24,11 +24,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from decimal import Decimal, InvalidOperation
-import logging
-
-logger = logging.getLogger(__name__)
-
 def parse_x12_decimal(value: str, implied_decimal_places: int = 2) -> Decimal:
     """
     Parses an X12 numeric value with implied decimals.

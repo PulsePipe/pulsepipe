@@ -19,28 +19,25 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+from .base_mapper import BaseX12Mapper
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+class HLMapper(BaseX12Mapper):
+    def accepts(self, segment_id: str) -> bool:
+        return segment_id == "HL"
 
+    def map(self, segment_id: str, elements: list, content, cache: dict):
+        hl_id = elements[0]
+        hl_parent = elements[1] if len(elements) > 1 else None
+        hl_code = elements[2] if len(elements) > 2 else None
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+        cache["hl_id"] = hl_id
+        cache["hl_parent"] = hl_parent
+        cache["hl_code"] = hl_code
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
+        # optionally track hierarchy for later if you need nested relationships
+        cache.setdefault("hl_hierarchy", {})[hl_id] = {
+            "parent": hl_parent,
+            "code": hl_code
+        }
 
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        print(f"HL Detected: id={hl_id}, parent={hl_parent}, code={hl_code}")

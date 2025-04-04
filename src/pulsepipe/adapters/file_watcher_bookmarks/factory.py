@@ -19,28 +19,32 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+from .sqlite_store import SQLiteBookmarkStore
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+def create_bookmark_store(config: dict):
+    store_type = config.get("type", "sqlite")
 
+    if store_type == "sqlite":
+        db_path = config.get("db_path", "bookmarks.db")
+        return SQLiteBookmarkStore(db_path)
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+    elif store_type == "postgres":
+        raise NotImplementedError(
+            "🔒 PostgreSQL bookmark store is only available in PulsePilot Enterprise."
+            "\n👉 Learn more at https://pulsepipe.io/pilot"
+        )
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
+    elif store_type == "redis":
+        raise NotImplementedError(
+            "🔒 Redis-based bookmark tracking is available in PulsePilot Pro."
+            "\n👉 Upgrade at https://pulsepipe.io/pilot"
+        )
 
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    elif store_type == "s3":
+        raise NotImplementedError(
+            "🔒 S3 + DynamoDB scalable bookmark store is available in PulsePilot Enterprise."
+            "\n👉 Get enterprise ingestion at https://pulsepipe.io/pilot"
+        )
+
+    else:
+        raise ValueError(f"❌ Unsupported bookmark store type: {store_type}")

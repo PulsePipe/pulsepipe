@@ -19,28 +19,13 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
+import sqlite3
 from pathlib import Path
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
-
-
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
-
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
-
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def get_shared_sqlite_connection(config: dict) -> sqlite3.Connection:
+    db_path = config.get("persistence", {}).get("sqlite", {}).get(
+        "db_path", ".pulsepipe/state/ingestion.sqlite3"
+    )
+    db_file = Path(db_path)
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(db_file)

@@ -19,28 +19,30 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-import os
-import yaml
-from pathlib import Path
+from pulsepipe.adapters.file_watcher import FileWatcherAdapter
+from pulsepipe.ingesters.fhir_ingester import FHIRIngester
+from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
+from pulsepipe.ingesters.x12_ingester import X12Ingester
+from pulsepipe.ingesters.plaintext_ingester import PlainTextIngester
 
-def get_config_dir() -> str:
-    """Locate the config directory relative to the PulsePipe binary"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "..", "..", "config")
+def create_adapter(config: dict):
+    adapter_type = config["type"]
 
+    if adapter_type == "file_watcher":
+        return FileWatcherAdapter(config)
+    
+    raise ValueError(f"Unsupported adapter type: {adapter_type}")
 
-def load_mapping_config(filename: str) -> dict:
-    """Load YAML config file for mapper overrides"""
-    config_path = os.path.join(get_config_dir(), filename)
-    if not os.path.exists(config_path):
-        return {}  # Safe fallback if config is missing
+def create_ingester(config: dict):
+    ingester_type = config["type"]
 
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f) or {}
+    if ingester_type == "fhir":
+        return FHIRIngester()
+    elif ingester_type == "hl7v2":
+        return HL7v2Ingester()
+    elif ingester_type == "x12":
+        return X12Ingester()
+    elif ingester_type == "plaintext":
+        return PlainTextIngester()
 
-def load_config(path: str = "pulsepipe.yaml") -> dict:
-    config_path = Path(path)
-    if not config_path.exists():
-        raise FileNotFoundError(f"❌ Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    raise ValueError(f"Unsupported ingester type: {ingester_type}")

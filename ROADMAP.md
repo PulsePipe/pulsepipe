@@ -6,11 +6,15 @@ This document outlines the planned milestones and future direction of the PulseP
 
 ## ✅ MVP Scope
 
-- [x] Canonical Clinical Content Model (Pulse Canonical Model)
-- [ ] YAML-based configuration (ingestor registration, pipelines, vector dbs, deid)
+- [x] Canonical Clinical Content Model (Pulse Canonical Clinical Model)
+- [ ] Canonical Operational Content Model (Pulse Canonical Operational Model)
+- [x] YAML-based configuration (ingestor registration, pipelines, vector dbs, deid)
+- [x] Ingestion Adapter factory with file watcher
+- [x] Global persistence for file watcher cache and other cache using SQLite
 - [ ] HL7 v2.x ingestion
-- [ ] FHIR (JSON/XML) ingestion
+- [x] FHIR (JSON/XML) ingestion
 - [ ] CDA / CCDA document ingestion
+- [x] X12 Claims and Prior Auth ingester
 - [ ] Plain text ingestion
 - [ ] Custom template ingestion (extensible ingestor system)
 - [ ] De-identification via Presidio + Clinical NER models
@@ -44,6 +48,10 @@ This document outlines the planned milestones and future direction of the PulseP
     - Basic vector space inspection
 - [ ] Support for embedding metadata directly into vector stores
 - [ ] Optional export of embeddings to offline formats (Parquet, Feather)
+- [ ] Global persistence for file watcher cache and other cache using PostgreSQL (PulsePilot Exclusive)
+- [ ] Global persistence for file watcher cache and other cache using like a cloud native AWS S2/DynamoDB (PulsePilot Exclusive)
+- [ ] Add REST API Ingestion Adapter to the factory
+- [ ] Global persistence for file watcher cache and other cache using SQLite
 
 ---
 
@@ -70,6 +78,8 @@ This document outlines the planned milestones and future direction of the PulseP
     - Schema drift detection.
     - Interactive UI for reviewing and exporting recommendations.
     - Embedding-based similarity and terminology-assisted suggestions.
+- [ ] Add FHIR webhook to the ingestion adapter factory (PulsePilot Exclusive)
+- [ ] Add MLTP Socket for HL7 v2.x live feeds to the ingestion adapter factory (PulsePilot Exclusive)
 
 ---
 

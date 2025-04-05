@@ -19,6 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/cli/commands/model.py
 
 """
 Model inspection and management commands for PulsePipe CLI.

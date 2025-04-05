@@ -18,6 +18,9 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/canonical/types.py
+
 from enum import Enum
 
 class IngestorType(str, Enum):

@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/cli/commands/__init__.py
+
 """
 PulsePipe CLI commands package.
 

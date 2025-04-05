@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/config/log_factory.py
+
 """
 Enhanced logging factory for PulsePipe.
 

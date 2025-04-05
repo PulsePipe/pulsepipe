@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/cli/main.py
+
 """
 PulsePipe CLI - Healthcare data pipeline tool
 """

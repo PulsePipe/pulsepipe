@@ -18,4 +18,7 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/canonical/schema_version.py
+
 CANONICAL_SCHEMA_VERSION = "1.0.0"

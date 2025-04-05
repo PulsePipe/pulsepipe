@@ -18,6 +18,9 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/canonical/builder.py
+
 import uuid
 from datetime import datetime
 from typing import Optional

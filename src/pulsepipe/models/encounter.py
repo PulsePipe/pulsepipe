@@ -18,6 +18,9 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/models/encounter.py
+
 from typing import List, Optional
 from pydantic import BaseModel
 

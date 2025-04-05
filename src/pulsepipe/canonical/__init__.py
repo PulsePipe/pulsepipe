@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/canonical/__init__.py
+
 from .pulse_canonical_message import PulseCanonicalMessage
 from .builder import CanonicalBuilder
 from .schema_version import CANONICAL_SCHEMA_VERSION

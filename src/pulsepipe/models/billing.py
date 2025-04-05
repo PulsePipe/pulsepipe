@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/models/billing.py
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Literal

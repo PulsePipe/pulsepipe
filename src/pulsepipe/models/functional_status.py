@@ -18,6 +18,9 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/models/functional_status.py
+
 from typing import Optional
 from pydantic import BaseModel
 

@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# ingesters/__init__.py
+
 from .fhir_ingester import FHIRIngester
 from .hl7v2_ingester import HL7v2Ingester
 from .cda_ingester import CDAIngester

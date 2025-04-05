@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/cli/commands/config.py
+
 """
 Configuration management commands for PulsePipe CLI.
 """

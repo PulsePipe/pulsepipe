@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/ingesters/x12_utils/hl_mapper.py
+
 from .base_mapper import BaseX12Mapper
 
 class HLMapper(BaseX12Mapper):
@@ -40,4 +42,4 @@ class HLMapper(BaseX12Mapper):
             "code": hl_code
         }
 
-        print(f"HL Detected: id={hl_id}, parent={hl_parent}, code={hl_code}")
+        #print(f"HL Detected: id={hl_id}, parent={hl_parent}, code={hl_code}")

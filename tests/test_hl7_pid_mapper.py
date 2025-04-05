@@ -19,7 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# tests/test_pid_mapper.py
+# tests/test_hl7_pid_mapper.py
 
 import unittest
 from hl7apy.parser import parse_message

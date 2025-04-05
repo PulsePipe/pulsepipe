@@ -19,5 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/adapters/__init__.py
+
 from .base import Adapter
 from .file_watcher import FileWatcherAdapter

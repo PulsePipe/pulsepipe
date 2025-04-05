@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+#  src/tests/config/pulsepipe.yaml
+
 persistence:
   db_type: sqlite
   sqlite:
@@ -29,3 +31,4 @@ logging:
   level: debug                    # debug | info | warning | error
   destination: stdout             # stdout | file | both | syslog | cloud
   file_path: logs/pulsepipe.log   # only used if destination includes 'file'
+

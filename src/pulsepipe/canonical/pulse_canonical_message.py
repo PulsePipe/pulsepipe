@@ -18,6 +18,9 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/canonical/pulse_canonical_message.py
+
 from datetime import datetime
 from typing import Optional, Dict
 from pydantic import BaseModel

@@ -19,7 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# pulsepipe/x12_utils/cas_mapper.py
+# src/pulsepipe/ingesters/x12_utils/cas_mapper.py
 
 from .base_mapper import BaseX12Mapper
 from pulsepipe.models import Adjustment

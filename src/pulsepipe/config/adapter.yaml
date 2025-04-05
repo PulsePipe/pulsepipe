@@ -19,7 +19,9 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/config/adapter.yaml
+
 adapter:
   type: file_watcher
   watch_path: ./tests/fixtures
-  extensions: [".json", ".xml"]
+  extensions: [".json", ".xml", ".txt", ".hl7"]

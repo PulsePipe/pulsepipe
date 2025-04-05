@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/models/op_content.py
+
 from pydantic import BaseModel
 from typing import Optional, List
 from .billing import Claim, Charge, Payment, Adjustment

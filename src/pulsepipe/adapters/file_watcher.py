@@ -19,6 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/adapters/file_watcher.py
 
 import asyncio
 from pathlib import Path
@@ -60,7 +61,7 @@ class FileWatcherAdapter(Adapter):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         raw_data = f.read()
                     await queue.put(raw_data)
-                    print(f"✅ Enqueued: {file_path}")
+                    #print(f"✅ Enqueued: {file_path}")
                     self.bookmarks.mark_processed(file_path)
                 except Exception as e:
                     print(f"❌ Error reading {file_path}: {e}")

@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/models/clinical_content.py
+
 from typing import List, Optional
 from pydantic import BaseModel
 

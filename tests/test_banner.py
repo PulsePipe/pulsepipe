@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# tests/banner.py
+
 import pytest
 from pulsepipe.cli.banner import get_banner, EMOJI_SLOGAN, BANNER
 

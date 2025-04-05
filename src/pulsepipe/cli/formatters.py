@@ -18,6 +18,9 @@
 # 
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/cli/formatters.py
+
 """
 Custom formatters for CLI output.
 

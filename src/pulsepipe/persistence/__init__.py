@@ -19,4 +19,6 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/persistence/__init__.py
+
 from .factory import get_shared_sqlite_connection

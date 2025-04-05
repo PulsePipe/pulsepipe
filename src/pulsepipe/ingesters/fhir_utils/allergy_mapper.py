@@ -18,6 +18,7 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
 # src/pulsepipe/ingesters/fhir_utils/allergy_mapper.py
 
 from pulsepipe.models import Allergy, PulseClinicalContent, MessageCache

@@ -12,17 +12,17 @@ This document outlines the planned milestones and future direction of the PulseP
 - [x] YAML-based configuration (ingestor registration, pipelines, vector dbs, deid)
 - [x] Ingestion Adapter factory with file watcher
 - [x] Global persistence for file watcher cache and other cache using SQLite
-- [ ] HL7 v2.x ingestion
 - [x] FHIR (JSON/XML) ingestion
 - [x] X12 Claims and Prior Auth ingester
 - [x] Command Line Interface (CLI) implementation for PulsePipe
-    - [ ] Multi pipeline execution
+    - [x] Multi pipeline execution
 - [x] Contributor's guide
 - [x] Python package with `pydantic` validation
 - [x] Python developer tooling:
     - [x] Poetry
     - [x] Pytest
     - [x] Mypy
+- [ ] HL7 v2.x ingestion
 - [ ] De-identification via Presidio + Clinical NER models
 - [ ] Chunking engine for embedding preparation
 - [ ] Embedding pipeline supporting:

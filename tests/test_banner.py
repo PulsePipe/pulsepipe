@@ -15,17 +15,26 @@
 # We welcome community contributions — if you make it better, 
 # share it back. The whole healthcare ecosystem wins.
 # ------------------------------------------------------------------------------
-# 
+# ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-persistence:
-  db_type: sqlite
-  sqlite:
-    db_path: .pulsepipe/state/ingestion.sqlite3
+import pytest
+from pulsepipe.cli.banner import get_banner, EMOJI_SLOGAN, BANNER
 
-logging:
-  type: rich                      # rich | json | none
-  level: debug                    # debug | info | warning | error
-  destination: stdout             # stdout | file | both | syslog | cloud
-  file_path: logs/pulsepipe.log   # only used if destination includes 'file'
+def test_get_banner_full():
+    banner = get_banner()
+    print("\n" + banner)  # Print with leading newline for clean separation
+    assert "PulsePipe CLI" in banner
+    assert EMOJI_SLOGAN in banner
+    assert BANNER in banner  # Check that the ASCII banner content is present
+    assert "Smart healthcare data pipelines" in banner
+
+def test_get_banner_minimal():
+    banner = get_banner(theme="minimal")
+    print("\n" + banner)
+    assert banner == f"PulsePipe CLI {EMOJI_SLOGAN}"
+
+def test_banner_respects_config():
+    config = {"logging": {"show_banner": False}}
+    assert get_banner(theme="default", config=config) == ""

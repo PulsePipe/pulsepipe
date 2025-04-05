@@ -19,3 +19,11 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# config/pipeline.yaml
+
+logging:
+  type: rich                      # rich | json | none
+  level: debug                    # debug | info | warning | error
+  destination: stdout             # stdout | file | both | syslog | cloud
+  file_path: logs/pulsepipe.log   # only used if destination includes 'file'
+  show_banner: true               # if true, it shows the big PulsePipe banner

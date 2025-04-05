@@ -19,13 +19,14 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-persistence:
-  db_type: sqlite
-  sqlite:
-    db_path: .pulsepipe/state/ingestion.sqlite3
 
-logging:
-  type: rich                      # rich | json | none
-  level: debug                    # debug | info | warning | error
-  destination: stdout             # stdout | file | both | syslog | cloud
-  file_path: logs/pulsepipe.log   # only used if destination includes 'file'
+"""
+PulsePipe CLI package.
+
+Command-line interface for PulsePipe healthcare data ingestion system.
+"""
+# Only export the name, but don't import the module here to avoid circular imports
+__all__ = ["cli"]
+
+# Import will happen when the module is explicitly imported
+# from pulsepipe.cli.main import cli

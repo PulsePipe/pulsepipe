@@ -25,6 +25,8 @@
 # This file ensures all mappers are loaded and registered via @fhir_mapper
 # --------------------------------------------------------------------
 
+# src/pulsepipe/ingesters/fhir_utils/__init__.py
+
 from . import (
     patient_mapper,
     encounter_mapper,

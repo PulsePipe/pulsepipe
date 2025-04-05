@@ -18,11 +18,12 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# src/pulsepipe/ingesters/fhir_utils/immunization_mapper.py
 
-# ---------------------------------------------------------------------------
-# PulsePipe — Medication Mapper
-# ---------------------------------------------------------------------------
+# src/pulsepipe/ingesters/fhir_utils/medication_mapper.py
+
+"""
+PulsePipe — Medication Mapper
+"""
 
 from pulsepipe.models import Medication, PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper

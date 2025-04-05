@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/ingesters/fhir_utils/extractors.py
+
 def extract_patient_reference(resource: dict) -> str:
     ref = resource.get("subject", {}).get("reference")
     if ref:

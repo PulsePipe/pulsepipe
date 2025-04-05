@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/ingesters/fhir_utils/problem_list_mapper.py
+
 from pulsepipe.models import Problem, PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference, extract_encounter_reference
@@ -35,7 +37,7 @@ class ProblemListMapper(BaseFHIRMapper):
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
-        print("🔥 Problem List patient id:", patient_id)
+        #print("🔥 Problem List patient id:", patient_id)
         problem = Problem(
             code=resource.get("code", {}).get("coding", [{}])[0].get("code"),
             coding_method=resource.get("code", {}).get("coding", [{}])[0].get("system"),

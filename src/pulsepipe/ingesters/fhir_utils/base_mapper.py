@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/ingesters/fhir_utils/base_mapper.py
+
 from typing import Type, List, Optional
 
 MAPPER_REGISTRY: List["BaseFHIRMapper"] = []
@@ -31,6 +33,13 @@ class BaseFHIRMapper:
 
     def map(self, resource: dict, content, cache) -> None:
         raise NotImplementedError
+    
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: maps {getattr(self, 'RESOURCE_TYPE', 'unknown').lower()}>"
+
+    def __str__(self):
+        return self.__repr__()
+
 
 def fhir_mapper(resource_type: str):
     def decorator(cls: Type[BaseFHIRMapper]):

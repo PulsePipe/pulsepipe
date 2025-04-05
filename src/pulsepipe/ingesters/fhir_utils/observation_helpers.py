@@ -18,7 +18,8 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
-# src/pulsepipe/ingesters/fhir_utils/observation_mapper.py
+
+# src/pulsepipe/ingesters/fhir_utils/observation_helpers.py
 
 from pulsepipe.models import (
     LabObservation,

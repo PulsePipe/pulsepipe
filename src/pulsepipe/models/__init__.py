@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/models/__init__.py
+
 from .patient import PatientInfo, PatientPreferences
 from .encounter import EncounterInfo, EncounterProvider
 from .vital_sign import VitalSign

@@ -19,13 +19,20 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/config/factory.py
+
 from pulsepipe.adapters.file_watcher import FileWatcherAdapter
 from pulsepipe.ingesters.fhir_ingester import FHIRIngester
 from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
 from pulsepipe.ingesters.x12_ingester import X12Ingester
 from pulsepipe.ingesters.plaintext_ingester import PlainTextIngester
+from pulsepipe.utils.log_factory import LogFactory
+from .config_loader import load_config
 
 def create_adapter(config: dict):
+    log_config = load_config()
+    LogFactory.init_from_config(log_config)
+
     adapter_type = config["type"]
 
     if adapter_type == "file_watcher":

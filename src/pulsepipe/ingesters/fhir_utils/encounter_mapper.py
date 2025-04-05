@@ -18,6 +18,7 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
 # src/pulsepipe/ingesters/fhir_utils/encounter_mapper.py
 
 from typing import List, Optional

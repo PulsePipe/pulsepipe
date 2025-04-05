@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/config/x12_config.yaml
+
 payer_specific:
   AHC:
     allow_negative_plb: true
@@ -30,7 +32,7 @@ payer_specific:
       - copay
       - deductible
     remittance_note: "Red Cross format notes"
-  
+
 defaults:
   decimal_precision: 2
   currency: "USD"

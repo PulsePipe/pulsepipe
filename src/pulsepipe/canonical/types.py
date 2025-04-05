@@ -18,11 +18,15 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
+# src/pulsepipe/canonical/types.py
+
 from enum import Enum
 
 class IngestorType(str, Enum):
     HL7V2 = "HL7v2"
     FHIR = "FHIR"
     CDA = "CDA"
+    X12 = "X12"
     PLAINTEXT = "PlainText"
     CUSTOM = "Custom"

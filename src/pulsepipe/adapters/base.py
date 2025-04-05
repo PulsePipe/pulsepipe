@@ -20,6 +20,7 @@
 # ------------------------------------------------------------------------------
 
 # src/pulsepipe/adapters/base.py
+
 from abc import ABC, abstractmethod
 import asyncio
 

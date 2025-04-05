@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# tests/test_fhir_bundle_simple_ingester.py
+
 import pytest
 from pathlib import Path
 from pulsepipe.ingesters.fhir_ingester import FHIRIngester
@@ -55,7 +57,7 @@ def test_fhir_bundle_ingest(fhir_bundle):
     assert len(clinical_content.microbiology) > 0
     assert len(clinical_content.blood_bank) > 0
     assert len(clinical_content.diagnostic_test) > 0
-    print("🧪 Common Data Model Results:\n", clinical_content.model_dump_json(indent=2))
+    print("🧪 Common Data Model Results:\n", clinical_content.summary())
 
     # ---- Content checks ----
     #cbc = next((lab for lab in clinical_content.lab if "CBC" in lab.test_name), None)

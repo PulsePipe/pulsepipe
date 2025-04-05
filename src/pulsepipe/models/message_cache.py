@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/models/message_cache.py
+
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 

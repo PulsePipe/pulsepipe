@@ -18,6 +18,7 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+
 # src/pulsepipe/ingesters/fhir_utils/allergy_mapper.py
 
 from pulsepipe.models import Allergy, PulseClinicalContent, MessageCache
@@ -31,7 +32,7 @@ class AllergyMapper(BaseFHIRMapper):
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         clinical_status = resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code")
-        print("🔥 Allergy patient id:", patient_id)
+        #print("🔥 Allergy patient id:", patient_id)
         if clinical_status == "inactive":
             allergy = Allergy(
                 substance="No Known Allergies",

@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/config/pulsepipe.yaml
+
 persistence:
   db_type: sqlite
   sqlite:
@@ -27,5 +29,6 @@ persistence:
 logging:
   type: rich                      # rich | json | none
   level: debug                    # debug | info | warning | error
-  destination: stdout             # stdout | file | both | syslog (PulsePilot Only) | cloud (PulsePilot Only)
+  destination: stdout             # stdout | file | both | syslog | cloud
   file_path: logs/pulsepipe.log   # only used if destination includes 'file'
+  show_banner: true               # if true, it shows the big PulsePipe banner

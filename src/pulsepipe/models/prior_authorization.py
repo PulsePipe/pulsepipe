@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# src/pulsepipe/models/prior_authorization.py
+
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime

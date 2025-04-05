@@ -31,7 +31,7 @@ class AllergyMapper(BaseFHIRMapper):
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         clinical_status = resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code")
-        print("🔥 Allergy patient id:", patient_id)
+        #print("🔥 Allergy patient id:", patient_id)
         if clinical_status == "inactive":
             allergy = Allergy(
                 substance="No Known Allergies",

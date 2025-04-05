@@ -32,7 +32,6 @@ class FHIRIngester:
         if not raw_data.strip():
             raise ValueError("Empty data received")
         
-        print("💡 Registered mappers:")
         for m in MAPPER_REGISTRY:
             print(m)
 

@@ -24,8 +24,13 @@ from pulsepipe.ingesters.fhir_ingester import FHIRIngester
 from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
 from pulsepipe.ingesters.x12_ingester import X12Ingester
 from pulsepipe.ingesters.plaintext_ingester import PlainTextIngester
+from pulsepipe.config.
+from pulsepipe.utils.log_factory import LogFactory
 
 def create_adapter(config: dict):
+    log_config = pulsepipe_config.get("logging", {})
+    LogFactory.init_from_config(log_config)
+
     adapter_type = config["type"]
 
     if adapter_type == "file_watcher":

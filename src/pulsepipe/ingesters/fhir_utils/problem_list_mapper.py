@@ -35,7 +35,7 @@ class ProblemListMapper(BaseFHIRMapper):
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
-        print("🔥 Problem List patient id:", patient_id)
+        #print("🔥 Problem List patient id:", patient_id)
         problem = Problem(
             code=resource.get("code", {}).get("coding", [{}])[0].get("code"),
             coding_method=resource.get("code", {}).get("coding", [{}])[0].get("system"),

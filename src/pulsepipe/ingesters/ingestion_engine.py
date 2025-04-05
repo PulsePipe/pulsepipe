@@ -20,6 +20,7 @@
 # ------------------------------------------------------------------------------
 
 import asyncio
+from pulsepipe.models.clinical_content import summary
 
 class IngestionEngine:
     def __init__(self, adapter, ingester):
@@ -35,7 +36,7 @@ class IngestionEngine:
 
                 # ✅ Print PulseClinicalContent nicely
                 print("🧪 Common Data Model Results:")
-                print(result.json(indent=2))
+                print(result.summary())
 
             except Exception as e:
                 print(f"❌ Ingestion error: {e}")

@@ -22,14 +22,14 @@
 # src/pulsepipe/cli/commands/run.py
 
 """
-Run command for executing PulsePipe data pipelines.
+Fixed implementation of the run command.
+Replace the content of src/pulsepipe/cli/commands/run.py with this code.
 """
-import os
+
 import sys
-import json
 import asyncio
 import click
-from typing import Dict, Any, Optional
+from typing import Any
 
 from pulsepipe.utils.config_loader import load_config
 from pulsepipe.utils.factory import create_adapter, create_ingester
@@ -38,19 +38,10 @@ from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.cli.options import pipeline_options, output_options
 
 
-@click.command()
-@pipeline_options
-@output_options
-@click.pass_context
-async def run(ctx, adapter, ingester, dry_run, user_id, org_id, 
-           print_model, summary, output, pretty):
-    """Run a data pipeline with the configured adapter and ingester.
-    
-    Examples:
-        pulsepipe run --profile patient_fhir --summary
-        pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
-        pulsepipe run --pipeline-id pipeline123 --dry-run
-    """
+# Async implementation function
+async def _run_pipeline(ctx, adapter, ingester, dry_run, user_id, org_id, 
+                      print_model, summary, output, pretty):
+    """Async implementation of pipeline execution."""
     # Set up logger
     logger = LogFactory.get_logger("pipeline.run")
     
@@ -108,21 +99,39 @@ async def run(ctx, adapter, ingester, dry_run, user_id, org_id,
         engine = IngestionEngine(adapter_instance, ingester_instance)
         
         # Run the engine
-        clinical_content = await engine.run()
+        content = await engine.run()
         
-        # Process output based on options
-        if clinical_content:
+        # Process output based on content type
+        if content:
+            content_type = "unknown"
+            if hasattr(content, "__class__") and hasattr(content.__class__, "__name__"):
+                if "Clinical" in content.__class__.__name__:
+                    content_type = "clinical"
+                elif "Operational" in content.__class__.__name__:
+                    content_type = "operational"
+            
             # Show summary if requested
-            if summary:
-                click.echo(clinical_content.summary())
+            if summary and hasattr(content, "summary"):
+                summary_text = content.summary()
+                click.echo("\n" + summary_text + "\n")
+                
+                # Print detailed counts by category
+                click.echo(f"Details ({content_type} content):")
+                for attr_name, attr_value in content.__dict__.items():
+                    if isinstance(attr_value, list) and attr_value:
+                        count = len(attr_value)
+                        if count > 0:
+                            # Format attribute name
+                            display_name = " ".join(word.capitalize() for word in attr_name.split("_"))
+                            click.echo(f"  • {display_name}: {count}")
             
             # Print full model if requested
             if print_model:
-                model_json = clinical_content.model_dump_json(indent=4 if pretty else None)
+                model_json = content.model_dump_json(indent=4 if pretty else None)
                 if output:
                     with open(output, 'w') as f:
                         f.write(model_json)
-                    click.echo(f"✅ Model data written to {output}")
+                    click.echo(f"✅ {content_type.capitalize()} model data written to {output}")
                 else:
                     click.echo(model_json)
         
@@ -134,16 +143,17 @@ async def run(ctx, adapter, ingester, dry_run, user_id, org_id,
         sys.exit(1)
 
 
-# Replace the above default implementation with this async version
 @click.command()
 @pipeline_options
 @output_options
 @click.pass_context
 def run(ctx, **kwargs):
-    """Run a data pipeline with the configured adapter and ingester."""
-    asyncio.run(_run_async(ctx, **kwargs))
-
-
-async def _run_async(ctx, **kwargs):
-    """Async implementation of run command."""
-    await run.callback(ctx, **kwargs)
+    """Run a data pipeline with the configured adapter and ingester.
+    
+    Examples:
+        pulsepipe run --profile patient_fhir --summary
+        pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
+        pulsepipe run --pipeline-id pipeline123 --dry-run
+    """
+    # Execute the async pipeline function
+    asyncio.run(_run_pipeline(ctx, **kwargs))

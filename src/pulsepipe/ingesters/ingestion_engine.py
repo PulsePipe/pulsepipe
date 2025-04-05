@@ -22,7 +22,7 @@
 # src/pulsepipe/ingesters/ingester_engine.py
 
 import asyncio
-from pulsepipe.models.clinical_content import summary
+from pulsepipe.models.clinical_content import PulseClinicalContent
 
 class IngestionEngine:
     def __init__(self, adapter, ingester):

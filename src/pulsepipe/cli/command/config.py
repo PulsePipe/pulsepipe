@@ -44,6 +44,20 @@ def config(ctx):
     """
     pass
 
+@click.group(invoke_without_command=True)
+@click.pass_context
+def config(ctx):
+    """Manage PulsePipe configuration.
+
+    View, validate, and manage configuration profiles.
+    """
+    if ctx.invoked_subcommand is None:
+        # Display the current configuration
+        current_config = ctx.obj.get('config')
+        if current_config is None:
+            click.echo("No configuration loaded.", err=True)
+            ctx.exit(1)
+        click.echo(yaml.dump(current_config, default_flow_style=False, sort_keys=False))
 
 @config.command()
 @click.option('--profile', '-p', type=str, help='Profile name to validate')
@@ -54,6 +68,7 @@ def validate(ctx, profile, validate_all):
     """Validate configuration files.
     
     Examples:
+        pulsepipe config
         pulsepipe config validate --profile patient_fhir
         pulsepipe config validate --all
     """

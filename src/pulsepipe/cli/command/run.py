@@ -150,13 +150,58 @@ async def run_from_pipeline_config(ctx, pipeline_config_path, pipeline_names=Non
         for p in target_pipelines:
             logger.info(f"  • {p['name']}: {p.get('description', 'No description')}")
         
-        # Check if running in continuous mode - if so, only run first pipeline
-        if continuous_override is True or any(p.get('adapter', {}).get('continuous', False) for p in target_pipelines):
-            # In continuous mode, we only run the first pipeline
-            if len(target_pipelines) > 1:
-                logger.warning(f"Running in continuous mode - only the first pipeline will be executed")
-                click.echo("⚠️  Running in continuous mode - only running the first pipeline")
+        # Check if running in continuous mode
+        is_continuous = continuous_override is True or any(p.get('adapter', {}).get('continuous', False) for p in target_pipelines)
+        
+        if is_continuous and len(target_pipelines) > 1:
+            # New approach: Run multiple pipelines concurrently in continuous mode
+            logger.info("Running multiple pipelines in continuous mode concurrently")
+            click.echo(f"🔄 Starting {len(target_pipelines)} pipelines in continuous mode")
             
+            # Create tasks for all pipelines to run concurrently
+            pipeline_tasks = []
+            
+            for pipeline in target_pipelines:
+                pipeline_name = pipeline['name']
+                click.echo(f"\n[Starting pipeline: {pipeline_name} in continuous mode]")
+                
+                # Instead of copying the context, just use the original context
+                # The pipeline-specific information is passed as parameters to run_single_pipeline
+                
+                # Schedule the pipeline to run
+                task = run_single_pipeline(
+                    ctx=ctx,
+                    adapter_config=pipeline['adapter'],
+                    ingester_config=pipeline['ingester'],
+                    profile_name=pipeline_name,
+                    summary=summary,
+                    print_model=print_model,
+                    output=f"{output}_{pipeline_name}" if output else None,
+                    pretty=pretty,
+                    timeout=None,  # No timeout for continuous mode
+                    continuous_override=True
+                )
+                pipeline_tasks.append(task)
+            
+            # Run all pipelines concurrently and wait for results
+            results = await asyncio.gather(*pipeline_tasks, return_exceptions=True)
+            
+            # Check for any exceptions
+            success = True
+            for i, result in enumerate(results):
+                pipeline_name = target_pipelines[i]['name']
+                if isinstance(result, Exception):
+                    logger.error(f"Pipeline {pipeline_name} failed with error: {str(result)}")
+                    click.echo(f"❌ Pipeline {pipeline_name} failed: {str(result)}", err=True)
+                    success = False
+                elif not result:
+                    logger.error(f"Pipeline {pipeline_name} returned failure status")
+                    success = False
+            
+            return success
+            
+        elif is_continuous:
+            # Single pipeline in continuous mode
             pipeline = target_pipelines[0]
             pipeline_name = pipeline['name']
             

@@ -25,6 +25,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Diagnosis(BaseModel):
+    """
+    Represents a clinical diagnosis associated with a patient and optionally tied to a specific encounter.
+    """
     code: Optional[str]
     coding_method: Optional[str]
     description: Optional[str]

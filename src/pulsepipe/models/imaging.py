@@ -25,6 +25,9 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 class ImagingFinding(BaseModel):
+    """
+    Represents a structured finding from a radiologic imaging study.
+    """
     code: Optional[str]                      # SNOMED CT, RadLex, etc.
     coding_method: Optional[str]
     description: Optional[str]
@@ -33,6 +36,9 @@ class ImagingFinding(BaseModel):
     result_date: Optional[str]
 
 class ImagingReport(BaseModel):
+    """
+    Represents a complete imaging report resulting from a diagnostic imaging study.
+    """
     report_id: Optional[str]
     image_type: Optional[str]               # Chest X-Ray, Lower Lumbar MRI
     coding_method: Optional[str]

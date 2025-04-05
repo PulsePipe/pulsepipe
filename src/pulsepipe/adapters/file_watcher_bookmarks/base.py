@@ -29,3 +29,11 @@ class BookmarkStore(ABC):
     @abstractmethod
     def mark_processed(self, path: str, status: str = "processed"):
         pass
+
+    @abstractmethod
+    def get_all(self):
+        pass
+
+    @abstractmethod
+    def clear_all(self):
+        pass

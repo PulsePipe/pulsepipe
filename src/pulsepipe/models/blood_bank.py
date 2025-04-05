@@ -24,15 +24,26 @@
 from typing import List, Optional
 from pydantic import BaseModel
 
+
 class BloodBankFinding(BaseModel):
+    """
+    Represents a single blood bank test result, such as ABO typing, Rh factor,
+    antibody screening, or crossmatch result.
+    """
     code: Optional[str]
     coding_method: Optional[str]        
     test_name: Optional[str]                    # ABO, Rh, Antibody Screen, Crossmatch
     result: Optional[str]
-    interpretation: Optional[str]     # e.g., Compatible, Incompatible, Positive
+    interpretation: Optional[str]               # e.g., Compatible, Incompatible, Positive
     comment: Optional[str]
 
+
 class BloodBankReport(BaseModel):
+    """
+    Represents a structured blood bank report containing one or more findings.
+    This may include blood type testing, antibody screening, and compatibility checks,
+    associated with a specific patient and encounter.""
+    """
     report_id: Optional[str]
     collection_date: Optional[str]
     result_date: Optional[str]

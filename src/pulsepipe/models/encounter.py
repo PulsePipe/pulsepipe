@@ -25,6 +25,9 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 class EncounterProvider(BaseModel):
+    """
+    Represents a provider involved in a clinical encounter.
+    """
     id: Optional[str]
     type_code: Optional[str]
     coding_method: Optional[str]
@@ -32,6 +35,10 @@ class EncounterProvider(BaseModel):
     specialty: Optional[str]
 
 class EncounterInfo(BaseModel):
+    """
+    Represents a clinical encounter, such as an inpatient admission, outpatient visit,
+    or emergency room encounter.
+    """
     id: Optional[str]
     admit_date: Optional[str]
     discharge_date: Optional[str]

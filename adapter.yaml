@@ -23,5 +23,5 @@
 
 adapter:
   type: file_watcher
-  watch_path: ./tests/fixtures
+  watch_path: F:\developer\pulse_test_files
   extensions: [".json", ".xml", ".txt", ".hl7"]

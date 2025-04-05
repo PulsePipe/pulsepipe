@@ -27,11 +27,24 @@ PulsePipe CLI - Healthcare data pipeline tool
 
 import os
 import sys
-import click
-
+import rich_click as click
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
-from pulsepipe.cli.banner import BANNER
+from pulsepipe.cli.banner import get_banner
+from rich.pretty import pretty_repr
+from rich.console import Console
+
+console = Console()
+
+click.rich_click.SHOW_ARGUMENTS = True
+click.rich_click.SHOW_METAVARS_COLUMN = True
+click.rich_click.STYLE_USAGE = "bold cyan"
+click.rich_click.STYLE_COMMANDS = "bold white"
+click.rich_click.STYLE_OPTIONS = "bold yellow"
+click.rich_click.STYLE_HELPTEXT_FIRST_LINE = "green"
+click.rich_click.STYLE_HELPTEXT = ""
+click.rich_click.STYLE_OPTION_DEFAULT = "dim cyan"
+click.rich_click.HELP_WIDTH = 100
 
 class PipelineContext:
     """Context information for a pipeline run."""
@@ -79,9 +92,9 @@ from pulsepipe.cli.options import common_options, logging_options
 
 # Import commands - do this after LogFactory is initialized
 def import_commands():
-    from pulsepipe.cli.commands.run import run
-    from pulsepipe.cli.commands.config import config
-    from pulsepipe.cli.commands.model import model
+    from pulsepipe.cli.command.run import run
+    from pulsepipe.cli.command.config import config
+    from pulsepipe.cli.command.model import model
     return run, config, model
 
 
@@ -93,56 +106,57 @@ def import_commands():
 def cli(ctx, config_path, profile, pipeline_id, log_level, json_logs, quiet):
     """PulsePipe: Healthcare data pipeline tool.
     
-    Process healthcare data through configurable adapters and ingesters.
+
+    Prepare healthcare data for AI through configurable adapters, ingesters, normalizers, chunkers, embedders, and vector database loaders.
     """
-    if ctx.invoked_subcommand is None:
-        click.echo(BANNER)
-        ctx.info_name = ""
-        click.echo(cli.get_help(ctx))
-        return
-    
-    # Initialize context object to be passed to subcommands
     ctx.ensure_object(dict)
-    
+
     # Create pipeline context
     pipeline_context = PipelineContext(
         pipeline_id=pipeline_id,
         profile=profile
     )
     ctx.obj['context'] = pipeline_context
-    
+
     # Handle config loading
     try:
         if profile:
-            # Load profile-based config (combines adapter/ingester/etc.)
             config_dir = os.path.dirname(config_path) if config_path else "config"
             profile_path = os.path.join(config_dir, f"{profile}.yaml")
             if not os.path.exists(profile_path):
                 click.echo(f"❌ Profile not found: {profile_path}", err=True)
                 sys.exit(1)
             config = load_config(profile_path)
+            config_path = profile_path  # so we can print the actual path used
         elif config_path:
-            # Load primary config
             config = load_config(config_path)
         else:
-            # Default config path
-            config = load_config("pulsepipe.yaml")
+            config_path = "pulsepipe.yaml"
+            config = load_config(config_path)
     except Exception as e:
         click.echo(f"❌ Failed to load configuration: {str(e)}", err=True)
         sys.exit(1)
-    
+
     ctx.obj['config'] = config
-    
+
+    # Show banner and config if no subcommand
+    if ctx.invoked_subcommand is None:
+        click.echo(get_banner())
+        console.print(f"[bold cyan]📄 Loaded config from:[/bold cyan] {config_path}")
+        console.print(pretty_repr(config))
+        ctx.info_name = ""
+        click.echo(cli.get_help(ctx))
+        return
+
     # Setup logging
     log_config = config.get("logging", {})
     if log_level:
         log_config["level"] = log_level
     if json_logs:
         log_config["format"] = "json"
-    
-    # Initialize logger with context
+
     LogFactory.init_from_config(
-        log_config, 
+        log_config,
         context=pipeline_context.as_dict() if pipeline_context else None
     )
 

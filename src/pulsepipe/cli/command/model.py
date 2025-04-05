@@ -169,61 +169,128 @@ def validate(json_file, model_path):
 
 
 @model.command()
-@click.option('--all', 'show_all', is_flag=True, help='Show all available models')
-def list(show_all):
+@click.option('-a', '--all', 'show_all', is_flag=True, help='Show all available models')
+@click.option('-c', '--clinical', is_flag=True, help='Show clinical models')
+@click.option('-o', '--operational', is_flag=True, help='Show operational models')
+def list(show_all, clinical, operational):
     """List available models in the pulsepipe package.
     
     Examples:
-        pulsepipe model list
         pulsepipe model list --all
+        pulsepipe model list --clinical
+        pulsepipe model list --operational
+        pulsepipe model list -a
+        pulsepipe model list -c
+        pulsepipe model list -o
+        pulsepipe model list show_all
     """
-    import pkgutil
+    import os
+    import importlib
     import inspect
     import pulsepipe.models
-    from pulsepipe.models import PulseClinicalContent
+    from pydantic import BaseModel
     
     logger = LogFactory.get_logger("model.list")
     
-    def get_models_from_module(module, prefix=''):
-        """Recursively get all Pydantic models from a module."""
-        models = []
-        
-        # Get all models directly in this module
-        for name, obj in inspect.getmembers(module):
-            if inspect.isclass(obj) and issubclass(obj, BaseModel) and obj.__module__ == module.__name__:
-                models.append((f"{prefix}.{name}" if prefix else name, obj))
-        
-        # Recursively check submodules
-        if show_all:
-            for _, submodule_name, is_pkg in pkgutil.iter_modules(module.__path__):
-                full_submodule_name = f"{module.__name__}.{submodule_name}"
-                try:
-                    submodule = importlib.import_module(full_submodule_name)
-                    if is_pkg:
-                        # This is a package
-                        new_prefix = f"{prefix}.{submodule_name}" if prefix else submodule_name
-                        models.extend(get_models_from_module(submodule, new_prefix))
-                    else:
-                        # This is a module
-                        for name, obj in inspect.getmembers(submodule):
-                            if inspect.isclass(obj) and issubclass(obj, BaseModel) and obj.__module__ == full_submodule_name:
-                                full_name = f"{module.__name__}.{submodule_name}.{name}"
-                                models.append((full_name, obj))
-                except (ImportError, AttributeError):
-                    pass
-        
-        return models
+    # If no filter options provided, show usage help
+    if not any([show_all, clinical, operational]):
+        click.echo("Please specify one of the following options:")
+        click.echo("  --all            Show all available models")
+        click.echo("  --clinical       Show clinical data models")
+        click.echo("  --operational    Show operational data models")
+        click.echo("\nExample:")
+        click.echo("  pulsepipe model list --clinical")
+        click.echo("\nOr to see details of a specific model:")
+        click.echo("  pulsepipe model schema pulsepipe.models.clinical_content.PulseClinicalContent")
+        return
     
+    # Define model categories
+    clinical_prefixes = [
+                        "advance_directive", "allergy", "blood_bank", "clinical_content",
+                        "diagnosis", "diagnostic_test", "encounter", "family_history",
+                        "functional_status", "imaging", "immunization", "implant", "lab",
+                        "mar", "medication", "microbiology", "note", "order", "pathology",
+                        "patient", "payor", "prior_authorization", "problem", "procedure",
+                        "social_history", "vital_sign"
+                        ]
+    operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment"]
+    
+    # Find all models
     try:
-        # Start with the main models
-        models = get_models_from_module(pulsepipe.models, 'pulsepipe.models')
+        all_models = []
+        models_dir = os.path.dirname(pulsepipe.models.__file__)
+        
+        # Manual scan of Python files in models directory
+        for root, dirs, files in os.walk(models_dir):
+            for file in files:
+                if file.endswith('.py') and not file.startswith('__'):
+                    # Get relative path to make import path
+                    rel_path = os.path.relpath(os.path.join(root, file), os.path.dirname(models_dir))
+                    module_path = f"pulsepipe.{os.path.splitext(rel_path)[0].replace(os.sep, '.')}"
+                    
+                    try:
+                        module = importlib.import_module(module_path)
+                        # Find all Pydantic models in this module
+                        for name, obj in inspect.getmembers(module):
+                            if (inspect.isclass(obj) and 
+                                issubclass(obj, BaseModel) and 
+                                obj.__module__ == module.__name__ and
+                                obj != BaseModel):
+                                
+                                full_name = f"{module.__name__}.{name}"
+                                all_models.append((full_name, obj))
+                    except (ImportError, AttributeError) as e:
+                        logger.debug(f"Couldn't import {module_path}: {str(e)}")
+                        continue
+        
+        # Filter models based on options
+        filtered_models = []
+        
+        if show_all:
+            filtered_models = all_models
+        else:
+            for model_path, model_class in all_models:
+                model_lower = model_path.lower()
+                
+                if clinical and any(prefix in model_lower for prefix in clinical_prefixes):
+                    filtered_models.append((model_path, model_class))
+                elif operational and any(prefix in model_lower for prefix in operational_prefixes):
+                    filtered_models.append((model_path, model_class))
         
         # Sort models by name
-        models.sort(key=lambda x: x[0])
+        filtered_models.sort(key=lambda x: x[0])
         
-        if models:
-            click.echo("Available models:")
-            for model_path, model_class in models:
+        # Handle special cases for known models
+        if clinical and not any("clinicalcontent" in model_path.lower() for model_path, _ in filtered_models):
+            try:
+                from pulsepipe.models.clinical_content import PulseClinicalContent
+                filtered_models.append(("pulsepipe.models.clinical_content.PulseClinicalContent", PulseClinicalContent))
+            except ImportError:
+                pass
+                
+        if operational and not any("operationalcontent" in model_path.lower() for model_path, _ in filtered_models):
+            try:
+                # Try to import operational content model if it exists
+                from pulsepipe.models.op_content import PulseOperationalContent
+                filtered_models.append(("pulsepipe.models.operational_content.PulseOperationalContent", PulseOperationalContent))
+            except ImportError:
+                pass
+        
+        if filtered_models:
+            # Determine what we're showing
+            if show_all:
+                title = "All models"
+            elif clinical and operational:
+                title = "Clinical and operational models"
+            elif clinical:
+                title = "Clinical models"
+            elif operational:
+                title = "Operational models"
+            else:
+                title = "Models"
+                
+            click.echo(f"{title}:")
+            for model_path, model_class in filtered_models:
                 # Get a basic description if available
                 description = getattr(model_class, '__doc__', '')
                 if description:
@@ -235,12 +302,17 @@ def list(show_all):
                 if description:
                     click.echo(f"    {description}")
             
-            click.echo(f"\nTotal: {len(models)} models")
+            click.echo(f"\nTotal: {len(filtered_models)} models")
             click.echo("\nTo view details for a specific model:")
             click.echo("  pulsepipe model schema <model_path>")
         else:
-            click.echo("No models found.")
-            
+            if clinical:
+                click.echo("No clinical models found.")
+            elif operational:
+                click.echo("No operational models found.")
+            else:
+                click.echo("No models found.")
+    
     except Exception as e:
         logger.error(f"Error listing models: {str(e)}", exc_info=True)
         click.echo(f"❌ Error: {str(e)}", err=True)

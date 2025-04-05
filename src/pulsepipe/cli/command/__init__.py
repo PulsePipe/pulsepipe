@@ -19,15 +19,15 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# cli/__init__.py
+# src/pulsepipe/cli/commands/__init__.py
 
 """
-PulsePipe CLI package.
+PulsePipe CLI commands package.
 
-Command-line interface for PulsePipe healthcare data ingestion system.
+Contains command implementations for the PulsePipe CLI.
 """
+from .run import run
+from .config import config
+from .model import model
 
-__all__ = ["cli"]
-
-# Lazy import to avoid circular dependency issues
-from .main import cli
+__all__ = ["run", "config", "model"]

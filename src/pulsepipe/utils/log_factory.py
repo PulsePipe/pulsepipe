@@ -285,7 +285,19 @@ class LogFactory:
             )
         
         # Configure root logger
-        level = getattr(logging, cls._config["level"], logging.INFO)
+        log_level = cls._config["level"]
+        
+        # Handle case where log_level is not a string or int
+        if callable(log_level) or not isinstance(log_level, (str, int)):
+            print(f"Warning: Invalid log level type: {type(log_level)}. Using default INFO level.")
+            log_level = "INFO"
+        
+        # Convert string to logging level
+        if isinstance(log_level, str):
+            level = getattr(logging, log_level.upper(), logging.INFO)
+        else:
+            level = log_level
+        
         root_logger = logging.getLogger()
         root_logger.setLevel(level)
         

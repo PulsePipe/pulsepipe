@@ -23,21 +23,24 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from .pulse_canonical_message import PulseCanonicalMessage
 from pulsepipe.models.clinical_content import PulseClinicalContent
+from pulsepipe.models.op_content import PulseOperationalContent
 
 class CanonicalBuilder:
     @staticmethod
-    def build(
+    def build_clinical(
         content: PulseClinicalContent,
         source_system: str,
         ingestor: str,
         deidentified: bool = False,
         metadata: Optional[dict] = None
     ) -> PulseCanonicalMessage:
-        
+        """
+        Build a canonical message with clinical content
+        """
         return PulseCanonicalMessage(
             id=str(uuid.uuid4()),
             source_system=source_system,
@@ -45,6 +48,48 @@ class CanonicalBuilder:
             received_at=datetime.utcnow(),
             processed_at=datetime.utcnow(),
             deidentified=deidentified,
-            content=content,
+            clinical_content=content,
+            operational_content=None,
             metadata=metadata or {},
         )
+    
+    @staticmethod
+    def build_operational(
+        content: PulseOperationalContent,
+        source_system: str,
+        ingestor: str,
+        deidentified: bool = False,
+        metadata: Optional[dict] = None
+    ) -> PulseCanonicalMessage:
+        """
+        Build a canonical message with operational content
+        """
+        return PulseCanonicalMessage(
+            id=str(uuid.uuid4()),
+            source_system=source_system,
+            ingestor=ingestor,
+            received_at=datetime.utcnow(),
+            processed_at=datetime.utcnow(),
+            deidentified=deidentified,
+            clinical_content=None,
+            operational_content=content,
+            metadata=metadata or {},
+        )
+
+    @staticmethod
+    def build(
+        content: Union[PulseClinicalContent, PulseOperationalContent],
+        source_system: str,
+        ingestor: str,
+        deidentified: bool = False,
+        metadata: Optional[dict] = None
+    ) -> PulseCanonicalMessage:
+        """
+        Smart builder that detects content type and builds the appropriate message
+        """
+        if isinstance(content, PulseClinicalContent):
+            return CanonicalBuilder.build_clinical(content, source_system, ingestor, deidentified, metadata)
+        elif isinstance(content, PulseOperationalContent):
+            return CanonicalBuilder.build_operational(content, source_system, ingestor, deidentified, metadata)
+        else:
+            raise TypeError(f"Unsupported content type: {type(content)}")

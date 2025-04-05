@@ -21,4 +21,4 @@
 
 # src/pulsepipe/canonical/schema_version.py
 
-CANONICAL_SCHEMA_VERSION = "1.0.0"
+CANONICAL_SCHEMA_VERSION = "2025.04.05"

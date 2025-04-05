@@ -27,5 +27,6 @@ class IngestorType(str, Enum):
     HL7V2 = "HL7v2"
     FHIR = "FHIR"
     CDA = "CDA"
+    X12 = "X12"
     PLAINTEXT = "PlainText"
     CUSTOM = "Custom"

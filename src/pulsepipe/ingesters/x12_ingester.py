@@ -86,10 +86,18 @@ class X12Ingester:
                 parts = seg.split('*')
                 if len(parts) > 1:
                     meta["transaction_type"] = {
-                        'HC': '837',
-                        'HP': '835',
-                        'HI': '278'  # Prior Authorizations
-                        'HP': '835'
+                        'HC': '837',  # Health Care Claim
+                        'HP': '835',  # Health Care Claim Payment/Advice
+                        'HR': '834',  # Benefit Enrollment and Maintenance
+                        'HI': '270',  # Eligibility, Coverage or Benefit Inquiry
+                        'HJ': '271',  # Eligibility, Coverage or Benefit Information
+                        'HB': '276',  # Health Care Claim Status Request
+                        'HN': '277',  # Health Care Claim Status Notification
+                        'HS': '278',  # Health Care Services Review Information
+                        'RT': '820',  # Payroll Deducted and Other Group Premium Payment
+                        'FA': '999',  # Implementation Acknowledgment
+                        'TA': '999',  # Implementation Acknowledgment (alternate code)
+                        'RA': '277CA', # Claims Acknowledgement (used post-837)
                     }.get(parts[1], 'UNKNOWN')
                 if len(parts) > 6:
                     meta["functional_group_control_number"] = parts[6]

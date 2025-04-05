@@ -25,6 +25,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 class FunctionalStatus(BaseModel):
+    """
+    Represents a patient's functional status, such as mobility, self-care ability, or
+    independence in activities of daily living (ADLs).
+    """
     description: Optional[str]                # e.g., "Ambulatory with walker", "Needs assistance with ADLs"
     code: Optional[str]                       # SNOMED or local code
     coding_method: Optional[str]

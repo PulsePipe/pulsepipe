@@ -19,7 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/config/pipeline.yaml
+# src/tests/config/pipeline.yaml
 
 pipelines:
   - name: fhir_clinical
@@ -57,3 +57,4 @@ pipelines:
     ingester:
       type: x12
       transaction_types: ["837", "835"]
+  

@@ -25,15 +25,17 @@
 Configuration management commands for PulsePipe CLI.
 """
 import os
+import shutil
 import sys
 import yaml
 import click
 from typing import Dict, Any
 from pathlib import Path
 
+from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
-
+from pulsepipe.persistence.factory import get_shared_sqlite_connection
 
 @click.group()
 @click.pass_context
@@ -241,3 +243,107 @@ def list(ctx, config_dir):
             
     except Exception as e:
         click.echo(f"❌ Error listing profiles: {str(e)}", err=True)
+
+# src/pulsepipe/cli/commands/config.py
+
+# Add to the existing config.py file
+
+@config.group()
+def filewatcher():
+    """🗂️  File Watcher bookmark and file management.
+    
+    Manage file watcher features like bookmark cache and file management
+    """
+    pass
+
+@filewatcher.command("list")
+@click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")
+@click.option("--profile", default=None, help="Optional config profile to load.")
+def list_processed_files(config_path, profile):
+    """📋 List all processed files (successes and errors)."""
+    if profile:
+        config_dir = os.path.dirname(config_path)
+        profile_path = os.path.join(config_dir, f"{profile}.yaml")
+        config = load_config(profile_path)
+    else:
+        config = load_config(config_path)
+
+    sqlite_conn = get_shared_sqlite_connection(config)
+    store = SQLiteBookmarkStore(sqlite_conn)
+    bookmarks = store.get_all()
+    if not bookmarks:
+        click.echo("📭 No processed files found.")
+    else:
+        click.echo("📌 Processed Files:")
+        for path in bookmarks:
+            click.echo(f" - {path}")
+
+@filewatcher.command("reset")
+@click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")
+@click.option("--profile", default=None, help="Optional config profile to load.")
+def reset_bookmarks(config_path, profile):
+    """🧹 Reset (clear) the bookmark cache."""
+    if profile:
+        config_dir = os.path.dirname(config_path)
+        profile_path = os.path.join(config_dir, f"{profile}.yaml")
+        config = load_config(profile_path)
+    else:
+        config = load_config(config_path)
+
+    sqlite_conn = get_shared_sqlite_connection(config)
+    store = SQLiteBookmarkStore(sqlite_conn)
+    count = store.clear_all()
+    click.echo(f"✅ Cleared {count} bookmarks.")
+
+@filewatcher.command("archive")
+@click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")
+@click.option("--profile", default=None, help="Optional config profile to load.")
+@click.option("--archive-dir", required=True, help="Destination directory for archived files.")
+def archive_files(config_path, profile, archive_dir):
+    """📦 Move processed files to an archive directory."""
+    if profile:
+        config_dir = os.path.dirname(config_path)
+        profile_path = os.path.join(config_dir, f"{profile}.yaml")
+        config = load_config(profile_path)
+    else:
+        config = load_config(config_path)
+
+    sqlite_conn = get_shared_sqlite_connection(config)
+    store = SQLiteBookmarkStore(sqlite_conn)
+    bookmarks = store.get_all()
+    os.makedirs(archive_dir, exist_ok=True)
+    moved = 0
+    for path in bookmarks:
+        try:
+            dest = Path(archive_dir) / Path(path).name
+            shutil.move(path, dest)
+            moved += 1
+            click.echo(f"📦 Archived: {path} → {dest}")
+        except Exception as e:
+            click.echo(f"❌ Failed to archive {path}: {e}")
+    click.echo(f"✅ Archived {moved} files.")
+
+@filewatcher.command("delete")
+@click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")
+@click.option("--profile", default=None, help="Optional config profile to load.")
+def delete_files(config_path, profile):
+    """🗑️ Delete processed files from disk."""
+    if profile:
+        config_dir = os.path.dirname(config_path)
+        profile_path = os.path.join(config_dir, f"{profile}.yaml")
+        config = load_config(profile_path)
+    else:
+        config = load_config(config_path)
+
+    sqlite_conn = get_shared_sqlite_connection(config)
+    store = SQLiteBookmarkStore(sqlite_conn)
+    bookmarks = store.get_all()
+    deleted = 0
+    for path in bookmarks:
+        try:
+            Path(path).unlink()
+            deleted += 1
+            click.echo(f"🗑️ Deleted: {path}")
+        except Exception as e:
+            click.echo(f"❌ Failed to delete {path}: {e}")
+    click.echo(f"✅ Deleted {deleted} files.")

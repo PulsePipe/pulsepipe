@@ -25,6 +25,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 class FamilyHistory(BaseModel):
+    """
+    Represents a clinical family history entry, capturing known conditions affecting the patient's relatives.
+    This information is often used to assess genetic risk and guide preventive care.
+    """
     condition: Optional[str]                     # "Diabetes Mellitus", "Breast Cancer"
     code: Optional[str]                          # ICD, SNOMED, etc.
     coding_method: Optional[str]

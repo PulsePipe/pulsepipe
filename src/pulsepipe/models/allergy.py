@@ -25,6 +25,14 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Allergy(BaseModel):
+    """
+    Represents an allergic reaction with details about the substance,
+    reaction, severity, onset, and associated patient.
+
+    Note:
+    - If a patient has **no known allergies**, this should be clearly indicated in their record.
+    - If **no recorded allergies** are available, it implies that the patient's allergy information has not been documented.
+    """
     substance: Optional[str]
     coding_method: Optional[str]
     reaction: Optional[str]

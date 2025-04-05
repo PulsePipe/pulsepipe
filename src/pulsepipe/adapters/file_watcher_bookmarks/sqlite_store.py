@@ -47,3 +47,15 @@ class SQLiteBookmarkStore(BookmarkStore):
             (path, status)
         )
         self.conn.commit()
+
+    def get_all(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT path FROM bookmarks ORDER BY path")
+        return [row[0] for row in cursor.fetchall()]
+    
+    def clear_all(self):
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM bookmarks")
+        count = cursor.rowcount
+        self.conn.commit()
+        return count

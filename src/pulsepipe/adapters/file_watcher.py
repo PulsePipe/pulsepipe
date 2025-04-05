@@ -37,6 +37,7 @@ class FileWatcherAdapter(Adapter):
 
         self.watch_path = Path(config["watch_path"])
         self.file_extensions = tuple(config.get("extensions", [".json"]))
+        self.continuous = config.get("continuous", True)  # New option to enable/disable continuous watching
         self.logger.info(f"🔍 Watch path: {self.watch_path}")
         self.logger.info(f"📦 Watching extensions: {self.file_extensions}")
 
@@ -48,6 +49,47 @@ class FileWatcherAdapter(Adapter):
 
     async def run(self, queue: asyncio.Queue):
         print(f"🚀 Starting watcher on: {self.watch_path}")
+        
+        # Ensure the watch directory exists
+        if not self.watch_path.exists():
+            self.watch_path.mkdir(parents=True, exist_ok=True)
+            self.logger.info(f"📁 Created watch directory: {self.watch_path}")
+        
+        # Process existing files first
+        await self.process_existing_files(queue)
+        
+        # If continuous mode is enabled, continue watching for new files
+        if self.continuous:
+            await self.watch_for_changes(queue)
+        else:
+            self.logger.info("📁 One-time processing completed")
+
+    async def process_existing_files(self, queue: asyncio.Queue):
+        """Process existing files in the watch directory"""
+        self.logger.info(f"🔍 Checking for existing files in {self.watch_path}")
+        files_processed = 0
+        
+        for file_path in self.watch_path.glob('**/*'):
+            if file_path.is_file() and file_path.suffix in self.file_extensions:
+                str_path = str(file_path)
+                if not self.bookmarks.is_processed(str_path):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            raw_data = f.read()
+                        await queue.put(raw_data)
+                        print(f"✅ Enqueued: {file_path}")
+                        self.bookmarks.mark_processed(str_path)
+                        files_processed += 1
+                    except Exception as e:
+                        print(f"❌ Error reading {file_path}: {e}")
+        
+        self.logger.info(f"📋 Processed {files_processed} existing files")
+        return files_processed
+
+    async def watch_for_changes(self, queue: asyncio.Queue):
+        """Continuously watch for file changes"""
+        self.logger.info(f"👀 Watching for changes in {self.watch_path}")
+        
         async for changes in awatch(self.watch_path):
             for _, file_path in changes:
                 print(f"📡 Detected file: {file_path}")
@@ -61,7 +103,7 @@ class FileWatcherAdapter(Adapter):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         raw_data = f.read()
                     await queue.put(raw_data)
-                    #print(f"✅ Enqueued: {file_path}")
+                    print(f"✅ Enqueued: {file_path}")
                     self.bookmarks.mark_processed(file_path)
                 except Exception as e:
                     print(f"❌ Error reading {file_path}: {e}")

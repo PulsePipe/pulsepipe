@@ -28,6 +28,7 @@ MANIFEST
 
 #PulsePipe related:
 .pulsepipe/state/ingestion.sqlite3
+incoming/*
 
 
 # PyInstaller

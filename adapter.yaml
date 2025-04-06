@@ -23,5 +23,8 @@
 
 adapter:
   type: file_watcher
-  watch_path: F:\developer\pulse_test_files
-  extensions: [".json", ".xml", ".txt", ".hl7"]
+  watch_path: F:\developer\pulsepipe\incoming\fhir
+  extensions: [".fhir", ".json", ".xml", ".txt"]
+
+ingester:
+  type: fhir

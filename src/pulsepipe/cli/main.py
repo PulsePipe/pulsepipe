@@ -111,8 +111,6 @@ def cli(ctx, config_path, profile, pipeline_id, log_level, json_logs, quiet):
     """
     ctx.ensure_object(dict)
 
-    click.secho(get_banner(), fg='blue')
-
     # Create pipeline context
     pipeline_context = PipelineContext(
         pipeline_id=pipeline_id,
@@ -140,6 +138,9 @@ def cli(ctx, config_path, profile, pipeline_id, log_level, json_logs, quiet):
         sys.exit(1)
 
     ctx.obj['config'] = config
+
+    if config.get("logging", {}).get("show_banner", True):
+        click.secho(get_banner(), fg='blue')
 
     # Show config and help if no subcommand is provided
     if ctx.invoked_subcommand is None:

@@ -23,7 +23,7 @@
 
 import asyncio
 import logging
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Union
 from pulsepipe.models.clinical_content import PulseClinicalContent
 from pulsepipe.models.op_content import PulseOperationalContent
 
@@ -47,11 +47,20 @@ class IngestionEngine:
                     
                     try:
                         result = self.ingester.parse(raw_data)
-                        self.results.append(result)
-
-                        # Print results nicely
-                        print("🧪 Common Data Model Results:")
-                        print(result.summary())
+                        
+                        # Handle case where ingester returns a list of results (batch processing)
+                        if isinstance(result, list):
+                            logger.info(f"Processed batch of {len(result)} items")
+                            for item in result:
+                                self.results.append(item)
+                                # Print summary for each item
+                                print(f"🧪 Common Data Model Results (Item {len(self.results)}):")
+                                print(item.summary())
+                        else:
+                            self.results.append(result)
+                            # Print results nicely
+                            print("🧪 Common Data Model Results:")
+                            print(result.summary())
 
                     except Exception as e:
                         logger.error(f"❌ Ingestion error: {e}", exc_info=True)
@@ -74,7 +83,7 @@ class IngestionEngine:
                      Set to a reasonable value for one-time runs.
                      
         Returns:
-            Processed content or list of processed content.
+            Processed content, list of processed content, or empty model if nothing processed.
         """
         try:
             # Start the processor task

@@ -1,0 +1,312 @@
+[{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-001",
+        "name": [{ "family": "Doe", "given": ["John"] }],
+        "gender": "male",
+        "birthDate": "1975-03-15"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-001",
+        "status": "finished",
+        "class": { "code": "inpatient" },
+        "period": { "start": "2025-03-15T08:00:00Z", "end": "2025-03-20T12:00:00Z" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "vs-001",
+        "category": [{ "coding": [{ "code": "vital-signs" }] }],
+        "code": { "coding": [{ "code": "85354-9", "display": "Blood Pressure Panel" }] },
+        "component": [
+          { "code": { "coding": [{ "code": "8480-6", "display": "Systolic BP" }] }, "valueQuantity": { "value": 138, "unit": "mmHg" } },
+          { "code": { "coding": [{ "code": "8462-4", "display": "Diastolic BP" }] }, "valueQuantity": { "value": 86, "unit": "mmHg" } }
+        ],
+        "effectiveDateTime": "2025-03-15T09:00:00Z"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-001",
+        "clinicalStatus": { "coding": [{ "code": "active" }] },
+        "code": { "text": "Penicillin" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Immunization",
+        "id": "imm-001",
+        "status": "completed",
+        "vaccineCode": { "text": "Influenza, seasonal" },
+        "occurrenceDateTime": "2024-10-01"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "problem-001",
+        "category": [{ "coding": [{ "code": "problem-list-item" }] }],
+        "code": { "text": "Type 2 Diabetes Mellitus" },
+        "clinicalStatus": { "coding": [{ "code": "active" }] }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "med-001",
+        "status": "active",
+        "medicationCodeableConcept": { "text": "Metformin 500mg" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "lab-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "LAB", "display": "Laboratory" }] }],
+        "code": { "coding": [{ "code": "57021-8", "display": "CBC Panel" }] },
+        "result": [
+          { "reference": "#obs-cbc-hgb" },
+          { "reference": "#obs-cbc-wbc" },
+          { "reference": "#obs-cbc-plt" }
+        ],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-cbc-hgb", "status": "final", "code": { "coding": [{ "code": "718-7", "display": "Hemoglobin" }] }, "valueQuantity": { "value": 13.5, "unit": "g/dL" } },
+          { "resourceType": "Observation", "id": "obs-cbc-wbc", "status": "final", "code": { "coding": [{ "code": "6690-2", "display": "WBC" }] }, "valueQuantity": { "value": 7.1, "unit": "10^3/uL" } },
+          { "resourceType": "Observation", "id": "obs-cbc-plt", "status": "final", "code": { "coding": [{ "code": "777-3", "display": "Platelets" }] }, "valueQuantity": { "value": 220, "unit": "10^3/uL" } }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "path-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "PAT", "display": "Pathology" }] }],
+        "code": { "text": "Liver Biopsy" },
+        "result": [{ "reference": "#obs-path" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-path", "code": { "text": "Histology" }, "valueString": "Mild steatosis without significant fibrosis." }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "img-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "RAD", "display": "Radiology" }] }],
+        "code": { "text": "Chest X-Ray" },
+        "result": [{ "reference": "#obs-img" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-img", "code": { "text": "Radiologist Impression" }, "valueString": "Mild cardiomegaly. No infiltrates or effusion." }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "micro-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "MIC", "display": "Microbiology" }] }],
+        "code": { "text": "Urine Culture" },
+        "result": [{ "reference": "#obs-ucx" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-ucx", "code": { "text": "E. coli" }, "valueString": "1 x 10^5 CFU/mL" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "bb-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "BLOOD", "display": "Blood Bank" }] }],
+        "code": { "text": "Blood Type & Screen" },
+        "result": [{ "reference": "#obs-blood" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-blood", "code": { "text": "ABO Group and Rh" }, "valueString": "O Positive" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "ekg-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "CARD", "display": "Cardiology" }] }],
+        "code": { "text": "12-lead ECG" },
+        "result": [{ "reference": "#obs-ekg" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-ekg", "code": { "text": "Interpretation" }, "valueString": "Normal sinus rhythm with occasional premature ventricular contractions." }
+        ]
+      }
+    }
+  ]
+},
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-002",
+        "name": [{ "family": "Doe", "given": ["Jane"] }],
+        "gender": "female",
+        "birthDate": "1979-01-15"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-001",
+        "status": "finished",
+        "class": { "code": "inpatient" },
+        "period": { "start": "2025-03-15T08:00:00Z", "end": "2025-03-20T12:00:00Z" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "vs-001",
+        "category": [{ "coding": [{ "code": "vital-signs" }] }],
+        "code": { "coding": [{ "code": "85354-9", "display": "Blood Pressure Panel" }] },
+        "component": [
+          { "code": { "coding": [{ "code": "8480-6", "display": "Systolic BP" }] }, "valueQuantity": { "value": 138, "unit": "mmHg" } },
+          { "code": { "coding": [{ "code": "8462-4", "display": "Diastolic BP" }] }, "valueQuantity": { "value": 86, "unit": "mmHg" } }
+        ],
+        "effectiveDateTime": "2025-03-15T09:00:00Z"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-001",
+        "clinicalStatus": { "coding": [{ "code": "active" }] },
+        "code": { "text": "Penicillin" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Immunization",
+        "id": "imm-001",
+        "status": "completed",
+        "vaccineCode": { "text": "Influenza, seasonal" },
+        "occurrenceDateTime": "2024-10-01"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "problem-001",
+        "category": [{ "coding": [{ "code": "problem-list-item" }] }],
+        "code": { "text": "Type 2 Diabetes Mellitus" },
+        "clinicalStatus": { "coding": [{ "code": "active" }] }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "id": "med-001",
+        "status": "active",
+        "medicationCodeableConcept": { "text": "Metformin 500mg" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "lab-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "LAB", "display": "Laboratory" }] }],
+        "code": { "coding": [{ "code": "57021-8", "display": "CBC Panel" }] },
+        "result": [
+          { "reference": "#obs-cbc-hgb" },
+          { "reference": "#obs-cbc-wbc" },
+          { "reference": "#obs-cbc-plt" }
+        ],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-cbc-hgb", "status": "final", "code": { "coding": [{ "code": "718-7", "display": "Hemoglobin" }] }, "valueQuantity": { "value": 13.5, "unit": "g/dL" } },
+          { "resourceType": "Observation", "id": "obs-cbc-wbc", "status": "final", "code": { "coding": [{ "code": "6690-2", "display": "WBC" }] }, "valueQuantity": { "value": 7.1, "unit": "10^3/uL" } },
+          { "resourceType": "Observation", "id": "obs-cbc-plt", "status": "final", "code": { "coding": [{ "code": "777-3", "display": "Platelets" }] }, "valueQuantity": { "value": 220, "unit": "10^3/uL" } }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "path-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "PAT", "display": "Pathology" }] }],
+        "code": { "text": "Liver Biopsy" },
+        "result": [{ "reference": "#obs-path" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-path", "code": { "text": "Histology" }, "valueString": "Mild steatosis without significant fibrosis." }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "img-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "RAD", "display": "Radiology" }] }],
+        "code": { "text": "Chest X-Ray" },
+        "result": [{ "reference": "#obs-img" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-img", "code": { "text": "Radiologist Impression" }, "valueString": "Mild cardiomegaly. No infiltrates or effusion." }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "micro-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "MIC", "display": "Microbiology" }] }],
+        "code": { "text": "Urine Culture" },
+        "result": [{ "reference": "#obs-ucx" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-ucx", "code": { "text": "E. coli" }, "valueString": "1 x 10^5 CFU/mL" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "bb-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "BLOOD", "display": "Blood Bank" }] }],
+        "code": { "text": "Blood Type & Screen" },
+        "result": [{ "reference": "#obs-blood" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-blood", "code": { "text": "ABO Group and Rh" }, "valueString": "O Positive" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "ekg-001",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "CARD", "display": "Cardiology" }] }],
+        "code": { "text": "12-lead ECG" },
+        "result": [{ "reference": "#obs-ekg" }],
+        "contained": [
+          { "resourceType": "Observation", "id": "obs-ekg", "code": { "text": "Interpretation" }, "valueString": "Normal sinus rhythm with occasional premature ventricular contractions." }
+        ]
+      }
+    }
+  ]
+}
+
+]

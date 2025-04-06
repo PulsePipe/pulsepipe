@@ -67,6 +67,8 @@ def find_profile_path(profile_name: str) -> str:
     return None
 
 
+# Modifications to src/pulsepipe/cli/command/run.py
+
 async def run_single_pipeline(ctx, adapter_config, ingester_config, profile_name,
                              summary=False, print_model=False, output=None, pretty=True,
                              timeout=30.0, continuous_override=None, chunker_config=None):
@@ -94,47 +96,103 @@ async def run_single_pipeline(ctx, adapter_config, ingester_config, profile_name
             content = await engine.run(timeout=timeout)
 
         if content:
-            content_type = "unknown"
-            if hasattr(content, "__class__") and hasattr(content.__class__, "__name__"):
-                if "Clinical" in content.__class__.__name__:
-                    content_type = "clinical"
-                elif "Operational" in content.__class__.__name__:
-                    content_type = "operational"
+            # Handle case where content is a list (batch processed)
+            if isinstance(content, list):
+                logger.info(f"Processed {len(content)} items from batch")
+                
+                if summary:
+                    click.echo(f"\nProcessed {len(content)} items in batch:")
+                    for i, item in enumerate(content):
+                        click.echo(f"\n--- Item {i+1} ---")
+                        if hasattr(item, "summary"):
+                            click.echo(item.summary())
+                
+                if print_model:
+                    if output:
+                        # Create individual output files for each item
+                        for i, item in enumerate(content):
+                            item_output = f"{os.path.splitext(output)[0]}_{i+1}{os.path.splitext(output)[1]}"
+                            model_json = item.model_dump_json(indent=4 if pretty else None)
+                            with open(item_output, 'w') as f:
+                                f.write(model_json)
+                        click.echo(f"✅ Batch data written to {len(content)} files with prefix {output}")
+                    else:
+                        # Print to console
+                        for i, item in enumerate(content):
+                            click.echo(f"\n--- Item {i+1} ---")
+                            click.echo(item.model_dump_json(indent=4 if pretty else None))
+                
+                # Chunking for batch
+                if chunker_config:
+                    chunker_type = chunker_config.get("type", "auto")
+                    chunk_export_format = chunker_config.get("export_chunks_to", None)
+                    
+                    for i, item in enumerate(content):
+                        chunker = None
+                        content_type = "unknown"
+                        
+                        if "Clinical" in item.__class__.__name__:
+                            chunker = ClinicalSectionChunker()
+                            content_type = "clinical"
+                        elif "Operational" in item.__class__.__name__:
+                            chunker = OperationalEntityChunker()
+                            content_type = "operational"
+                            
+                        if chunker:
+                            chunks = chunker.chunk(item)
+                            click.echo(f"🧬 Item {i+1}: Chunked into {len(chunks)} sections")
+                            
+                            if chunk_export_format == "jsonl" and output:
+                                base, ext = os.path.splitext(output)
+                                chunk_output_path = f"{base}_{i+1}.chunks.jsonl"
+                                with open(chunk_output_path, "w") as f:
+                                    for c in chunks:
+                                        f.write(json.dumps(c) + "\n")
+                                click.echo(f"✅ Chunked output for item {i+1} written to {chunk_output_path}")
+            
+            else:
+                # Handle single item (existing code)
+                content_type = "unknown"
+                if hasattr(content, "__class__") and hasattr(content.__class__, "__name__"):
+                    if "Clinical" in content.__class__.__name__:
+                        content_type = "clinical"
+                    elif "Operational" in content.__class__.__name__:
+                        content_type = "operational"
 
-            if summary and hasattr(content, "summary"):
-                click.echo("\n" + content.summary() + "\n")
+                if summary and hasattr(content, "summary"):
+                    click.echo("\n" + content.summary() + "\n")
 
-            if print_model:
-                model_json = content.model_dump_json(indent=4 if pretty else None)
-                if output:
-                    with open(output, 'w') as f:
-                        f.write(model_json)
-                    click.echo(f"✅ {content_type.capitalize()} model data written to {output}")
-                else:
-                    click.echo(model_json)
+                if print_model:
+                    model_json = content.model_dump_json(indent=4 if pretty else None)
+                    if output:
+                        with open(output, 'w') as f:
+                            f.write(model_json)
+                        click.echo(f"✅ {content_type.capitalize()} model data written to {output}")
+                    else:
+                        click.echo(model_json)
 
-            # 🔹 Chunking integration
-            chunker_type = (chunker_config or {}).get("type", "auto")
-            chunk_export_format = (chunker_config or {}).get("export_chunks_to", None)
+                # 🔹 Chunking integration
+                chunker_type = (chunker_config or {}).get("type", "auto")
+                chunk_export_format = (chunker_config or {}).get("export_chunks_to", None)
 
-            chunker = None
-            if chunker_type == "auto":
-                if "Clinical" in content.__class__.__name__:
-                    chunker = ClinicalSectionChunker()
-                elif "Operational" in content.__class__.__name__:
-                    chunker = OperationalEntityChunker()
+                chunker = None
+                if chunker_type == "auto":
+                    if "Clinical" in content.__class__.__name__:
+                        chunker = ClinicalSectionChunker()
+                    elif "Operational" in content.__class__.__name__:
+                        chunker = OperationalEntityChunker()
 
-            if chunker:
-                chunks = chunker.chunk(content)
-                click.echo(f"🧬 Chunked into {len(chunks)} sections")
+                if chunker:
+                    chunks = chunker.chunk(content)
+                    click.echo(f"🧬 Chunked into {len(chunks)} sections")
 
-                if chunk_export_format == "jsonl" and output:
-                    base, ext = os.path.splitext(output)
-                    chunk_output_path = f"{base}.chunks.jsonl"
-                    with open(chunk_output_path, "w") as f:
-                        for c in chunks:
-                            f.write(json.dumps(c) + "\n")
-                    click.echo(f"✅ Chunked output written to {chunk_output_path}")
+                    if chunk_export_format == "jsonl" and output:
+                        base, ext = os.path.splitext(output)
+                        chunk_output_path = f"{base}.chunks.jsonl"
+                        with open(chunk_output_path, "w") as f:
+                            for c in chunks:
+                                f.write(json.dumps(c) + "\n")
+                        click.echo(f"✅ Chunked output written to {chunk_output_path}")
 
         logger.info(f"{context_prefix} Pipeline execution completed successfully")
         return True
@@ -143,7 +201,6 @@ async def run_single_pipeline(ctx, adapter_config, ingester_config, profile_name
         logger.error(f"{context_prefix} Pipeline execution failed: {str(e)}", exc_info=True)
         click.echo(f"❌ Error: {str(e)}", err=True)
         return False
-
 
 async def run_from_pipeline_config(ctx, pipeline_config_path, pipeline_names=None, run_all=False,
                                   summary=False, print_model=False, output=None, pretty=True,
@@ -199,6 +256,11 @@ async def run_from_pipeline_config(ctx, pipeline_config_path, pipeline_names=Non
 
         results = []
         for p in target_pipelines:
+            pipeline_output = None
+            if output:
+                base, ext = os.path.splitext(output)
+                pipeline_output = f"{base}_{p['name']}{ext}"
+            
             result = await run_single_pipeline(
                 ctx=ctx,
                 adapter_config=p['adapter'],
@@ -206,10 +268,10 @@ async def run_from_pipeline_config(ctx, pipeline_config_path, pipeline_names=Non
                 profile_name=p['name'],
                 summary=summary,
                 print_model=print_model,
-                output=f"{os.path.splitext(output)[0]}_{p['name']}.json" if output else None,
+                output=pipeline_output,
                 pretty=pretty,
                 timeout=timeout,
-                continuous_override=False,
+                continuous_override=continuous_override,
                 chunker_config=p.get("chunker", {})
             )
             results.append((p['name'], result))

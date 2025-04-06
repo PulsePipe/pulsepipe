@@ -30,5 +30,5 @@ logging:
   type: rich                      # rich | json | none
   level: debug                    # debug | info | warning | error
   destination: stdout             # stdout | file | both | syslog | cloud
-  file_path: logs/pulsepipe.log   # only used if destination includes 'file'
+  file_path: F:\developer\pulsepipe\logs   # only used if destination includes 'file'
 

@@ -22,78 +22,129 @@
 # src/pulsepipe/ingesters/hl7v2_ingester.py
 
 import logging
-from hl7apy.parser import parse_message
+import re
+
 from pulsepipe.models import PulseClinicalContent, MessageCache
 
-# Explicitly import all mappers here to trigger their registration
-from .hl7v2_utils import base_mapper
-from .hl7v2_utils import pid_mapper  # Always include
-# from .hl7v2_utils import obx_mapper  # Uncomment when you implement it
-# from .hl7v2_utils import al1_mapper
-# from .hl7v2_utils import dg1_mapper
-# ... add others as needed
+# Import mappers to ensure registration
+from .hl7v2_utils.parser import HL7Message
+from .hl7v2_utils.base_mapper import HL7v2Mapper
+from .hl7v2_utils.msh_mapper import MSHMapper
+from .hl7v2_utils.pid_mapper import PIDMapper
+from .hl7v2_utils.obr_mapper import OBRMapper
+from .hl7v2_utils.obx_mapper import OBXMapper
 
 logger = logging.getLogger(__name__)
 
 class HL7v2Ingester:
-    def parse(self, raw_data: str) -> PulseClinicalContent:
-        if not raw_data.strip():
+
+    def parse(self, hl7_blob: str) -> list:
+        """
+        Parse multiple HL7 messages from a single input string.
+        
+        Args:
+            raw_data (str): Raw HL7 message(s)
+        
+        Returns:
+            List of parsed PulseClinicalContent objects
+        """
+
+        if not hl7_blob.strip():
             raise ValueError("Empty HL7v2 data received")
 
-        cache: MessageCache = {"patient_id": None, "encounter_id": None}
-        
-        try:
-            message = parse_message(raw_data, validation_level="T")
-            pid_segment = next(s for s in message.children if s.name == "PID")
+        # Normalize all line endings
+        normalized = hl7_blob.replace('\r\n', '\r').replace('\n', '\r')
 
-            # ✅ Diagnostic prints (put these temporarily)
-            print(message.version)
-            print([field.name for field in pid_segment.children])
+        messages = []
+
+        # Use regex to split on MSH boundaries
+        messages = re.split(r'(?=MSH\|)', normalized.strip())
+        messages = [msg for msg in messages if msg.strip()]
+
+        # Check that we have at least one valid HL7 message
+        if not any(msg.startswith("MSH|") for msg in messages):
+            raise ValueError("This is not an HL7 message")
+
+        # Create a list for results
+        parsed_contents = []
+
+        for i, msg in enumerate(messages):
+            try:
+                parsed_msg = HL7Message(msg)
+                content = self.parseImp(parsed_msg)
+                parsed_contents.append(content)
+            except Exception as e:
+                print(f"❌ Failed parsing or mapping message {i}: {e}")
+
+        return parsed_contents
+
+
+    def parseImp(self, hl7_message: HL7Message) -> PulseClinicalContent:
+        """
+        Parse a single HL7v2 message.
+        
+        Args:
+            raw_data (str): Raw HL7 message
+        
+        Returns:
+            PulseClinicalContent object
+        """
+
+        try:
+            
+            # Create content template
+            content = PulseClinicalContent(
+                patient=None,
+                encounter=None,
+                vital_signs=[],
+                allergies=[],
+                immunizations=[],
+                diagnoses=[],
+                problem_list=[],
+                procedures=[],
+                medications=[],
+                payors=[],
+                mar=[],
+                notes=[],
+                imaging=[],
+                lab=[],
+                pathology=[],
+                diagnostic_test=[],
+                microbiology=[],
+                blood_bank=[],
+                family_history=[],
+                social_history=[],
+                advance_directives=[],
+                functional_status=[],
+                order=[],
+                implant=[],
+            )
+
+            # Create message cache for tracking context
+            cache: MessageCache = {
+                "patient_id": None, 
+                "encounter_id": None, 
+                "current_observation_type": None,
+                "current_observation_date": None,
+                "resource_index": {}
+            }
+
+            print(f"\nHL7 Message: {hl7_message}\n")
+            # important, implement cache
+            for segment in hl7_message.segments:
+                segment_id = segment.id
+                if segment_id == "MSH":
+                    MSHMapper().map(segment, content, cache)
+                elif segment_id == "PID":
+                    PIDMapper().map(segment, content, cache)
+                elif segment_id == "OBR":
+                    OBRMapper().map(segment, content, cache)
+                elif segment_id == "OBX":
+                    OBXMapper().map(segment, content, cache)
+
+            logger.debug(f"Finished parsing. Patient: {content.patient}")
+            return content
 
         except Exception as e:
             logger.exception("HL7v2 parsing error")
-            raise ValueError("Failed to parse HL7v2 message") from e
-
-        content = PulseClinicalContent(
-            patient=None,
-            encounter=None,
-            vital_signs=[],
-            allergies=[],
-            immunizations=[],
-            diagnoses=[],
-            problem_list=[],
-            procedures=[],
-            medications=[],
-            payors=[],
-            mar=[],
-            notes=[],
-            imaging=[],
-            lab=[],
-            pathology=[],
-            diagnostic_test=[],
-            microbiology=[],
-            blood_bank=[],
-            family_history=[],
-            social_history=[],
-            advance_directives=[],
-            functional_status=[],
-            order=[],
-            implant=[],
-        )
-
-        # Iterate over all segments
-        for segment in message.children:
-            self._map_segment(segment, content, cache)
-
-        return content
-
-    def _map_segment(self, segment, content: PulseClinicalContent, cache: dict):
-        # Go through the registry and apply the first matching mapper
-        for mapper in base_mapper.MAPPER_REGISTRY:
-            if mapper.accepts(segment):
-                try:
-                    mapper.map(segment, content, cache)
-                    logger.debug(f"Mapped segment {segment.name} using {mapper.__class__.__name__}")
-                except Exception as e:
-                    logger.exception(f"Error mapping segment {segment.name} with {mapper.__class__.__name__}")
-                break  # Only one mapper should handle a segment
+            raise ValueError(f"Failed to parse HL7v2 message: {str(e)}") from e

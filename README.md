@@ -112,8 +112,11 @@ poetry run python  # Opens a Python REPL using the managed virtualenv
 ### ✅ Unit Testing & QA
 
 ```bash
-# Run unit tests
-poetry run pytest
+# Run all unit tests
+poetry run pytest -s
+
+# Run specific unit test
+poetry run pytest -s tests/test_hl7v2_ingester.py
 
 # Run tests with coverage report
 poetry run pytest --cov=src/ --cov-report=term-missing tests/

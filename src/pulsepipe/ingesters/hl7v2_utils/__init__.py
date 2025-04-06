@@ -22,5 +22,22 @@
 # src/pulsepipe/ingesters/hl7v2_utils/__init__.py
 
 from .base_mapper import MAPPER_REGISTRY
+from .parser import HL7Message
+from .msh_mapper import MSHMapper
+from .pid_mapper import PIDMapper
+from .obr_mapper import OBRMapper
+from .obx_mapper import OBXMapper
+from .message import Segment, Field, Component, Subcomponent
 
-__all__ = ["MAPPER_REGISTRY"]
+__all__ = [
+    "HL7Message",
+    "MAPPER_REGISTRY",
+    "MSHMapper",
+    "PIDMapper",
+    "OBRMapper",
+    "OBXMapper",
+    "Segment",
+    "Field",
+    "Component",
+    "Subcomponent"
+]

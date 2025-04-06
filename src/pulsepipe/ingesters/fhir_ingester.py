@@ -23,25 +23,59 @@
 
 import json
 import logging
+from typing import List, Union, Dict, Any
 from pulsepipe.models import PulseClinicalContent, MessageCache
 from .fhir_utils.base_mapper import MAPPER_REGISTRY
 from pulsepipe.utils.xml_to_json import xml_to_json
+from pulsepipe.canonical.builder import CanonicalBuilder
 
 logger = logging.getLogger(__name__)
 
 class FHIRIngester:
-    def parse(self, raw_data: str) -> PulseClinicalContent:
+    def parse(self, raw_data: str) -> Union[PulseClinicalContent, List[PulseClinicalContent]]:
+        """
+        Parse FHIR data - supports single resources, Bundles, and arrays of FHIR resources.
+        
+        Args:
+            raw_data: String containing FHIR data in JSON or XML format
+            
+        Returns:
+            Either a single PulseClinicalContent or a list of PulseClinicalContent objects
+            depending on the input format
+        """
         if not raw_data.strip():
             raise ValueError("Empty data received")
         
-        for m in MAPPER_REGISTRY:
-            print(m)
-
+        # Convert raw data to JSON if it's in XML format
         try:
+            # First try to parse as JSON
             data = json.loads(raw_data)
         except json.JSONDecodeError:
+            # If fails, try to parse as XML
             data = xml_to_json(raw_data)
-
+        
+        # Check if we have an array of FHIR resources
+        if isinstance(data, list):
+            logger.info(f"Detected array of FHIR resources with {len(data)} items")
+            results = []
+            for item in data:
+                # Process each item as a separate FHIR resource
+                results.append(self._parse_single_resource(item))
+            return results
+        else:
+            # Single FHIR resource or Bundle
+            return self._parse_single_resource(data)
+    
+    def _parse_single_resource(self, data: Dict[str, Any]) -> PulseClinicalContent:
+        """
+        Parse a single FHIR resource or Bundle
+        
+        Args:
+            data: Dictionary representing a FHIR resource
+            
+        Returns:
+            PulseClinicalContent object
+        """
         if "resourceType" not in data:
             raise ValueError("Missing resourceType, not a valid FHIR resource.")
 
@@ -88,12 +122,8 @@ class FHIRIngester:
                     cache["patient_id"] = rid
                 if rtype == "Encounter" and not cache["encounter_id"]:
                     cache["encounter_id"] = rid
-                if rtype in {"ServiceRequest", "Order"} and not cache["order_id"]:
+                if rtype in {"ServiceRequest", "Order"} and not cache.get("order_id"):
                     cache["order_id"] = rid
-
-                # optional index for deferred linking
-                #if rtype and rid:
-                #    cache["resource_index"][f"{rtype}/{rid}"] = res
 
         # 🟣 Second Pass - Map normally
         if data["resourceType"] == "Bundle":
@@ -108,12 +138,14 @@ class FHIRIngester:
         return content
 
     def _map_resource(self, resource: dict, content: PulseClinicalContent, cache: dict):
+        """Map a FHIR resource to the canonical model using registered mappers"""
         for mapper in MAPPER_REGISTRY:
             if mapper.accepts(resource):
                 mapper.map(resource, content, cache)
                 break
 
     def _link_missing_references(self, content: PulseClinicalContent, cache: dict):
+        """Fix up any missing references between resources"""
         # For example, link imaging reports to orders, or missing patient_id to labs
         # Not required unless you want advanced reference fixing
         pass

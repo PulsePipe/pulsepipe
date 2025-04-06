@@ -21,82 +21,95 @@
 
 # src/pulsepipe/ingesters/hl7v2_utils/pid_mapper.py
 
-from hl7apy.core import Segment
-from pulsepipe.models import PatientInfo, PatientPreferences
-from .base_mapper import HL7v2Mapper, register_mapper
+import logging
 from datetime import datetime
+from typing import Dict, Any
 
-def get_field_value(field):
-    if not field:
-        return None
-    if hasattr(field, "ce_1") and field.ce_1:
-        return field.ce_1.value
-    return field.value
+from .message import Segment
+from pulsepipe.models import PatientInfo, PatientPreferences
+from pulsepipe.models.clinical_content import PulseClinicalContent
+from .base_mapper import HL7v2Mapper, register_mapper
 
+logger = logging.getLogger(__name__)
 
 class PIDMapper(HL7v2Mapper):
-    def accepts(self, segment: Segment) -> bool:
-        return segment.name == "PID"
+    def accepts(self, seg: Segment) -> bool:
+        return (seg.id == 'PID')
 
-    def map(self, segment: Segment, content, cache):
-        identifiers = {}
+    def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
+        try:
+            pid = seg
+            get = lambda f, c=1, s=1: seg.get(f"{f}.{c}.{s}")
+            # Identifiers (PID-3)
+            identifiers = {}
+            reps = pid.fields[3] if len(pid.fields) > 3 else []
+            for rep in reps:
+                if rep and len(rep) >= 5:
+                    id_val = rep[0][0] if rep[0] else None
+                    id_type = rep[4][0] if len(rep) > 4 and rep[4] else "UNKNOWN"
+                    if id_val:
+                        identifiers[id_type] = id_val
 
-        # PID-3 - Identifiers
-        if hasattr(segment, "pid_3") and segment.pid_3:
-            for cx in segment.pid_3:
-                id_value = cx.cx_1.value if cx.cx_1 else None
-                id_type = cx.cx_5.value if cx.cx_5 else "UNKNOWN"
-                if id_value:
-                    identifiers[id_type] = id_value
-
-        # PID-7 - DOB
-        dob_year = None
-        over_90 = False
-        if hasattr(segment, "pid_7") and segment.pid_7 and segment.pid_7.ts_1:
-            dob_str = segment.pid_7.ts_1.value
+            # Birth date (PID-7)
+            dob_str = get(7)
+            dob_year = None
+            over_90 = False
             if dob_str:
                 try:
-                    dob = datetime.strptime(dob_str[:8], "%Y%m%d")
+                    dob = datetime.strptime(dob_str, "%Y%m%d")
                     dob_year = dob.year
-                    age = datetime.now().year - dob.year
-                    over_90 = age >= 90
-                except Exception:
-                    dob_year = None
-                    over_90 = False
+                    over_90 = datetime.now().year - dob_year >= 90
+                except Exception as e:
+                    logger.warning(f"Could not parse DOB: {dob_str} ({e})")
 
-        # PID-8 - Gender
-        gender = segment.pid_8.value if hasattr(segment, "pid_8") else None
+            # Gender (PID-8)
+            gender = None
+            if len(seg.fields) > 8:
+                gender_field = seg.fields[8]
+                if gender_field and gender_field.repetitions:
+                    gender = str(gender_field.repetitions[0])
+                    # Clean up any extra characters if needed
+                    if gender:
+                        gender = gender.strip()
 
-        # PID-11 - Geographic area
-        geographic_area = None
-        if hasattr(segment, "pid_11") and segment.pid_11:
-            addr = segment.pid_11[0]
-            zip_code = addr.xad_6.value if addr.xad_6 else None
-            state = addr.xad_5.value if addr.xad_5 else None
-            if zip_code and state:
-                geographic_area = f"{zip_code} {state}"
-            elif zip_code:
-                geographic_area = zip_code
-            elif state:
-                geographic_area = state
+            # Geographic area (PID-11)
+            geo = pid.fields[11][0] if len(pid) > 11 and pid[11] else []
+            geo_parts = [geo[2][0] if len(geo) > 2 and geo[2] else None,
+                         geo[3][0] if len(geo) > 3 and geo[3] else None,
+                         geo[5][0] if len(geo) > 5 and geo[5] else None]
+            geographic_area = " ".join([p for p in geo_parts if p]) or None
 
-        # --- PatientPreferences ---
-        preferences = PatientPreferences(
-            preferred_language=segment.pid_15.value if segment.pid_15 else None,
-            communication_method="Phone" if (hasattr(segment, "pid_13") and segment.pid_13) else None,
-            requires_interpreter=None,
-            preferred_contact_time=None,
-            notes=None
-        )
+            preferred_language = pid.get(16)
+            marital_status     = pid.get(17)
+            religion           = pid.get(18)
 
-        content.patient = PatientInfo(
-            id=identifiers.get("MR") or identifiers.get("UNKNOWN") or None,
-            dob_year=dob_year,
-            over_90=over_90,
-            gender=gender,
-            geographic_area=geographic_area,
-            identifiers=identifiers if identifiers else None,
-            preferences=[preferences] if any(vars(preferences).values()) else None
-        )
+            preferences = []
+            if preferred_language or marital_status or religion:
+                preferences.append(PatientPreferences(
+                    preferred_language=preferred_language,
+                    communication_method=None,
+                    requires_interpreter=None,
+                    preferred_contact_time=None,
+                    notes=f"Marital Status: {marital_status}, Religion: {religion}"
+                ))
+
+            content.patient = PatientInfo(
+                id=identifiers.get("MR") or identifiers.get("UNIQUE"),
+                dob_year=dob_year,
+                over_90=over_90,
+                gender=gender,
+                geographic_area=geographic_area,
+                identifiers=identifiers if identifiers else None,
+                preferences=preferences if preferences else None
+            )
+
+            if content.patient.id:
+                cache['patient_id'] = content.patient.id
+
+            logger.info(f"Mapped patient: id={content.patient.id}, preferences={content.patient.preferences}")
+
+        except Exception as e:
+            logger.exception(f"Error mapping PID segment: {e}")
+            raise
 
 register_mapper(PIDMapper())

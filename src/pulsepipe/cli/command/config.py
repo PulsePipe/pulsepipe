@@ -153,12 +153,11 @@ def create_profile(base, adapter, ingester, name, description, force):
     """
     logger = LogFactory.get_logger("config.create_profile")
     
-    # Ensure config directory exists
+    # Ensure config directory exists - prioritize config next to the binary
     config_dir = Path("config")
     if not config_dir.exists():
-        config_dir = Path("src/pulsepipe/config")
-        if not config_dir.exists():
-            config_dir.mkdir(parents=True)
+        config_dir.mkdir(parents=True)
+        logger.info(f"📁 Created config directory: {config_dir}")
     
     # Check if profile already exists
     profile_path = config_dir / f"{name}.yaml"
@@ -173,11 +172,12 @@ def create_profile(base, adapter, ingester, name, description, force):
         ingester_config = load_config(ingester)
         
         # Create unified profile
+        from datetime import datetime
         profile_config = {
             "profile": {
                 "name": name,
                 "description": description or f"{name} profile",
-                "created_at": "auto-generated"
+                "created_at": datetime.now().strftime("%Y-%m-%d")
             },
             "adapter": adapter_config.get("adapter", {}),
             "ingester": ingester_config.get("ingester", {}),

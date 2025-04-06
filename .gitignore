@@ -29,7 +29,7 @@ MANIFEST
 #PulsePipe related:
 .pulsepipe/state/ingestion.sqlite3
 incoming/*
-
+config/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

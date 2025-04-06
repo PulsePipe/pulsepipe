@@ -32,6 +32,8 @@ import os
 import json
 import asyncio
 import click
+import logging
+from pathlib import Path
 
 from pulsepipe.utils.config_loader import load_config
 from pulsepipe.utils.factory import create_adapter, create_ingester
@@ -40,6 +42,29 @@ from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.cli.options import output_options
 from pulsepipe.pipelines.chunkers.clinical_chunker import ClinicalSectionChunker
 from pulsepipe.pipelines.chunkers.operational_chunker import OperationalEntityChunker
+
+
+def find_profile_path(profile_name: str) -> str:
+    """Find the profile configuration file in the appropriate directories."""
+    # Define possible locations in priority order
+    possible_locations = [
+        # 1. Check in ./config/ next to the binary
+        os.path.join("config", f"{profile_name}.yaml"),
+        # 2. Check in the current directory
+        f"{profile_name}.yaml",
+        # 3. Check in the location relative to the script directory (for development)
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "config", f"{profile_name}.yaml"),
+        # 4. As a fallback, try the src path
+        os.path.join("src", "pulsepipe", "config", f"{profile_name}.yaml"),
+    ]
+    
+    # Try each location
+    for location in possible_locations:
+        if os.path.exists(location):
+            return location
+    
+    # Return None if not found
+    return None
 
 
 async def run_single_pipeline(ctx, adapter_config, ingester_config, profile_name,
@@ -206,19 +231,58 @@ async def run_from_pipeline_config(ctx, pipeline_config_path, pipeline_names=Non
 @click.command()
 @click.option('--adapter', '-a', type=click.Path(exists=True, dir_okay=False), help="Adapter config YAML")
 @click.option('--ingester', '-i', type=click.Path(exists=True, dir_okay=False), help="Ingester config YAML")
-@click.option('--pipeline-config', '-p', type=click.Path(exists=True, dir_okay=False), help="Pipeline config YAML")
+@click.option('--profile', '-p', type=str, help="Profile name to use (e.g., new_profile)")
+@click.option('--pipeline-config', '-pc', type=click.Path(exists=True, dir_okay=False), help="Pipeline config YAML")
 @click.option('--pipeline', '-n', multiple=True, help="Specific pipeline names to run")
 @click.option('--all', 'run_all', is_flag=True, help="Run all pipelines in config")
 @click.option('--timeout', type=float, default=30.0, help="Timeout for file-based processing")
 @click.option('--continuous/--one-time', 'continuous_mode', default=None)
 @output_options
 @click.pass_context
-def run(ctx, adapter, ingester, pipeline_config, pipeline, run_all, timeout,
+def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, timeout,
         continuous_mode, print_model, summary, output, pretty):
-
+    """Run a data processing pipeline.
+    
+    Process healthcare data through configurable adapters and ingesters.
+    """
     pipeline_context = ctx.obj.get('context')
     try:
-        if pipeline_config:
+        # Handle profile-based execution
+        if profile:
+            # Find the profile path using the helper function
+            profile_path = find_profile_path(profile)
+            
+            if not profile_path:
+                click.echo(f"❌ Profile not found: {profile}", err=True)
+                click.echo(f"   Searched in: ./config/, ./, and src/pulsepipe/config/", err=True)
+                ctx.exit(1)
+            
+            profile_config = load_config(profile_path)
+            adapter_config = profile_config.get('adapter', {})
+            ingester_config = profile_config.get('ingester', {})
+            chunker_config = profile_config.get('chunker', {})
+            
+            # Set context profile name
+            if pipeline_context:
+                pipeline_context.profile = profile
+                
+            click.echo(f"📋 Using profile: {profile} from {profile_path}")
+            success = asyncio.run(run_single_pipeline(
+                ctx=ctx,
+                adapter_config=adapter_config,
+                ingester_config=ingester_config,
+                profile_name=profile,
+                summary=summary,
+                print_model=print_model,
+                output=output,
+                pretty=pretty,
+                timeout=timeout,
+                continuous_override=continuous_mode,
+                chunker_config=chunker_config
+            ))
+        
+        # Handle pipeline config execution
+        elif pipeline_config:
             success = asyncio.run(run_from_pipeline_config(
                 ctx=ctx,
                 pipeline_config_path=pipeline_config,
@@ -231,7 +295,9 @@ def run(ctx, adapter, ingester, pipeline_config, pipeline, run_all, timeout,
                 timeout=timeout,
                 continuous_override=continuous_mode
             ))
-        else:
+        
+        # Handle explicit adapter/ingester config execution
+        elif adapter and ingester:
             adapter_config = load_config(adapter).get('adapter', {})
             ingester_config = load_config(ingester).get('ingester', {})
             success = asyncio.run(run_single_pipeline(
@@ -247,6 +313,12 @@ def run(ctx, adapter, ingester, pipeline_config, pipeline, run_all, timeout,
                 continuous_override=continuous_mode,
                 chunker_config=ingester_config.get("chunker", {})
             ))
+        
+        # No configuration provided
+        else:
+            click.echo("❌ Error: You must specify either --profile, --pipeline-config, or both --adapter and --ingester", err=True)
+            ctx.exit(1)
+            
         if not success:
             ctx.exit(1)
     except Exception as e:

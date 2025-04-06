@@ -115,6 +115,9 @@ poetry run python  # Opens a Python REPL using the managed virtualenv
 # Run unit tests
 poetry run pytest
 
+# Run verbose
+poetry run pytest -s
+
 # Run tests with coverage report
 poetry run pytest --cov=src/ --cov-report=term-missing tests/
 

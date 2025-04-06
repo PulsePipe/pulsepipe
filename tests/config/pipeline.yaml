@@ -33,7 +33,10 @@ pipelines:
     ingester:
       type: fhir
       version: "R4"
-        
+    chunker:
+      type: auto
+      export_chunks_to: "jsonl"
+
   - name: hl7v2_lab_results
     description: "Process HL7v2 lab results"
     active: true
@@ -45,7 +48,10 @@ pipelines:
     ingester:
       type: hl7v2
       message_types: ["ORU^R01"]
-        
+    chunker:
+      type: auto
+      export_chunks_to: "jsonl"
+     
   - name: x12_billing
     description: "Process X12 billing data"
     active: true
@@ -57,4 +63,7 @@ pipelines:
     ingester:
       type: x12
       transaction_types: ["837", "835"]
+    chunker:
+      type: auto
+      export_chunks_to: "jsonl"
   

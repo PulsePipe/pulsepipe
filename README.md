@@ -132,6 +132,53 @@ poetry run isort src/ tests/
 
 ---
 
+## 📦 Running and Using
+
+PulsePipe is built for CLI-first interaction. Once installed via Poetry, you can run pipelines using a simple command:
+
+```bash
+pulsepipe run --profile <your_profile>
+```
+
+This will load the specified YAML profile and start ingesting and processing data based on your configuration.
+
+### Common Commands
+
+```bash
+# Run a pipeline using a profile
+pulsepipe run --profile patient_fhir
+
+# View a summary after run
+pulsepipe run --profile patient_fhir --summary
+
+# Print the normalized data model
+pulsepipe run --profile patient_fhir --print-model
+
+# Run using adapter + ingester configs directly
+pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
+
+# Run all pipelines from a pipeline.yaml
+pulsepipe run --pipeline-config pipeline.yaml
+```
+
+You can also manage configs, inspect models, and reset bookmarks using CLI subcommands:
+
+```bash
+# Validate a config
+pulsepipe config validate --profile patient_fhir
+
+# List processed files for file watcher
+pulsepipe config filewatcher list
+
+# View model schemas
+pulsepipe model schema pulsepipe.models.PulseClinicalContent
+```
+
+For **full documentation**, see  
+📄 [`src/pulsepipe/cli/README.md`](src/pulsepipe/cli/README.md)
+
+
+---
 ## 📈 Architecture Diagram
 
 ![PulsePipe Architecture](docs/pulsepipe_architecture_layers.png)

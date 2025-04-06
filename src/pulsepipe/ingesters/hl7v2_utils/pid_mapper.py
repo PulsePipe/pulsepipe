@@ -23,96 +23,66 @@
 
 import logging
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
-from hl7apy.core import Segment
+from .message import Segment
 from pulsepipe.models import PatientInfo, PatientPreferences
+from pulsepipe.models.clinical_content import PulseClinicalContent
 from .base_mapper import HL7v2Mapper, register_mapper
 
 logger = logging.getLogger(__name__)
 
-def safe_get_value(field, default=None):
-    """
-    Safely extract value from an HL7 field with multiple extraction strategies
-    """
-    if not field:
-        return default
-    
-    try:
-        # Try multiple extraction methods
-        extractors = [
-            lambda: field.value,
-            lambda: field.ce_1.value if hasattr(field, 'ce_1') and field.ce_1 else None,
-            lambda: field.xpn_1.value if hasattr(field, 'xpn_1') and field.xpn_1 else None,
-        ]
-        
-        for extractor in extractors:
-            try:
-                value = extractor()
-                if value:
-                    return value
-            except Exception:
-                continue
-        
-        return default
-    except Exception as e:
-        logger.warning(f"Error extracting field value: {e}")
-        return default
 
 class PIDMapper(HL7v2Mapper):
-    def accepts(self, segment: Segment) -> bool:
-        return segment.name == "PID"
+    def accepts(self, seg: Segment) -> bool:
+        return (seg.id == 'PID')
 
-    def map(self, segment: Segment, content, cache: Dict[str, Any]):
+    def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
         try:
-            # Log detailed segment information
-            logger.debug(f"Mapping PID segment")
-            
-            # Identifiers
+            pid = seg
+            get = lambda f, c=1, s=1: seg.get(f"{f}.{c}.{s}")
+            # Identifiers (PID-3)
             identifiers = {}
-            
-            # PID-3: Patient Identifiers
-            if hasattr(segment, 'pid_3') and segment.pid_3:
-                for cx in segment.pid_3:
-                    id_value = safe_get_value(cx.cx_1) if hasattr(cx, 'cx_1') else None
-                    id_type = safe_get_value(cx.cx_5) if hasattr(cx, 'cx_5') else "UNKNOWN"
-                    
-                    if id_value:
-                        identifiers[id_type] = id_value
+            reps = pid.fields[3] if len(pid.fields) > 3 else []
+            for rep in reps:
+                if rep and len(rep) >= 5:
+                    id_val = rep[0][0] if rep[0] else None
+                    id_type = rep[4][0] if len(rep) > 4 and rep[4] else "UNKNOWN"
+                    if id_val:
+                        identifiers[id_type] = id_val
 
-            # Birth Date
+            # Birth date (PID-7)
+            dob_str = get(7)
             dob_year = None
             over_90 = False
-            if hasattr(segment, 'pid_7') and segment.pid_7:
-                dob_str = safe_get_value(segment.pid_7)
-                if dob_str:
-                    try:
-                        dob = datetime.strptime(dob_str, "%Y%m%d")
-                        dob_year = dob.year
-                        age = datetime.now().year - dob.year
-                        over_90 = age >= 90
-                    except ValueError:
-                        logger.warning(f"Could not parse date: {dob_str}")
+            if dob_str:
+                try:
+                    dob = datetime.strptime(dob_str, "%Y%m%d")
+                    dob_year = dob.year
+                    over_90 = datetime.now().year - dob_year >= 90
+                except Exception as e:
+                    logger.warning(f"Could not parse DOB: {dob_str} ({e})")
 
-            # Gender
-            gender = safe_get_value(segment.pid_8) if hasattr(segment, 'pid_8') else None
+            # Gender (PID-8)
+            gender = None
+            if len(seg.fields) > 8:
+                gender_field = seg.fields[8]
+                if gender_field and gender_field.repetitions:
+                    gender = str(gender_field.repetitions[0])
+                    # Clean up any extra characters if needed
+                    if gender:
+                        gender = gender.strip()
 
-            # Geographic Area (PID-11)
-            geographic_area = None
-            if hasattr(segment, 'pid_11') and segment.pid_11:
-                addr = segment.pid_11[0]
-                city = safe_get_value(addr.xad_3) if hasattr(addr, 'xad_3') else None
-                state = safe_get_value(addr.xad_4) if hasattr(addr, 'xad_4') else None
-                zip_code = safe_get_value(addr.xad_6) if hasattr(addr, 'xad_6') else None
-                
-                # Construct geographic area string
-                area_parts = [p for p in [city, state, zip_code] if p]
-                geographic_area = " ".join(area_parts) if area_parts else None
+            # Geographic area (PID-11)
+            geo = pid.fields[11][0] if len(pid) > 11 and pid[11] else []
+            geo_parts = [geo[2][0] if len(geo) > 2 and geo[2] else None,
+                         geo[3][0] if len(geo) > 3 and geo[3] else None,
+                         geo[5][0] if len(geo) > 5 and geo[5] else None]
+            geographic_area = " ".join([p for p in geo_parts if p]) or None
 
-            # Patient Preferences
-            preferred_language = safe_get_value(segment.pid_15) if hasattr(segment, 'pid_15') else None
-            marital_status = safe_get_value(segment.pid_16) if hasattr(segment, 'pid_16') else None
-            religion = safe_get_value(segment.pid_17) if hasattr(segment, 'pid_17') else None
+            preferred_language = pid.get(16)
+            marital_status     = pid.get(17)
+            religion           = pid.get(18)
 
             preferences = []
             if preferred_language or marital_status or religion:
@@ -124,7 +94,6 @@ class PIDMapper(HL7v2Mapper):
                     notes=f"Marital Status: {marital_status}, Religion: {religion}"
                 ))
 
-            # Create PatientInfo
             content.patient = PatientInfo(
                 id=identifiers.get("MR") or identifiers.get("UNIQUE"),
                 dob_year=dob_year,
@@ -139,7 +108,7 @@ class PIDMapper(HL7v2Mapper):
             if content.patient.id:
                 cache['patient_id'] = content.patient.id
 
-            logger.debug(f"Successfully mapped patient: {content.patient}")
+            logger.info(f"Mapped patient: id={content.patient.id}, preferences={content.patient.preferences}")
 
         except Exception as e:
             logger.exception(f"Error mapping PID segment: {e}")

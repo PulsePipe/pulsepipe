@@ -27,10 +27,11 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Poetry
     - [x] Pytest
     - [x] Mypy
-- [ ] HL7 v2.x ingestion
+- [x] HL7 v2.x ingestion
 - [ ] De-identification via Presidio + Clinical NER models
 - [ ] 🧬 Composable Chunking + Embedding Framework
-    - [ ] `Chunker` and `Embedder` base class interfaces
+    - [x] `Chunker` base class interfaces
+    - [ ] `Embedder` base class interfaces
     - [ ] YAML configuration for chunkers and embedders
     - [ ] `FhirBundleSplitterChunker`: splits on `entry.resource`
     - [ ] `NarrativeChunker`: extracts and truncates text narrative fields
@@ -48,7 +49,7 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] Embedding pipeline supporting:
     - [ ] ClinicalBERT
     - [ ] OpenAI GPT-3 / GPT-4
-    - [ ] DeepSeek
+    - [ ] Llama 4 Maverick: https://www.llama.com/
 - [ ] Vector database integration:
     - [ ] Pinecone
     - [ ] Weaviate
@@ -187,8 +188,8 @@ This document outlines the planned milestones and future direction of the PulseP
     - Optimized for serverless and containerized environments
 - [ ] First-class support for open-source clinical models:
     - DeepSeek
-    - Meta Llama (with healthcare adaptations)
-    - BioBERT, ClinicalBERT, and Med-BERT family
+    - SaaS based on Llama 4 Maverick (with healthcare adaptations)
+    - SaaS based on BioBERT, ClinicalBERT, and Med-BERT family
 - [ ] Production-ready **PulsePilot** UI:
     - End-user ready
     - Query builders and advanced search

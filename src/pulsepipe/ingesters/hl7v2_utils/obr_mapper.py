@@ -20,68 +20,59 @@
 # ------------------------------------------------------------------------------
 
 # src/pulsepipe/ingesters/hl7v2_utils/obr_mapper.py
+
 import logging
 from typing import Dict, Any
 
-from hl7apy.core import Segment
+from .message import Segment
 from .base_mapper import HL7v2Mapper, register_mapper
+from pulsepipe.models import LabReport, LabObservation
+from pulsepipe.models.clinical_content import PulseClinicalContent
 
 logger = logging.getLogger(__name__)
 
-def safe_get_value(field, default=None):
-    """
-    Safely extract value from an HL7 field with multiple extraction strategies
-    """
-    if not field:
-        return default
-    
-    try:
-        # Try multiple extraction methods
-        extractors = [
-            lambda: field.value,
-            lambda: field.ce_1.value if hasattr(field, 'ce_1') and field.ce_1 else None,
-        ]
-        
-        for extractor in extractors:
-            try:
-                value = extractor()
-                if value:
-                    return value
-            except Exception:
-                continue
-        
-        return default
-    except Exception as e:
-        logger.warning(f"Error extracting field value: {e}")
-        return default
-
 class OBRMapper(HL7v2Mapper):
-    def accepts(self, segment: Segment) -> bool:
-        return segment.name == "OBR"
+    def accepts(self, seg: Segment) -> bool:
+        return (seg.id == 'OBR')
 
-    def map(self, segment: Segment, content, cache: Dict[str, Any]):
+    def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
         try:
-            # Log detailed segment information
-            logger.debug(f"Mapping OBR segment")
+            get = lambda f, c=1, s=1: seg.get(f"{f}.{c}.{s}")
 
-            # Extract observation details
-            code = safe_get_value(segment.obr_4.ce_1) if hasattr(segment, 'obr_4') else None
-            code_text = safe_get_value(segment.obr_4.ce_2) if hasattr(segment, 'obr_4') else None
-            code_system = safe_get_value(segment.obr_4.ce_3) if hasattr(segment, 'obr_4') else None
+            observation_id = get(3)
+            panel_code = get(4, 1)
+            panel_text = get(4, 2)
+            panel_system = get(4, 3)
+            collection_date = get(7)
 
-            # Observation date
-            observation_date = safe_get_value(segment.obr_7) if hasattr(segment, 'obr_7') else None
+            # Save to cache for OBXMapper
+            cache["current_panel_code"] = panel_code
+            cache["current_panel_name"] = panel_text
+            cache["current_observation_date"] = collection_date
+            cache["context"] = panel_text or ""
 
-            # Update context in cache
-            if code:
-                cache['current_observation_type'] = code
-                cache['current_observation_date'] = observation_date
-
-            logger.debug(f"Successfully mapped OBR: {code}")
+            report = LabReport(
+                report_id=None,
+                lab_type=None,
+                code=panel_code,
+                coding_method=panel_system or "L",
+                panel_name=panel_text,
+                panel_code=panel_code,
+                panel_code_method=panel_system or "L",
+                is_panel=True,
+                ordering_provider_id=cache.get("ordering_provider_id"),
+                performing_lab="Lab",
+                report_type="Laboratory",
+                collection_date=collection_date,
+                observations=[],
+                note="",
+                patient_id=cache.get("patient_id"),
+                encounter_id=cache.get("encounter_id")
+            )
+            content.lab.append(report)
+            logger.info(f"Mapped OBR {panel_code} - {panel_text}")
 
         except Exception as e:
-            logger.exception(f"Error mapping OBR segment: {e}")
-            raise
+            logger.exception("Error mapping OBR segment")
 
-# Register the mapper
 register_mapper(OBRMapper())

@@ -21,6 +21,7 @@
 
 # tests/test_hl7v2_ingester.py
 
+import sys
 import pytest
 import logging
 from pathlib import Path
@@ -29,6 +30,34 @@ from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
 # Set up logging for tests
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Configure root logger to show all messages
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+
+# Create console handler that prints to stdout
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
+
+# Create a formatter with detailed info
+formatter = logging.Formatter('%(levelname)s - %(name)s - %(message)s')
+console_handler.setFormatter(formatter)
+
+# Add the handler to the root logger
+root_logger.addHandler(console_handler)
+
+# Set specific module loggers to DEBUG
+for module in ['pulsepipe.ingesters.hl7v2_utils.pid_mapper', 
+               'pulsepipe.ingesters.hl7v2_utils.obr_mapper',
+               'pulsepipe.ingesters.hl7v2_utils.obx_mapper',
+               'pulsepipe.ingesters.hl7v2_ingester']:
+    module_logger = logging.getLogger(module)
+    module_logger.setLevel(logging.DEBUG)
+
+# Helper function for direct console output during tests
+def debug_print(message):
+    """Print debug message directly to console, even during pytest run"""
+    print(f"\nDEBUG: {message}", flush=True)
 
 class TestHL7v2Ingester:
     """Tests for the HL7v2 ingester class."""
@@ -42,8 +71,9 @@ class TestHL7v2Ingester:
             
         with pytest.raises(ValueError, match="Empty HL7v2 data received"):
             ingester.parse("   ")
-            
-        logger.info("Empty data test passed")
+
+        module_logger.info("Empty data test passed")
+
     
     def test_parse_single_message(self):
         """Test parsing a single simple HL7 message."""
@@ -66,9 +96,10 @@ PID|1||12345^^^HOSP^MR||SMITH^JOHN||19800101|M|||123 Main St^^Boston^MA^02115^US
         assert preferences is not None
         assert preferences.preferred_language == "EN", "Language should be EN"
         
-        logger.info(f"Successfully parsed patient: {content[0].patient.id}")
-        logger.info("Single message test passed")
-    
+        module_logger.info(f"Successfully parsed patient: {content[0].patient.id}")
+        module_logger.info("Single message test passed")
+
+
     def test_malformed_message(self):
         """Test handling of malformed HL7 messages."""
         # Create a malformed message with invalid format
@@ -95,8 +126,9 @@ PID|1||234567^^^HOSP^MR||SMITH^JANE||19450215|F"""
         print("\nHL7 Content: \n", content[0], "\n")
         assert content[0].patient is not None  # Should have extracted patient info from valid segments
         
-        logger.info("Malformed message test passed")
-    
+        module_logger.info("Malformed message test passed")
+
+
     def test_vital_signs(self):
         """Test parsing vital signs from ORU messages."""
         # Create an HL7 vital signs message
@@ -117,11 +149,11 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         assert content[0] is not None
         assert content[0].patient is not None
         assert len(content[0].vital_signs) > 0, "Vital signs should be parsed"
-        
+
         # Log vital signs details
-        logger.info(f"Parsed {len(content[0].vital_signs)} vital signs")
+        module_logger.info(f"Parsed {len(content[0].vital_signs)} vital signs")
         for vs in content[0].vital_signs:
-            logger.info(f"Vital sign: {vs.display}, value: {vs.value}, unit: {vs.unit}")
+            module_logger.info(f"Vital sign: {vs.display}, value: {vs.value}, unit: {vs.unit}")
         
         # Check for specific vital signs
         assert any('BP' in vs.display or 'BLOOD PRESSURE' in vs.display for vs in content[0].vital_signs), \
@@ -132,9 +164,9 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
             
         assert any('HR' in vs.display or 'HEART RATE' in vs.display for vs in content[0].vital_signs), \
             "Heart rate vital sign should be present"
-        
-        logger.info("Vital signs test passed")
-    
+
+        module_logger.info("Vital signs test passed")
+
     def test_parse_multiple_messages(self):
         """Test parsing multiple HL7 messages from fixture file."""
         # Load fixture file
@@ -146,7 +178,8 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         with open(fixture_path, 'r') as f:
             hl7_data = f.read()
         
-        logger.info(f"Loaded fixture file: {fixture_path}")
+        module_logger.info(f"Loaded fixture file: {fixture_path}")
+
         
         # Parse with HL7v2 ingester
         ingester = HL7v2Ingester()
@@ -157,32 +190,38 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         assert content[0].patient is not None
         
         # Log summary of parsed data
-        logger.info(content[0].summary())
+        module_logger.info(content[0].summary())
+
         
         # Patient should be from one of the messages
         assert content[0].patient.id in ["123456", "234567", "345678", "456789"]
         
         # We should have lab data and vital signs from the ORU messages
-        logger.info(f"Lab reports: {len(content[0].lab)}")
-        logger.info(f"Vital signs: {len(content[0].vital_signs)}")
+
+        module_logger.info(f"Lab reports: {len(content[0].lab)}")
+        module_logger.info(f"Vital signs: {len(content[0].vital_signs)}")
         print("!!!!Lab Result\n", content[2])
         # Verify lab results are present
         assert len(content[2].lab) > 0, "Should have lab results from the CBC in ORU message"
-        
+
         # Find CBC lab results 
         has_cbc_results = False
         for lab_report in content[2].lab:
             for observation in lab_report.observations:
-                if "CBC" in str(observation.name) or "WBC" in str(observation.name) or "RBC" in str(observation.name):
+                observation_name = str(observation.name).upper() if observation.name else ""
+                observation_code = str(observation.code).upper() if observation.code else ""
+                if any(term in observation_name or term in observation_code 
+                    for term in ["CBC", "WBC", "RBC", "HGB", "HEMOGLOBIN"]):
+                    print(f"Found CBC-related result: {observation.name} ({observation.code})")
                     has_cbc_results = True
                     break
-        
+
         assert has_cbc_results, "CBC lab results should be present"
         
         # Check vital signs
         if len(content[3].vital_signs) > 0:
             # At least some vital signs were mapped
             vital_names = [vs.display for vs in content[3].vital_signs]
-            logger.info(f"Vital sign names: {vital_names}")
-        
-        logger.info("Multiple message test passed")
+            module_logger.info(f"Vital sign names: {vital_names}")
+       
+        module_logger.info("Multiple message test passed")

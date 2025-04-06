@@ -22,22 +22,23 @@
 # src/pulsepipe/ingesters/hl7v2_ingester.py
 
 import logging
-import traceback
 import re
 
-from hl7apy.parser import parse_segment, parse_message
 from pulsepipe.models import PulseClinicalContent, MessageCache
 
 # Import mappers to ensure registration
-from .hl7v2_utils import base_mapper
-from .hl7v2_utils import pid_mapper  # Core mapper
-from .hl7v2_utils import obx_mapper
-from .hl7v2_utils import obr_mapper
+from .hl7v2_utils.parser import HL7Message
+from .hl7v2_utils.base_mapper import HL7v2Mapper
+from .hl7v2_utils.msh_mapper import MSHMapper
+from .hl7v2_utils.pid_mapper import PIDMapper
+from .hl7v2_utils.obr_mapper import OBRMapper
+from .hl7v2_utils.obx_mapper import OBXMapper
 
 logger = logging.getLogger(__name__)
 
 class HL7v2Ingester:
-    def parse(self, raw_data: str) -> list:
+
+    def parse(self, hl7_blob: str) -> list:
         """
         Parse multiple HL7 messages from a single input string.
         
@@ -47,36 +48,38 @@ class HL7v2Ingester:
         Returns:
             List of parsed PulseClinicalContent objects
         """
-        if not raw_data.strip():
+
+        if not hl7_blob.strip():
             raise ValueError("Empty HL7v2 data received")
 
-        # Use a more robust regex to split messages
-        # This ensures we correctly separate complete MSH segments
-        messages = re.split(r'(?=MSH\|)', raw_data.strip())
-        
-        if not messages or len(messages) < 2:
+        # Normalize all line endings
+        normalized = hl7_blob.replace('\r\n', '\r').replace('\n', '\r')
+
+        messages = []
+
+        # Use regex to split on MSH boundaries
+        messages = re.split(r'(?=MSH\|)', normalized.strip())
+        messages = [msg for msg in messages if msg.strip()]
+
+        # Check that we have at least one valid HL7 message
+        if not any(msg.startswith("MSH|") for msg in messages):
             raise ValueError("This is not an HL7 message")
-    
-        # Remove any empty strings from the list
-        messages = [msg.strip() for msg in messages if msg.strip()]
-        
+
+        # Create a list for results
         parsed_contents = []
-        for i, message in enumerate(messages, 1):
+
+        for i, msg in enumerate(messages):
             try:
-                # Ensure the message starts with MSH
-                if not message.startswith('MSH'):
-                    message = 'MSH' + message
-                
-                parsed_content = self.parseImp(message)
-                parsed_contents.append(parsed_content)
+                parsed_msg = HL7Message(msg)
+                content = self.parseImp(parsed_msg)
+                parsed_contents.append(content)
             except Exception as e:
-                logger.error(f"Error parsing message {i}: {e}")
-                logger.debug(f"Problematic message: {message}")
-                logger.debug(traceback.format_exc())
-        
+                print(f"❌ Failed parsing or mapping message {i}: {e}")
+
         return parsed_contents
 
-    def parseImp(self, raw_data: str) -> PulseClinicalContent:
+
+    def parseImp(self, hl7_message: HL7Message) -> PulseClinicalContent:
         """
         Parse a single HL7v2 message.
         
@@ -87,10 +90,7 @@ class HL7v2Ingester:
             PulseClinicalContent object
         """
 
-        try:
-            # Clean the version in the MSH segment and normalize line endings
-            cleaned_raw_data = self._clean_hl7_version(raw_data)
-            
+        try:     
             # Create content template
             content = PulseClinicalContent(
                 patient=None,
@@ -128,124 +128,22 @@ class HL7v2Ingester:
                 "resource_index": {}
             }
 
-            # Parsing arguments
-            parse_args = {
-                'validation_level': 2,  # Less strict validation
-                'force_validation': False
-            }
-            
-            # Parse message details (MSH)
-            message = parse_message(cleaned_raw_data, **parse_args)
+            print(f"\nHL7 Message: {hl7_message}\n")
+            # important, implement cache
+            for segment in hl7_message.segments:
+                segment_id = segment.id
+                if segment_id == "MSH":
+                    MSHMapper().map(segment, content, cache)
+                elif segment_id == "PID":
+                    PIDMapper().map(segment, content, cache)
+                elif segment_id == "OBR":
+                    OBRMapper().map(segment, content, cache)
+                elif segment_id == "OBX":
+                    OBXMapper().map(segment, content, cache)
 
-            # Split message into segments for individual parsing
-            segments = cleaned_raw_data.split('\r\n')
-
-            # Parse each segment individually
-            for segment_str in segments:
-                segment_str = segment_str.strip()
-                if not segment_str:
-                    continue
-                
-                try:
-                    # Parse segment using parse_segment
-                    parse_args = {
-                        'validation_level': 2,  # Less strict validation
-                        'force_validation': False
-                    }
-                    
-                    # Extract segment type for debugging
-                    segment_type = segment_str.split('|')[0] if '|' in segment_str else 'UNKNOWN'
-                    
-                    # Parse the segment
-                    segment = parse_segment(segment_str, version=message.version, encoding_chars=message.encoding_chars, validation_level=2)
-                    
-                    logger.debug(f"Successfully parsed segment: {segment_type}")
-                    
-                    # Map segment using registered mappers
-                    self._map_segment(segment, content, cache)
-                    
-                except Exception as e:
-                    logger.error(f"Error parsing segment '{segment_str}': {e}")
-                    logger.debug(traceback.format_exc())
-            
             logger.debug(f"Finished parsing. Patient: {content.patient}")
             return content
 
         except Exception as e:
             logger.exception("HL7v2 parsing error")
             raise ValueError(f"Failed to parse HL7v2 message: {str(e)}") from e
-
-    def _clean_hl7_version(self, raw_data: str) -> str:
-        """
-        Clean the HL7 version field to remove any newline or unexpected characters.
-        Also ensures proper line endings.
-        
-        Args:
-            raw_data (str): Raw HL7 message
-        
-        Returns:
-            str: Cleaned HL7 message with proper version
-        """
-        # Normalize line endings
-        raw_data = raw_data.replace('\r\n', '\n').replace('\r', '\n')
-        
-        # Convert back to HL7 standard \r\n
-        raw_data = raw_data.replace('\n', '\r\n')
-        
-        # Split the raw data into lines
-        lines = raw_data.split('\r\n')
-        
-        # Find and process the MSH line
-        for i, line in enumerate(lines):
-            if line.startswith('MSH|'):
-                # Split MSH components
-                msh_parts = line.split('|')
-                
-                # Ensure we have enough parts and the version field exists
-                if len(msh_parts) >= 12:
-                    # Extract version, removing any newline or unexpected characters
-                    version = re.sub(r'[^\d.]', '', msh_parts[11])
-                    
-                    # Replace the version field
-                    msh_parts[11] = version
-                    
-                    # Reconstruct the MSH line
-                    lines[i] = '|'.join(msh_parts)
-                
-                break
-        
-        # Reconstruct the cleaned message
-        return '\r\n'.join(lines)
-
-    def _map_segment(self, segment, content: PulseClinicalContent, cache: dict):
-        """
-        Map a single segment using registered mappers
-        
-        Args:
-            segment: HL7 segment to map
-            content: PulseClinicalContent to populate
-            cache: Shared context dictionary
-        """
-        # Log the segment details for debugging
-        logger.debug(f"Attempting to map segment: {segment.name}")
-        
-        # Try to find a mapper for this segment
-        mapped = False
-        for mapper in base_mapper.MAPPER_REGISTRY:
-            try:
-                if mapper.accepts(segment):
-                    try:
-                        mapper.map(segment, content, cache)
-                        mapped = True
-                        logger.debug(f"Successfully mapped segment {segment.name} using {mapper.__class__.__name__}")
-                        break
-                    except Exception as e:
-                        logger.error(f"Error mapping segment {segment.name} with {mapper.__class__.__name__}: {e}")
-                        logger.debug(traceback.format_exc())
-            except Exception as e:
-                logger.error(f"Error in mapper {mapper.__class__.__name__}: {e}")
-                logger.debug(traceback.format_exc())
-        
-        # Log if no mapper found
-        if not mapped:
-            logger.warning(f"No mapper found for segment {segment.name}")

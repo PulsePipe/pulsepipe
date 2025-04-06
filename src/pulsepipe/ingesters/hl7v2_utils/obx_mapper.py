@@ -20,126 +20,131 @@
 # ------------------------------------------------------------------------------
 
 # src/pulsepipe/ingesters/hl7v2_utils/obx_mapper.py
+
 import logging
 from typing import Dict, Any
 
-from hl7apy.core import Segment
-from pulsepipe.models import VitalSign, LabReport, LabObservation
+from .message import Segment
 from .base_mapper import HL7v2Mapper, register_mapper
+from pulsepipe.models import VitalSign, LabObservation, LabReport
+from pulsepipe.models.clinical_content import PulseClinicalContent
 
 logger = logging.getLogger(__name__)
 
-def safe_get_value(field, default=None):
-    """
-    Safely extract value from an HL7 field with multiple extraction strategies
-    """
-    if not field:
-        return default
-    
-    try:
-        # Try multiple extraction methods
-        extractors = [
-            lambda: field.value,
-            lambda: field.ce_1.value if hasattr(field, 'ce_1') and field.ce_1 else None,
-        ]
-        
-        for extractor in extractors:
-            try:
-                value = extractor()
-                if value:
-                    return value
-            except Exception:
-                continue
-        
-        return default
-    except Exception as e:
-        logger.warning(f"Error extracting field value: {e}")
-        return default
-
 class OBXMapper(HL7v2Mapper):
-    def accepts(self, segment: Segment) -> bool:
-        return segment.name == "OBX"
+    def accepts(self, seg: Segment) -> bool:
+        return (seg.id == 'OBX')
 
-    def map(self, segment: Segment, content, cache: Dict[str, Any]):
+    def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
         try:
-            # Log detailed segment information
-            logger.debug(f"Mapping OBX segment")
-
-            # Extract observation details
-            observation_type = safe_get_value(segment.obx_2)  # Value type
-            code = safe_get_value(segment.obx_3.ce_1) if hasattr(segment, 'obx_3') else None
-            code_text = safe_get_value(segment.obx_3.ce_2) if hasattr(segment, 'obx_3') else None
-            code_system = safe_get_value(segment.obx_3.ce_3) if hasattr(segment, 'obx_3') else None
+            # The segment is already an OBX segment, so we don't need to get "OBX" from it
+            # Instead, directly access the fields we need
             
-            # Extract value
-            value = safe_get_value(segment.obx_5)
-            units = safe_get_value(segment.obx_6.ce_1) if hasattr(segment, 'obx_6') else None
+            # Get values using direct field access
+            set_id = seg.get(1)  # OBX-1: Set ID
+            value_type = seg.get(2)  # OBX-2: Value Type
             
-            # Reference range
-            ref_range = None
-            if hasattr(segment, 'obx_7'):
-                ref_range = safe_get_value(segment.obx_7)
+            # OBX-3: Observation Identifier
+            code = seg.get(3, 1)  # Code
+            code_text = seg.get(3, 2)  # Text description
+            code_system = seg.get(3, 3)  # Coding system
             
-            # Abnormal flags
-            abnormal_flag = safe_get_value(segment.obx_8) if hasattr(segment, 'obx_8') else None
-
-            # Determine observation category based on code
-            category_map = {
-                'BP': 'vital_signs',
-                'TEMP': 'vital_signs',
-                'HR': 'vital_signs',
-                'WBC': 'lab',
-                'RBC': 'lab',
-                'HGB': 'lab'
-            }
-            category = category_map.get(code, 'unknown')
-
-            # Create appropriate model based on category
+            # OBX-5: Observation Value
+            value = seg.get(5)
+            
+            # OBX-6: Units
+            units = seg.get(6, 1)
+            
+            # OBX-7: Reference Range
+            ref_range = seg.get(7)
+            
+            # OBX-8: Abnormal Flags
+            abnormal_flag = seg.get(8)
+            
+            # OBX-14: Date/Time of the Observation
+            observation_date = seg.get(14) or cache.get("current_observation_date")
+            
+            print(f"DEBUG OBX: code={code}, text={code_text}, value={value}, unit={units}")
+            
+            # Determine category
+            category = self._determine_observation_category(code, code_text, cache)
+            
             if category == 'vital_signs':
-                vital_sign = VitalSign(
-                    code=code,
-                    coding_method=code_system,
-                    display=code_text,
-                    value=value,
-                    unit=units,
-                    timestamp=None,  # Consider extracting from OBR segment
-                    patient_id=cache.get('patient_id'),
-                    encounter_id=None  # You might want to track this from OBR
-                )
-                content.vital_signs.append(vital_sign)
+                self._map_vital_sign(code, code_system, code_text, value, units, observation_date, content, cache)
+            else:
+                self._map_lab_observation(code, code_system, code_text, value, units, ref_range, abnormal_flag, observation_date, content, cache)
             
-            elif category == 'lab':
-                lab_obs = LabObservation(
-                    code=code,
-                    coding_method=code_system,
-                    name=code_text,
-                    description=code_text,
-                    value=str(value),
-                    unit=units,
-                    reference_range=ref_range,
-                    abnormal_flag=abnormal_flag,
-                    result_date=None,  # Consider extracting from OBR segment
-                )
-                
-                # Check if a LabReport already exists, if not create one
-                if not content.lab:
-                    content.lab.append(LabReport(
-                        report_id=None,
-                        lab_type=None,
-                        code=None,
-                        coding_method=None,
-                        panel_name=None,
-                        observations=[lab_obs],
-                        patient_id=cache.get('patient_id')
-                    ))
-                else:
-                    content.lab[0].observations.append(lab_obs)
-
-            logger.debug(f"Successfully mapped OBX: {code} - {value}")
-
+            logger.info(f"Mapped OBX: {code} - {value}")
+            
         except Exception as e:
             logger.exception(f"Error mapping OBX segment: {e}")
-            raise
 
-# Register the mapper
+    def _determine_observation_category(self, code, code_text, cache):
+        context = cache.get("context", "")
+        if code and code.upper() in {"BP", "TEMP", "HR", "RR", "O2SAT"}:
+            return "vital_signs"
+        if code_text and any(term in code_text.upper() for term in ["BLOOD PRESSURE", "TEMPERATURE", "HEART RATE", "RESPIRATORY", "OXYGEN"]):
+            return "vital_signs"
+        if context.startswith("vital"):
+            return "vital_signs"
+        return "lab"
+
+    def _map_vital_sign(self, code, system, text, value, unit, ts, content, cache):
+        try:
+            value_num = float(value) if value else None
+        except:
+            value_num = value
+
+        vital = VitalSign(
+            code=code,
+            coding_method=system,
+            display=text,
+            value=value_num,
+            unit=unit,
+            timestamp=ts,
+            patient_id=cache.get('patient_id'),
+            encounter_id=cache.get('encounter_id')
+        )
+        content.vital_signs.append(vital)
+
+    def _map_lab_observation(self, code, system, text, value, unit, ref, abnormal, ts, content, cache):
+        obs = LabObservation(
+            observation_id=None,
+            code=code,
+            coding_method=system,
+            name=text,
+            description=text,
+            value=value,
+            unit=unit,
+            reference_range=ref,
+            abnormal_flag=abnormal,
+            result_date=ts,
+            interpretation=None,
+            status="final"
+        )
+
+        # Try to attach to an existing report
+        report = next((r for r in content.lab if r.panel_code == cache.get("current_panel_code")), None)
+        if report:
+            report.observations.append(obs)
+        else:
+            content.lab.append(LabReport(
+                report_id=None,
+                lab_type=None,
+                code=code,
+                coding_method=system,
+                panel_name=cache.get("current_panel_name", "LABORATORY PANEL"),
+                panel_code=cache.get("current_panel_code", "LAB-PANEL"),
+                panel_code_method=system or "L",
+                is_panel=True,
+                ordering_provider_id=cache.get("ordering_provider_id"),
+                performing_lab="Lab",
+                report_type="Laboratory",
+                collection_date=ts,
+                observations=[obs],
+                note="",
+                patient_id=cache.get("patient_id"),
+                encounter_id=cache.get("encounter_id")
+            ))
+
 register_mapper(OBXMapper())

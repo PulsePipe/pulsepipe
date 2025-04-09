@@ -23,7 +23,7 @@
 
 from datetime import datetime
 from typing import Optional, Dict, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 from .schema_version import CANONICAL_SCHEMA_VERSION
 from pulsepipe.models.clinical_content import PulseClinicalContent
 from pulsepipe.models.op_content import PulseOperationalContent
@@ -43,8 +43,9 @@ class PulseCanonicalMessage(BaseModel):
     
     metadata: Dict[str, str] = {}          # Extra metadata (batch, file_id, etc.)
     
-    class Config:
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_assignment=True
+    )
 
     @property
     def content_type(self) -> str:

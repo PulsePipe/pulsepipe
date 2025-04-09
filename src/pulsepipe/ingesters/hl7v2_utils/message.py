@@ -103,7 +103,7 @@ class Segment:
 
     def __str__(self):
         field_strs = [str(field) for field in self.fields]
-        return self.id + "|".join(field_strs)
+        return "".join(field_strs)
 
 class Message:
     def __init__(self, id: str, segments: List[Segment]):

@@ -77,9 +77,9 @@ class TestHL7v2Ingester:
     
     def test_parse_single_message(self):
         """Test parsing a single simple HL7 message."""
-        # Create a simple ADT message
+        # Create a simple ADT message with a lazy MRN location
         hl7_message = """MSH|^~\\&|HOSPITAL|HOSPITAL|||202503311200||ADT^A01|MSG00001|P|2.4
-PID|1||12345^^^HOSP^MR||SMITH^JOHN||19800101|M|||123 Main St^^Boston^MA^02115^USA||(555)555-1212|||EN"""
+PID|1||12345||SMITH^JOHN||19800101|M|||123 Main St^^Boston^MA^02115^USA||(555)555-1212||EN"""
         
         # Parse with HL7v2 ingester
         ingester = HL7v2Ingester()
@@ -90,7 +90,7 @@ PID|1||12345^^^HOSP^MR||SMITH^JOHN||19800101|M|||123 Main St^^Boston^MA^02115^US
         assert content[0].patient is not None
         assert content[0].patient.id == "12345"
         assert content[0].patient.gender == "M"
-        
+
         # Check PID-15 language field
         preferences = content[0].patient.preferences[0] if content[0].patient.preferences else None
         assert preferences is not None
@@ -225,3 +225,52 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
             module_logger.info(f"Vital sign names: {vital_names}")
        
         module_logger.info("Multiple message test passed")
+
+def test_unusual_encoding_characters():
+    """Test HL7 message with non-standard encoding characters."""
+    # MSH with unusual delimiters: | as field, # as component, @ as repetition, $ as escape, % as subcomponent
+    hl7_message = """MSH|#$@%|HOSPITAL|LAB|RECEIVING|SYSTEM|202504081215||ORU#R01|203948|P|2.3||
+PID|1||12345||SMITH#JOHN#A||19800101|M|||123 MAIN ST##ANYTOWN#NY#12345||555-555-1234|||
+OBR|1||LAB123|CBC#COMPLETE BLOOD COUNT#L|||202504080800||||||||BLOOD|DR. JONES#ROBERT|||||202504081200|||F||
+OBX|1|NM|HGB#Hemoglobin#L||14.2|g/dL|13.5-17.5|N|||F
+OBX|2|NM|WBC#White Blood Count#L||8.5|10*3/uL|4.5-11.0|N|||F
+OBX|3|ST|RBC#Red Blood Count#L||Normal|Cells|None|N|||F"""
+
+    ingester = HL7v2Ingester()
+    content = ingester.parse(hl7_message)
+    
+    # Verify parsing worked with custom delimiters
+    assert content[0].patient is not None
+    assert content[0].patient.id == "12345"
+    
+    # Verify component splitting with unusual character
+    print(f"\nLab reports: {len(content[0].lab)}")
+    lab_report = next((lab for lab in content[0].lab if lab.observations), None)
+    assert lab_report is not None
+    print(f"\nLab reports: {lab_report}")
+
+    
+    wbc = None
+    rbc = None
+    hgb = None
+    for lab_report in content[0].lab:
+        for observation in lab_report.observations:
+            if str(observation.code).upper() == "WBC":
+                wbc = observation
+            elif str(observation.code).upper() == "RBC":
+                rbc = observation
+            elif str(observation.code).upper() == "HGB":
+                hgb = observation
+
+    # Check specifically for the WBC with unusual component separator
+    assert wbc is not None
+    assert wbc.value == "8.5"
+    assert wbc.name == "White Blood Count"
+
+    assert rbc is not None
+    assert rbc.value == "Normal"
+    assert rbc.name == "Red Blood Count"
+
+    assert hgb is not None
+    assert hgb.value == "14.2"
+    assert hgb.name == "Hemoglobin"

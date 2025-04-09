@@ -36,20 +36,65 @@ logger = logging.getLogger(__name__)
 class PIDMapper(HL7v2Mapper):
     def accepts(self, seg: Segment) -> bool:
         return (seg.id == 'PID')
-
+# - PID (Patient Identification)
+#   - PID-1: Set ID
+#   - PID-2: Patient ID (External)
+#   - PID-3: Patient Identifier List
+#   - PID-4: Alternate Patient ID
+#   - PID-5: Patient Name
+#   - PID-6: Mother's Maiden Name
+#   - PID-7: Date of Birth
+#   - PID-8: Sex
+#   - PID-9: Patient Alias
+#   - PID-10: Race
+#   - PID-11: Patient Address
+#   - PID-12: County Code
+#   - PID-13: Phone Number - Home
+#   - PID-14: Phone Number - Business
+#   - PID-15: Primary Language
+#   - PID-16: Marital Status
+#   - PID-17: Religion
+#   - PID-18: Patient Account Number
+#   - PID-19: SSN Number
+#   - PID-20: Driver's License Number
+#   - PID-21: Mother's Identifier
+#   - PID-22: Ethnic Group
+#   - PID-23: Birth Place
+#   - PID-24: Multiple Birth Indicator
+#   - PID-25: Birth Order
+#   - PID-26: Citizenship
+#   - PID-27: Veterans Military Status
+#   - PID-28: Nationality Code
+#   - PID-29: Patient Death Date and Time
+#   - PID-30: Patient Death Indicator
     def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
         try:
             pid = seg
+            n = 0
+            for field in pid.fields:
+                print(f"\nPID FIELD ENUM {n}: {field}")
+                print(f"\nPID FIELD GET {n}: {pid.get(n)}")
+                n = n + 1
+                
+            print(f"\nPID SEGMENT: {pid}")
             get = lambda f, c=1, s=1: seg.get(f"{f}.{c}.{s}")
             # Identifiers (PID-3)
+            id = None
             identifiers = {}
             reps = pid.fields[3] if len(pid.fields) > 3 else []
             for rep in reps:
+                if len(rep) == 1:
+                    id = str(rep)
                 if rep and len(rep) >= 5:
                     id_val = rep[0][0] if rep[0] else None
                     id_type = rep[4][0] if len(rep) > 4 and rep[4] else "UNKNOWN"
                     if id_val:
                         identifiers[id_type] = id_val
+                
+            if id == None:
+                id = identifiers.get("MR") or identifiers.get("UNIQUE")
+                if id == None:
+                    id = pid.fields[3] 
 
             # Birth date (PID-7)
             dob_str = get(7)
@@ -80,9 +125,9 @@ class PIDMapper(HL7v2Mapper):
                          geo[5][0] if len(geo) > 5 and geo[5] else None]
             geographic_area = " ".join([p for p in geo_parts if p]) or None
 
-            preferred_language = pid.get(16)
-            marital_status     = pid.get(17)
-            religion           = pid.get(18)
+            preferred_language = pid.get(15)
+            marital_status     = pid.get(16)
+            religion           = pid.get(17)
 
             preferences = []
             if preferred_language or marital_status or religion:
@@ -95,7 +140,7 @@ class PIDMapper(HL7v2Mapper):
                 ))
 
             content.patient = PatientInfo(
-                id=identifiers.get("MR") or identifiers.get("UNIQUE"),
+                id=id,
                 dob_year=dob_year,
                 over_90=over_90,
                 gender=gender,

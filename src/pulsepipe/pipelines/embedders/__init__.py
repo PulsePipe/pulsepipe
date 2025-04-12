@@ -18,34 +18,19 @@
 # ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
+# src/pulsepipe/pipelines/embedders/__init__.py
 
-# src/pulsepipe/pipelines/chuncker/operational_chunker.py
+from .clinical_embedder import ClinicalEmbedder
+from .operational_embedder import OperationalEmbedder
+from .base_embedder import Embedder
 
-from typing import List, Dict, Any
-from pulsepipe.models.operational_content import PulseOperationalContent
+__all__ = [
+    "Embedder",
+    "ClinicalEmbedder",
+    "OperationalEmbedder"
+]
 
-
-class OperationalEntityChunker:
-    def __init__(self, include_metadata: bool = True):
-        self.include_metadata = include_metadata
-
-    def chunk(self, content: PulseOperationalContent) -> List[Dict[str, Any]]:
-        chunks = []
-
-        transaction_type = content.transaction_type or "unknown"
-        org_id = content.organization_id or "unknown"
-
-        for field_name, value in content.__dict__.items():
-            if isinstance(value, list) and value:
-                chunk = {
-                    "type": field_name,
-                    "content": [v.model_dump() for v in value]
-                }
-                if self.include_metadata:
-                    chunk["metadata"] = {
-                        "transaction_type": transaction_type,
-                        "organization_id": org_id
-                    }
-                chunks.append(chunk)
-
-        return chunks
+EMBEDDER_REGISTRY = {
+    "clinical": ClinicalEmbedder,
+    "operational": OperationalEmbedder,
+}

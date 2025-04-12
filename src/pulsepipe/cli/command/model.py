@@ -271,7 +271,7 @@ def list(show_all, clinical, operational):
         if operational and not any("operationalcontent" in model_path.lower() for model_path, _ in filtered_models):
             try:
                 # Try to import operational content model if it exists
-                from pulsepipe.models.op_content import PulseOperationalContent
+                from pulsepipe.models.operational_content import PulseOperationalContent
                 filtered_models.append(("pulsepipe.models.operational_content.PulseOperationalContent", PulseOperationalContent))
             except ImportError:
                 pass

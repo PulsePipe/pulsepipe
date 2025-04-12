@@ -49,5 +49,5 @@ from .order import Order
 from .implant import Implant
 from .message_cache import MessageCache
 from .billing import Charge, Payment, Adjustment, Claim
-from .op_content import PulseOperationalContent
+from .operational_content import PulseOperationalContent
 from .prior_authorization import PriorAuthorization

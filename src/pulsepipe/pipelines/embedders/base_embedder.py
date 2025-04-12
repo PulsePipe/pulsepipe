@@ -19,4 +19,19 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/pipelines/embedding/__init__.py
+# src/pulsepipe/pipelines/embedders/base_embedder.py
+
+from abc import ABC, abstractmethod
+from typing import List
+
+class Embedder(ABC):
+    @abstractmethod
+    async def embed(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for a list of text chunks"""
+        pass
+        
+    @property
+    @abstractmethod
+    def dimension(self) -> int:
+        """Return the dimension of the embedding vectors"""
+        pass

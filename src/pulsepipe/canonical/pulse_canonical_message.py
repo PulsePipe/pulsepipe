@@ -26,7 +26,7 @@ from typing import Optional, Dict, Union
 from pydantic import BaseModel, ConfigDict
 from .schema_version import CANONICAL_SCHEMA_VERSION
 from pulsepipe.models.clinical_content import PulseClinicalContent
-from pulsepipe.models.op_content import PulseOperationalContent
+from pulsepipe.models.operational_content import PulseOperationalContent
 
 class PulseCanonicalMessage(BaseModel):
     id: Optional[str]                                # UUID or system-generated ID

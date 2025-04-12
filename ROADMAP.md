@@ -3,7 +3,7 @@
 
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
-## ✅ MVP Scope [30% Complete]
+## ✅ MVP Scope [40% Complete]
 ## 🟣 Short-Term Goals [0% Complete]
 ## 🟠 Mid-Term Goals [0% Complete]
 ## 🟠 Long-Term Goals [0% Complete]
@@ -28,32 +28,34 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Pytest
     - [x] Mypy
 - [x] HL7 v2.x ingestion
-- [ ] De-identification via Presidio + Clinical NER models
+    - [x] Custom HL7 parser that casts a wide net (parses everything in segments of interest)
 - [ ] 🧬 Composable Chunking + Embedding Framework
     - [x] `Chunker` base class interfaces
-    - [ ] `Embedder` base class interfaces
-    - [ ] YAML configuration for chunkers and embedders
-    - [ ] `FhirBundleSplitterChunker`: splits on `entry.resource`
+    - [x] `Embedder` base class interfaces
+    - [ ] YAML configuration for chunkers and embedders in `pipeline.yaml`
     - [ ] `NarrativeChunker`: extracts and truncates text narrative fields
-    - [ ] `OpenAIEmbedder`: calls OpenAI for embedding with model selection
+    - [ ] `FhirBundleSplitterChunker`: splits on `entry.resource`
+    - [x] `ClinicalEmbedder`: calls local ClinicalBERT for embedding clinical canonical data model
+    - [x] `OperationalEmbedder`: calls local MiniLM-L6-v2 for embedding operational canonical data model
     - [ ] CLI options to test chunking/embedding flows
     - [ ] Output of chunks and embeddings in vector-friendly format (e.g., JSONL)
+    - [ ] Embedding pipeline supporting ClinicalBERT
+    - [ ] Embedding pipeline supporting MiniLM-L6-v2
+- [ ] Vector database integration:
+    - [ ] Pinecone
+    - [ ] Weaviate
+    - [ ] Qdrant
+- [ ] 📖 CLI Model Description
+    - [ ] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
+    - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
+- [ ] Robust error handling in the ingestion pipeline to account for messy healthcare data
+    - [ ] Keep track of data ingested vs un-ingested for later AI feedback
+- [ ] De-identification via Presidio + Clinical NER models
 - [ ] 🧪 Synthetic Test Dataset
     - [ ] Integrate Synthia to generate high-fidelity synthetic FHIR data
     - [ ] Generate a small, high-quality synthetic dataset (FHIR, HL7v2, X12)
     - [ ] Include edge cases (multiple patients, empty fields, varied formats)
     - [ ] Use for unit/integration tests of mappers and embedding steps
-- [ ] 📖 CLI Model Description
-    - [ ] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
-    - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
-- [ ] Embedding pipeline supporting:
-    - [ ] ClinicalBERT
-    - [ ] OpenAI GPT-3 / GPT-4
-    - [ ] Llama 4 Maverick: https://www.llama.com/
-- [ ] Vector database integration:
-    - [ ] Pinecone
-    - [ ] Weaviate
-    - [ ] Qdrant
 - [ ] Complete Unit Tests:
     - [x] Banner Display
     - [ ] Filewatcher Adapter
@@ -63,7 +65,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] YAML configuration loading and validation
     - [ ] Logging setup and enrichment
     - [ ] Chunker framework and implementation coverage
-    - [ ] Embedder call mocking and fallback logic
+    - [x] Embedder call mocking and fallback logic
     - [ ] Vector DB connectivity and document serialization
 
 ---
@@ -74,6 +76,11 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] Improved de-identification pipelines:
     - Incorporate clinical-specific regex library
     - BioClinicalBERT + Presidio joint recognizer (PulsePilot Exclusive)
+- [ ] 🧬 Composable Chunking + Embedding Framework
+    - [ ] `OpenAIEmbedder`: calls OpenAI for embedding with model selection
+        - [ ] OpenAI GPT-3 / GPT-4
+    - [ ] `Llama4Embedder`: calls custom, self hosted Llama v4 model in the cloud for embeddings
+        - [ ] Llama 4 Maverick: https://www.llama.com/
 - [ ] Optional SNOMED CT and ICD code extraction for terminology enrichment (PulsePilot Exclusive)
 - [ ] CDA / CCDA document ingestion
 - [ ] Custom template ingestion (extensible ingestor system) (PulsePilot Exclusive)

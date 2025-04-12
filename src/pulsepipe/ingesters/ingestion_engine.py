@@ -25,7 +25,7 @@ import asyncio
 from pulsepipe.utils.log_factory import LogFactory
 from typing import Optional, Any, List, Union
 from pulsepipe.models.clinical_content import PulseClinicalContent
-from pulsepipe.models.op_content import PulseOperationalContent
+from pulsepipe.models.operational_content import PulseOperationalContent
 
 class IngestionEngine:
     def __init__(self, adapter, ingester):

@@ -27,7 +27,7 @@ from typing import Optional, Union
 
 from .pulse_canonical_message import PulseCanonicalMessage
 from pulsepipe.models.clinical_content import PulseClinicalContent
-from pulsepipe.models.op_content import PulseOperationalContent
+from pulsepipe.models.operational_content import PulseOperationalContent
 
 class CanonicalBuilder:
     @staticmethod

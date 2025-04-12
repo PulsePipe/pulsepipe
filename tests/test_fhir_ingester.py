@@ -23,8 +23,10 @@
 
 import pytest
 from pulsepipe.ingesters.fhir_ingester import FHIRIngester
+from pulsepipe.utils.errors import FHIRError
 
 def test_fhir_ingester_parse_empty():
     ingester = FHIRIngester()
-    with pytest.raises(ValueError, match="Empty data received"):
+    with pytest.raises(FHIRError, match="Empty or blank data received"):
         ingester.parse("")
+

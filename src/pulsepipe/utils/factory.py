@@ -31,7 +31,6 @@ from .config_loader import load_config
 
 def create_adapter(config: dict):
     log_config = load_config()
-    LogFactory.init_from_config(log_config)
 
     adapter_type = config["type"]
 

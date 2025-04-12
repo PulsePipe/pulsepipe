@@ -19,11 +19,15 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# scripts/run_pipeline.py
+
 import asyncio
 from pulsepipe.utils.config_loader import load_config
 from pulsepipe.utils.factory import create_adapter, create_ingester
 from pulsepipe.ingesters.ingestion_engine import IngestionEngine
 from pulsepipe.utils.log_factory import LogFactory
+
+logger = LogFactory.get_logger(__name__)
 
 def safe_load_config(path):
     try:
@@ -33,8 +37,6 @@ def safe_load_config(path):
         raise
 
 async def main():
-    config = safe_load_config("pulsepipe.yaml")
-    LogFactory.init_from_config(config.get("logging", {}))
 
     adapter_config = safe_load_config("adapter.yaml")["adapter"]
     ingester_config = safe_load_config("ingester.yaml")["ingester"]

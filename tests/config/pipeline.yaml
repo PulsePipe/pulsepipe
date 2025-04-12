@@ -29,14 +29,14 @@ pipelines:
       type: file_watcher
       watch_path: ./incoming/fhir
       extensions: [".json", ".xml"]
-      continuous: true  # Explicitly set to continuously watch for new files
+      continuous: true
     ingester:
       type: fhir
       version: "R4"
     chunker:
       type: auto
       export_chunks_to: "jsonl"
-
+       
   - name: hl7v2_lab_results
     description: "Process HL7v2 lab results"
     active: true
@@ -44,26 +44,40 @@ pipelines:
       type: file_watcher
       watch_path: ./incoming/hl7
       extensions: [".hl7"]
-      continuous: true  # Explicitly set to continuously watch for new files
+      continuous: true
     ingester:
       type: hl7v2
       message_types: ["ORU^R01"]
     chunker:
       type: auto
       export_chunks_to: "jsonl"
-     
+      
   - name: x12_billing
     description: "Process X12 billing data"
     active: true
     adapter:
       type: file_watcher
       watch_path: ./incoming/x12
-      extensions: [".x12", ".837", ".txt"]
-      continuous: true  # Explicitly set to continuously watch for new files
+      extensions: [".x12", ".837", ".278", ".txt"]
+      continuous: true
     ingester:
       type: x12
-      transaction_types: ["837", "835"]
+      transaction_types: ["837", "835", "278"]
     chunker:
       type: auto
       export_chunks_to: "jsonl"
-  
+
+vectorstore:
+  api_key: null
+  enabled: true
+  engine: weaviate
+  host: http://localhost
+  namespace_prefix: pulsepipe
+  password: null
+  pipelines:
+  - fhir_clinical
+  - hl7v2_lab_results
+  - x12_billing
+  port: 8080
+  top_k: 5
+  username: null

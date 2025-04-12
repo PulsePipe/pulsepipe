@@ -19,53 +19,7 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# pipeline.yaml
-
-pipelines:
-  - name: fhir_clinical
-    description: "Process FHIR clinical data files"
-    active: true
-    adapter:
-      type: file_watcher
-      watch_path: ./incoming/fhir
-      extensions: [".json", ".xml"]
-      continuous: true
-    ingester:
-      type: fhir
-      version: "R4"
-    chunker:
-      type: auto
-      export_chunks_to: "jsonl"
-       
-  - name: hl7v2_lab_results
-    description: "Process HL7v2 lab results"
-    active: true
-    adapter:
-      type: file_watcher
-      watch_path: ./incoming/hl7
-      extensions: [".hl7"]
-      continuous: true
-    ingester:
-      type: hl7v2
-      message_types: ["ORU^R01"]
-    chunker:
-      type: auto
-      export_chunks_to: "jsonl"
-      
-  - name: x12_billing
-    description: "Process X12 billing data"
-    active: true
-    adapter:
-      type: file_watcher
-      watch_path: ./incoming/x12
-      extensions: [".x12", ".837", ".278", ".txt"]
-      continuous: true
-    ingester:
-      type: x12
-      transaction_types: ["837", "835", "278"]
-    chunker:
-      type: auto
-      export_chunks_to: "jsonl"
+# src/pulsepipe/config/vectorstore.yaml
 
 vectorstore:
   api_key: null

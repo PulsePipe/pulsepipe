@@ -20,6 +20,7 @@
 # ------------------------------------------------------------------------------
 
 # src/pulsepipe/config/pipeline.yaml
+
 pipelines:
   - name: fhir_clinical
     description: "Process FHIR clinical data files"
@@ -65,3 +66,18 @@ pipelines:
     chunker:
       type: auto
       export_chunks_to: "jsonl"
+
+vectorstore:
+  api_key: null
+  enabled: true
+  engine: weaviate
+  host: http://localhost
+  namespace_prefix: pulsepipe
+  password: null
+  pipelines:
+  - fhir_clinical
+  - hl7v2_lab_results
+  - x12_billing
+  port: 8080
+  top_k: 5
+  username: null

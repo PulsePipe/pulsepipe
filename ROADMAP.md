@@ -43,8 +43,8 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Embedding pipeline supporting MiniLM-L6-v2
 - [ ] Vector database integration:
     - [ ] Pinecone
-    - [ ] Weaviate
-    - [ ] Qdrant
+    - [x] Weaviate
+    - [x] Qdrant
 - [ ] 📖 CLI Model Description
     - [ ] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
     - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views

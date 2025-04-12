@@ -31,4 +31,6 @@ logging:
   level: debug                    # debug | info | warning | error
   destination: stdout             # stdout | file | both | syslog | cloud
   file_path: F:\developer\pulsepipe\logs   # only used if destination includes 'file'
+  show_banner: true               # shows the PulsePipe banner in the CLI
+
 

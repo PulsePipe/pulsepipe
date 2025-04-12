@@ -23,41 +23,13 @@
 
 import sys
 import pytest
-import logging
+
 from pathlib import Path
 from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
+from pulsepipe.utils.log_factory import LogFactory
 
-# Set up logging for tests
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-# Configure root logger to show all messages
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
-
-# Create console handler that prints to stdout
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.DEBUG)
-
-# Create a formatter with detailed info
-formatter = logging.Formatter('%(levelname)s - %(name)s - %(message)s')
-console_handler.setFormatter(formatter)
-
-# Add the handler to the root logger
-root_logger.addHandler(console_handler)
-
-# Set specific module loggers to DEBUG
-for module in ['pulsepipe.ingesters.hl7v2_utils.pid_mapper', 
-               'pulsepipe.ingesters.hl7v2_utils.obr_mapper',
-               'pulsepipe.ingesters.hl7v2_utils.obx_mapper',
-               'pulsepipe.ingesters.hl7v2_ingester']:
-    module_logger = logging.getLogger(module)
-    module_logger.setLevel(logging.DEBUG)
-
-# Helper function for direct console output during tests
-def debug_print(message):
-    """Print debug message directly to console, even during pytest run"""
-    print(f"\nDEBUG: {message}", flush=True)
+logger = LogFactory.get_logger(__name__)
+logger.info("📁 Initializing HL7v2 Ingester Tests")
 
 class TestHL7v2Ingester:
     """Tests for the HL7v2 ingester class."""
@@ -72,7 +44,7 @@ class TestHL7v2Ingester:
         with pytest.raises(ValueError, match="Empty HL7v2 data received"):
             ingester.parse("   ")
 
-        module_logger.info("Empty data test passed")
+        logger.info("Empty data test passed")
 
     
     def test_parse_single_message(self):
@@ -96,8 +68,8 @@ PID|1||12345||SMITH^JOHN||19800101|M|||123 Main St^^Boston^MA^02115^USA||(555)55
         assert preferences is not None
         assert preferences.preferred_language == "EN", "Language should be EN"
         
-        module_logger.info(f"Successfully parsed patient: {content[0].patient.id}")
-        module_logger.info("Single message test passed")
+        logger.info(f"Successfully parsed patient: {content[0].patient.id}")
+        logger.info("Single message test passed")
 
 
     def test_malformed_message(self):
@@ -123,10 +95,10 @@ PID|1||234567^^^HOSP^MR||SMITH^JANE||19450215|F"""
         # This should parse without error, getting what it can from the valid parts
         content = ingester.parse(partially_valid)
         assert content[0] is not None
-        print("\nHL7 Content: \n", content[0], "\n")
+        logger.info("\nHL7 Content: \n", content[0], "\n")
         assert content[0].patient is not None  # Should have extracted patient info from valid segments
         
-        module_logger.info("Malformed message test passed")
+        logger.info("Malformed message test passed")
 
 
     def test_vital_signs(self):
@@ -151,9 +123,9 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         assert len(content[0].vital_signs) > 0, "Vital signs should be parsed"
 
         # Log vital signs details
-        module_logger.info(f"Parsed {len(content[0].vital_signs)} vital signs")
+        logger.info(f"Parsed {len(content[0].vital_signs)} vital signs")
         for vs in content[0].vital_signs:
-            module_logger.info(f"Vital sign: {vs.display}, value: {vs.value}, unit: {vs.unit}")
+            logger.info(f"Vital sign: {vs.display}, value: {vs.value}, unit: {vs.unit}")
         
         # Check for specific vital signs
         assert any('BP' in vs.display or 'BLOOD PRESSURE' in vs.display for vs in content[0].vital_signs), \
@@ -165,7 +137,7 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         assert any('HR' in vs.display or 'HEART RATE' in vs.display for vs in content[0].vital_signs), \
             "Heart rate vital sign should be present"
 
-        module_logger.info("Vital signs test passed")
+        logger.info("Vital signs test passed")
 
     def test_parse_multiple_messages(self):
         """Test parsing multiple HL7 messages from fixture file."""
@@ -178,7 +150,7 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         with open(fixture_path, 'r') as f:
             hl7_data = f.read()
         
-        module_logger.info(f"Loaded fixture file: {fixture_path}")
+        logger.info(f"Loaded fixture file: {fixture_path}")
 
         
         # Parse with HL7v2 ingester
@@ -190,7 +162,7 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         assert content[0].patient is not None
         
         # Log summary of parsed data
-        module_logger.info(content[0].summary())
+        logger.info(content[0].summary())
 
         
         # Patient should be from one of the messages
@@ -198,9 +170,9 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         
         # We should have lab data and vital signs from the ORU messages
 
-        module_logger.info(f"Lab reports: {len(content[0].lab)}")
-        module_logger.info(f"Vital signs: {len(content[0].vital_signs)}")
-        print("!!!!Lab Result\n", content[2])
+        logger.info(f"Lab reports: {len(content[0].lab)}")
+        logger.info(f"Vital signs: {len(content[0].vital_signs)}")
+        logger.info("!!!!Lab Result\n", content[2])
         # Verify lab results are present
         assert len(content[2].lab) > 0, "Should have lab results from the CBC in ORU message"
 
@@ -212,7 +184,7 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
                 observation_code = str(observation.code).upper() if observation.code else ""
                 if any(term in observation_name or term in observation_code 
                     for term in ["CBC", "WBC", "RBC", "HGB", "HEMOGLOBIN"]):
-                    print(f"Found CBC-related result: {observation.name} ({observation.code})")
+                    logger.info(f"Found CBC-related result: {observation.name} ({observation.code})")
                     has_cbc_results = True
                     break
 
@@ -222,9 +194,9 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
         if len(content[3].vital_signs) > 0:
             # At least some vital signs were mapped
             vital_names = [vs.display for vs in content[3].vital_signs]
-            module_logger.info(f"Vital sign names: {vital_names}")
+            logger.info(f"Vital sign names: {vital_names}")
        
-        module_logger.info("Multiple message test passed")
+        logger.info("Multiple message test passed")
 
 def test_unusual_encoding_characters():
     """Test HL7 message with non-standard encoding characters."""
@@ -244,10 +216,10 @@ OBX|3|ST|RBC#Red Blood Count#L||Normal|Cells|None|N|||F"""
     assert content[0].patient.id == "12345"
     
     # Verify component splitting with unusual character
-    print(f"\nLab reports: {len(content[0].lab)}")
+    logger.info(f"\nLab reports: {len(content[0].lab)}")
     lab_report = next((lab for lab in content[0].lab if lab.observations), None)
     assert lab_report is not None
-    print(f"\nLab reports: {lab_report}")
+    logger.info(f"\nLab reports: {lab_report}")
 
     
     wbc = None

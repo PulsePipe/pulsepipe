@@ -22,15 +22,21 @@
 # src/pulsepipe/ingesters/x12_utils/pa_mapper.py
 
 from .base_mapper import BaseX12Mapper
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import PriorAuthorization
 from datetime import datetime
 
 class PriorAuthorizationMapper(BaseX12Mapper):
+    def __init__(self):
+        self.typeCode = "UM"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing X12 PriorAuthorizationMapper")
+
     def accepts(self, segment_id: str) -> bool:
-        return segment_id == "UM"
+        return segment_id == {self.typeCode}
 
     def map(self, segment_id: str, elements: list, content, cache: dict):
-        print("UM elements:", elements)  # optional debug
+        self.logger.debug("{self.typeCode}: {elements}")
 
         prior_auth = PriorAuthorization(
             auth_id=elements[0] if len(elements) > 0 else f"UM_{len(content.prior_authorizations) + 1}",

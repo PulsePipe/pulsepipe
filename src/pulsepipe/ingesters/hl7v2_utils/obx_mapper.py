@@ -21,21 +21,25 @@
 
 # src/pulsepipe/ingesters/hl7v2_utils/obx_mapper.py
 
-import logging
-from typing import Dict, Any
 
+from typing import Dict, Any
+from pulsepipe.utils.log_factory import LogFactory
 from .message import Segment
 from .base_mapper import HL7v2Mapper, register_mapper
 from pulsepipe.models import VitalSign, LabObservation, LabReport
 from pulsepipe.models.clinical_content import PulseClinicalContent
 
-logger = logging.getLogger(__name__)
-
 class OBXMapper(HL7v2Mapper):
+    def __init__(self):
+        self.segment = "OBX"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing HL7v2 OBXMapper")
+
     def accepts(self, seg: Segment) -> bool:
-        return (seg.id == 'OBX')
+        return (seg.id == self.segment)
 
     def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
+        self.logger.debug("{self.segment} Segment: {seg}")
         try:
             # The segment is already an OBX segment, so we don't need to get "OBX" from it
             # Instead, directly access the fields we need
@@ -64,7 +68,7 @@ class OBXMapper(HL7v2Mapper):
             # OBX-14: Date/Time of the Observation
             observation_date = seg.get(14) or cache.get("current_observation_date")
             
-            print(f"DEBUG OBX: code={code}, text={code_text}, value={value}, unit={units}")
+            self.logger.info(f"DEBUG OBX: code={code}, text={code_text}, value={value}, unit={units}")
             
             # Determine category
             category = self._determine_observation_category(code, code_text, cache)
@@ -74,10 +78,10 @@ class OBXMapper(HL7v2Mapper):
             else:
                 self._map_lab_observation(code, code_system, code_text, value, units, ref_range, abnormal_flag, observation_date, content, cache)
             
-            logger.info(f"Mapped OBX: {code} - {value}")
+            self.logger.info(f"Mapped OBX: {code} - {value}")
             
         except Exception as e:
-            logger.exception(f"Error mapping OBX segment: {e}")
+            self.logger.exception(f"Error mapping OBX segment: {e}")
 
     def _determine_observation_category(self, code, code_text, cache):
         context = cache.get("context", "")

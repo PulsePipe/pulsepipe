@@ -29,7 +29,7 @@ def safe_load_config(path):
     try:
         return load_config(path)
     except Exception as e:
-        print(f"❌ Failed to load config from {path}: {e}")
+        logger.info(f"❌ Failed to load config from {path}: {e}")
         raise
 
 async def main():

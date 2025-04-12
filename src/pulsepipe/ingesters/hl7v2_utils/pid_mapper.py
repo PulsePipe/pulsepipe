@@ -21,21 +21,24 @@
 
 # src/pulsepipe/ingesters/hl7v2_utils/pid_mapper.py
 
-import logging
 from datetime import datetime
 from typing import Dict, Any
 
 from .message import Segment
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import PatientInfo, PatientPreferences
 from pulsepipe.models.clinical_content import PulseClinicalContent
 from .base_mapper import HL7v2Mapper, register_mapper
 
-logger = logging.getLogger(__name__)
-
 
 class PIDMapper(HL7v2Mapper):
+    def __init__(self):
+        self.segment = "PID"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing HL7v2 PIDMapper")
+
     def accepts(self, seg: Segment) -> bool:
-        return (seg.id == 'PID')
+        return (seg.id == self.segment)
 # - PID (Patient Identification)
 #   - PID-1: Set ID
 #   - PID-2: Patient ID (External)
@@ -68,15 +71,13 @@ class PIDMapper(HL7v2Mapper):
 #   - PID-29: Patient Death Date and Time
 #   - PID-30: Patient Death Indicator
     def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
+        self.logger.debug("{self.segment} Segment: {seg}")
         try:
             pid = seg
             n = 0
             for field in pid.fields:
-                print(f"\nPID FIELD ENUM {n}: {field}")
-                print(f"\nPID FIELD GET {n}: {pid.get(n)}")
                 n = n + 1
-                
-            print(f"\nPID SEGMENT: {pid}")
+
             get = lambda f, c=1, s=1: seg.get(f"{f}.{c}.{s}")
             # Identifiers (PID-3)
             id = None
@@ -106,7 +107,7 @@ class PIDMapper(HL7v2Mapper):
                     dob_year = dob.year
                     over_90 = datetime.now().year - dob_year >= 90
                 except Exception as e:
-                    logger.warning(f"Could not parse DOB: {dob_str} ({e})")
+                    self.logger.exception(f"Could not parse DOB: {dob_str} ({e})")
 
             # Gender (PID-8)
             gender = None
@@ -153,10 +154,10 @@ class PIDMapper(HL7v2Mapper):
             if content.patient.id:
                 cache['patient_id'] = content.patient.id
 
-            logger.info(f"Mapped patient: id={content.patient.id}, preferences={content.patient.preferences}")
+            self.logger.info(f"Mapped patient: id={content.patient.id}, preferences={content.patient.preferences}")
 
         except Exception as e:
-            logger.exception(f"Error mapping PID segment: {e}")
+            self.logger.exception(f"Error mapping PID segment: {e}")
             raise
 
 # Register the mapper

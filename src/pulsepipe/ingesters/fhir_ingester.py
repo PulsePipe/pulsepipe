@@ -22,16 +22,18 @@
 # src/pulsepipe/ingesters/fhir_ingester.py
 
 import json
-import logging
+from pulsepipe.utils.log_factory import LogFactory
 from typing import List, Union, Dict, Any
 from pulsepipe.models import PulseClinicalContent, MessageCache
 from .fhir_utils.base_mapper import MAPPER_REGISTRY
 from pulsepipe.utils.xml_to_json import xml_to_json
 from pulsepipe.canonical.builder import CanonicalBuilder
 
-logger = logging.getLogger(__name__)
-
 class FHIRIngester:
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing FHIRIngester")
+
     def parse(self, raw_data: str) -> Union[PulseClinicalContent, List[PulseClinicalContent]]:
         """
         Parse FHIR data - supports single resources, Bundles, and arrays of FHIR resources.
@@ -56,7 +58,7 @@ class FHIRIngester:
         
         # Check if we have an array of FHIR resources
         if isinstance(data, list):
-            logger.info(f"Detected array of FHIR resources with {len(data)} items")
+            self.logger.info(f"Detected array of FHIR resources with {len(data)} items")
             results = []
             for item in data:
                 # Process each item as a separate FHIR resource

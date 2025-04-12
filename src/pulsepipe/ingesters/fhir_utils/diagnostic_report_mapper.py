@@ -26,6 +26,7 @@ from pulsepipe.models import (
     ImagingReport, PathologyReport, DiagnosticTest, MicrobiologyReport, PulseClinicalContent,
     ImagingFinding, PathologyFinding, LabReport, LabObservation, BloodBankReport, BloodBankFinding, MessageCache
 )
+from pulsepipe.utils.log_factory import LogFactory
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import (
     extract_patient_reference,
@@ -57,39 +58,44 @@ def map_abnormal_flag(resource: dict) -> str:
 
 @fhir_mapper("DiagnosticReport")
 class DiagnosticReportMapper(BaseFHIRMapper):
+
     RESOURCE_TYPE = "DiagnosticReport"
 
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing FHIR DiagnosticReportMapper")
+    
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
-        #print("🔥 DiagnosticReportMapper running for resource ID:", resource.get("id"))
+        #self.logger.info("🔥 DiagnosticReportMapper running for resource ID:", resource.get("id"))
         category = self.get_category(resource)
-        #print("🔥 DiagnosticReport Detected category:", category)
+        #self.logger.info("🔥 DiagnosticReport Detected category:", category)
 
         if category == "laboratory":
-            #print("🔥 Adding Laboratory")
+            #self.logger.info("🔥 Adding Laboratory")
             content.lab.append(self.parse_lab(resource, cache))
 
         elif category == "pathology":
-            #print("🔥 Adding PathologyReport")
+            #self.logger.info("🔥 Adding PathologyReport")
             content.pathology.append(self.parse_pathology(resource, cache))
 
         elif category == "imaging":
-            #print("🔥 Adding ImagingReport")
+            #self.logger.info("🔥 Adding ImagingReport")
             content.imaging.append(self.parse_imaging(resource, cache))
 
         elif category == "microbiology":
-            #print("🔥 Adding MicrobiologyReport")
+            #self.logger.info("🔥 Adding MicrobiologyReport")
             content.microbiology.append(self.parse_microbiology(resource, cache))
 
         elif category == "blood bank":
-            #print("❤️  Adding BloodBankReport")
+            #self.logger.info("❤️  Adding BloodBankReport")
             content.blood_bank.append(self.parse_blood_bank(resource, cache))
    
         elif category == "cardiology":
-            #print("❤️  Adding Cardiology")
+            #self.logger.info("❤️  Adding Cardiology")
             content.diagnostic_test.append(self.parse_cardiology(resource, cache))
 
         else:
-            #print("🔥 Adding Generic DiagnosticTest")
+            #self.logger.info("🔥 Adding Generic DiagnosticTest")
             content.diagnostic_test.append(self.parse_generic_diagnostic(resource, cache))
 
     def get_category(self, resource: dict) -> str:
@@ -97,7 +103,7 @@ class DiagnosticReportMapper(BaseFHIRMapper):
         for cat in categories:
             for coding in cat.get("coding", []):
                 code = (coding.get("code") or "").lower()
-                #print("   ↳ Found category code:", code)
+                #self.logger.info("   ↳ Found category code:", code)
                 if code in {"pat", "path", "pathology"}:
                     return "pathology"
                 if code.startswith("rad"):

@@ -22,17 +22,25 @@
 # src/pulsepipe/ingesters/fhir_utils/allergy_mapper.py
 
 from pulsepipe.models import Allergy, PulseClinicalContent, MessageCache
+from pulsepipe.utils.log_factory import LogFactory
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference
 
 @fhir_mapper("AllergyIntolerance")
 class AllergyMapper(BaseFHIRMapper):
+
     RESOURCE_TYPE = "AllergyIntolerance"
+
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing FHIR AllergyMapper")
+    
+
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         clinical_status = resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code")
-        #print("🔥 Allergy patient id:", patient_id)
+        #self.logger.info("🔥 Allergy patient id:", patient_id)
         if clinical_status == "inactive":
             allergy = Allergy(
                 substance="No Known Allergies",

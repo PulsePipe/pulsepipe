@@ -48,7 +48,7 @@ class FileWatcherAdapter(Adapter):
         self.bookmarks = SQLiteBookmarkStore(sqlite_conn)
 
     async def run(self, queue: asyncio.Queue):
-        print(f"🚀 Starting watcher on: {self.watch_path}")
+        self.logger.info(f"🚀 Starting watcher on: {self.watch_path}")
         
         # Ensure the watch directory exists
         if not self.watch_path.exists():
@@ -77,11 +77,11 @@ class FileWatcherAdapter(Adapter):
                         with open(file_path, 'r', encoding='utf-8') as f:
                             raw_data = f.read()
                         await queue.put(raw_data)
-                        print(f"✅ Enqueued: {file_path}")
+                        self.logger.info(f"✅ Enqueued: {file_path}")
                         self.bookmarks.mark_processed(str_path)
                         files_processed += 1
                     except Exception as e:
-                        print(f"❌ Error reading {file_path}: {e}")
+                        self.logger.info(f"❌ Error reading {file_path}: {e}")
         
         self.logger.info(f"📋 Processed {files_processed} existing files")
         return files_processed
@@ -92,18 +92,18 @@ class FileWatcherAdapter(Adapter):
         
         async for changes in awatch(self.watch_path):
             for _, file_path in changes:
-                print(f"📡 Detected file: {file_path}")
+                self.logger.info(f"📡 Detected file: {file_path}")
                 if not file_path.endswith(self.file_extensions):
-                    print(f"⛔ Skipping unsupported file type: {file_path}")
+                    self.logger.info(f"⛔ Skipping unsupported file type: {file_path}")
                     continue
                 if self.bookmarks.is_processed(file_path):
-                    print(f"🔁 Already processed: {file_path}")
+                    self.logger.info(f"🔁 Already processed: {file_path}")
                     continue
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         raw_data = f.read()
                     await queue.put(raw_data)
-                    print(f"✅ Enqueued: {file_path}")
+                    self.logger.info(f"✅ Enqueued: {file_path}")
                     self.bookmarks.mark_processed(file_path)
                 except Exception as e:
-                    print(f"❌ Error reading {file_path}: {e}")
+                    self.logger.info(f"❌ Error reading {file_path}: {e}")

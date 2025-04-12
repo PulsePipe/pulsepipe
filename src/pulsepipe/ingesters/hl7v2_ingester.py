@@ -21,9 +21,8 @@
 
 # src/pulsepipe/ingesters/hl7v2_ingester.py
 
-import logging
 import re
-
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import PulseClinicalContent, MessageCache
 
 # Import mappers to ensure registration
@@ -34,9 +33,11 @@ from .hl7v2_utils.pid_mapper import PIDMapper
 from .hl7v2_utils.obr_mapper import OBRMapper
 from .hl7v2_utils.obx_mapper import OBXMapper
 
-logger = logging.getLogger(__name__)
-
 class HL7v2Ingester:
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing HL7v2Ingester")
+
 
     def parse(self, hl7_blob: str) -> list:
         """
@@ -74,7 +75,7 @@ class HL7v2Ingester:
                 content = self.parseImp(parsed_msg)
                 parsed_contents.append(content)
             except Exception as e:
-                print(f"❌ Failed parsing or mapping message {i}: {e}")
+                self.logger.info(f"❌ Failed parsing or mapping message {i}: {e}")
 
         return parsed_contents
 
@@ -128,7 +129,7 @@ class HL7v2Ingester:
                 "resource_index": {}
             }
 
-            print(f"\nHL7 Message: {hl7_message}\n")
+            self.logger.info(f"\nHL7 Message: {hl7_message}\n")
             # important, implement cache
             for segment in hl7_message.segments:
                 segment_id = segment.id
@@ -141,9 +142,9 @@ class HL7v2Ingester:
                 elif segment_id == "OBX":
                     OBXMapper().map(segment, content, cache)
 
-            logger.debug(f"Finished parsing. Patient: {content.patient}")
+            self.logger.debug(f"Finished parsing. Patient: {content.patient}")
             return content
 
         except Exception as e:
-            logger.exception("HL7v2 parsing error")
+            self.logger.exception("HL7v2 parsing error")
             raise ValueError(f"Failed to parse HL7v2 message: {str(e)}") from e

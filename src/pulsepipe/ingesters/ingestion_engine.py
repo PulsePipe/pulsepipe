@@ -22,15 +22,15 @@
 # src/pulsepipe/ingesters/ingestion_engine.py
 
 import asyncio
-import logging
+from pulsepipe.utils.log_factory import LogFactory
 from typing import Optional, Any, List, Union
 from pulsepipe.models.clinical_content import PulseClinicalContent
 from pulsepipe.models.op_content import PulseOperationalContent
 
-logger = logging.getLogger(__name__)
-
 class IngestionEngine:
     def __init__(self, adapter, ingester):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing IngestionEngine")
         self.adapter = adapter
         self.ingester = ingester
         self.queue = asyncio.Queue()
@@ -50,20 +50,20 @@ class IngestionEngine:
                         
                         # Handle case where ingester returns a list of results (batch processing)
                         if isinstance(result, list):
-                            logger.info(f"Processed batch of {len(result)} items")
+                            self.logger.info(f"Processed batch of {len(result)} items")
                             for item in result:
                                 self.results.append(item)
                                 # Print summary for each item
-                                print(f"🧪 Common Data Model Results (Item {len(self.results)}):")
-                                print(item.summary())
+                                self.logger.info(f"🧪 Common Data Model Results (Item {len(self.results)}):")
+                                self.logger.info(item.summary())
                         else:
                             self.results.append(result)
                             # Print results nicely
-                            print("🧪 Common Data Model Results:")
-                            print(result.summary())
+                            self.logger.info("🧪 Common Data Model Results:")
+                            self.logger.info(result.summary())
 
                     except Exception as e:
-                        logger.error(f"❌ Ingestion error: {e}", exc_info=True)
+                        self.logger.error(f"❌ Ingestion error: {e}", exc_info=True)
                     finally:
                         self.queue.task_done()
                         
@@ -72,7 +72,7 @@ class IngestionEngine:
                     continue
                     
         except asyncio.CancelledError:
-            logger.debug("Process task was cancelled")
+            self.logger.debug("Process task was cancelled")
     
     async def run(self, timeout: Optional[float] = 30.0) -> Any:
         """
@@ -96,10 +96,10 @@ class IngestionEngine:
             # Wait for the adapter task with a timeout
             try:
                 await asyncio.wait_for(adapter_task, timeout=timeout)
-                logger.info("Adapter task completed normally")
+                self.logger.info("Adapter task completed normally")
             except asyncio.TimeoutError:
                 # For continuous watchers, this is expected - we'll stop after timeout
-                logger.info(f"Stopping adapter after {timeout} seconds")
+                self.logger.info(f"Stopping adapter after {timeout} seconds")
                 adapter_task.cancel()
                 
             # Signal processor to stop once queue is empty
@@ -114,7 +114,7 @@ class IngestionEngine:
             elif len(self.results) > 1:
                 return self.results
             else:
-                logger.warning("No data was processed")
+                self.logger.warning("No data was processed")
                 # Return an empty model based on ingester type
                 if hasattr(self.ingester, 'parse') and callable(self.ingester.parse):
                     try:
@@ -127,7 +127,7 @@ class IngestionEngine:
                 return None
                 
         except Exception as e:
-            logger.exception(f"Error in ingestion engine: {e}")
+            self.logger.exception(f"Error in ingestion engine: {e}")
             raise
         finally:
             # Cleanup

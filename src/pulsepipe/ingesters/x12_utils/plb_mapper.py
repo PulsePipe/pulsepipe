@@ -23,15 +23,21 @@
 
 from .base_mapper import BaseX12Mapper
 from decimal import Decimal
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import Charge
 from .decimal_utils import parse_x12_decimal
 
-class SVCMapper(BaseX12Mapper):
+class PLBMapper(BaseX12Mapper):
+    def __init__(self):
+        self.typeCode = "PLB"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing X12 PLBMapper")
+
     def accepts(self, segment_id: str) -> bool:
-        return segment_id == "SVC"
+        return segment_id == self.typeCode
 
     def map(self, segment_id: str, elements: list, content, cache: dict):
-        print("SVC elements:", elements)
+        self.logger.debug("{self.typeCode} elements: {elements}")
         charge = Charge(
             charge_id=f"{cache.get('claim_id')}_{len(content.charges) + 1}",
             encounter_id=None,

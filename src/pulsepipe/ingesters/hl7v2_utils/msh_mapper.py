@@ -21,23 +21,26 @@
 
 # src/pulsepipe/ingesters/hl7v2_utils/msh_mapper.py
 
-import logging
+
 from typing import Dict, Any
-
-
-
+from pulsepipe.utils.log_factory import LogFactory
 from .message import Segment
 from pulsepipe.models.clinical_content import PulseClinicalContent
 #from pulsepipe.models import MessageMetadata
 from .base_mapper import HL7v2Mapper, register_mapper
 
-logger = logging.getLogger(__name__)
 
 class MSHMapper(HL7v2Mapper):
+    def __init__(self):
+        self.segment = "MSH"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing HL7v2 MSHMapper")
+
     def accepts(self, seg: Segment) -> bool:
-        return seg.id == "MSH"
+        return seg.id == self.segment
 
     def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
+        self.logger.debug("{self.segment} Segment: {seg}")
         try:
             #ToDo: Parse for cache like org id, etc..
             #msh = msh_segments[0]
@@ -55,10 +58,10 @@ class MSHMapper(HL7v2Mapper):
             #     version=get(12)
             # )
             seg.id == "MSH"
-            #logger.info(f"Mapped message metadata: {content.metadata}")
+            #self.logger.info(f"Mapped message metadata: {content.metadata}")
 
         except Exception as e:
-            logger.exception(f"Error mapping MSH segment: {e}")
+            self.logger.exception(f"Error mapping MSH segment: {e}")
             raise
 
 register_mapper(MSHMapper())

@@ -26,8 +26,19 @@ from pulsepipe.utils.log_factory import LogFactory
 from typing import Optional, Any, List, Union
 from pulsepipe.models.clinical_content import PulseClinicalContent
 from pulsepipe.models.operational_content import PulseOperationalContent
+from pulsepipe.utils.errors import (
+    IngestionEngineError, IngesterError, AdapterError, PulsePipeError
+)
 
 class IngestionEngine:
+    """
+    Core engine that coordinates data flow between adapters and ingesters.
+    
+    The IngestionEngine manages the flow of data from adapters (input sources)
+    to ingesters (parsers) and coordinates the asynchronous processing of data.
+    It handles error conditions and timeouts.
+    """
+    
     def __init__(self, adapter, ingester):
         self.logger = LogFactory.get_logger(__name__)
         self.logger.info("📁 Initializing IngestionEngine")
@@ -36,6 +47,7 @@ class IngestionEngine:
         self.queue = asyncio.Queue()
         self.results = []
         self.stop_flag = asyncio.Event()
+        self.processing_errors = []
 
     async def process(self):
         """Worker that processes items from the queue"""
@@ -62,8 +74,21 @@ class IngestionEngine:
                             self.logger.info("🧪 Common Data Model Results:")
                             self.logger.info(result.summary())
 
+                    except PulsePipeError as e:
+                        # Handle our custom errors
+                        self.logger.error(f"❌ Ingestion error: {e.message}")
+                        self.processing_errors.append({
+                            "message": e.message,
+                            "type": type(e).__name__,
+                            "details": e.details
+                        })
                     except Exception as e:
-                        self.logger.error(f"❌ Ingestion error: {e}", exc_info=True)
+                        # Handle other exceptions
+                        self.logger.error(f"❌ Unexpected ingestion error: {e}", exc_info=True)
+                        self.processing_errors.append({
+                            "message": str(e),
+                            "type": type(e).__name__
+                        })
                     finally:
                         self.queue.task_done()
                         
@@ -84,10 +109,18 @@ class IngestionEngine:
                      
         Returns:
             Processed content, list of processed content, or empty model if nothing processed.
+            
+        Raises:
+            IngestionEngineError: If there's an error in the ingestion process
+            AdapterError: If there's an error in the adapter
+            IngesterError: If there's an error in the ingester
         """
+        adapter_task = None
+        processor_task = None
+        
         try:
             # Start the processor task
-            processor = asyncio.create_task(self.process())
+            processor_task = asyncio.create_task(self.process())
             
             # Start the adapter task
             adapter_task = asyncio.create_task(self.adapter.run(self.queue))
@@ -99,14 +132,28 @@ class IngestionEngine:
                 self.logger.info("Adapter task completed normally")
             except asyncio.TimeoutError:
                 # For continuous watchers, this is expected - we'll stop after timeout
-                self.logger.info(f"Stopping adapter after {timeout} seconds")
-                adapter_task.cancel()
+                if timeout is not None:
+                    self.logger.info(f"Stopping adapter after {timeout} seconds")
                 
             # Signal processor to stop once queue is empty
             self.stop_flag.set()
             
             # Wait for processor to finish
-            await processor
+            await processor_task
+            
+            # Check for processing errors
+            if self.processing_errors:
+                error_count = len(self.processing_errors)
+                if not self.results:  # No successful results
+                    raise IngestionEngineError(
+                        f"Processing failed: {error_count} errors occurred with no successful results",
+                        details={"errors": self.processing_errors[:10]}  # Include first 10 errors
+                    )
+                else:
+                    # Log a warning but continue since some items were processed successfully
+                    self.logger.warning(
+                        f"Completed with {error_count} errors and {len(self.results)} successful results"
+                    )
             
             # Return results
             if len(self.results) == 1:
@@ -122,16 +169,44 @@ class IngestionEngine:
                             return PulseOperationalContent()
                         else:
                             return PulseClinicalContent()
-                    except:
+                    except Exception as e:
+                        self.logger.error(f"Error creating empty model: {str(e)}")
                         return None
                 return None
                 
-        except Exception as e:
-            self.logger.exception(f"Error in ingestion engine: {e}")
+        except AdapterError:
+            # Re-raise adapter errors
             raise
+        except IngesterError:
+            # Re-raise ingester errors
+            raise
+        except asyncio.CancelledError:
+            raise IngestionEngineError(
+                "Ingestion pipeline was cancelled",
+                details={"processed_count": len(self.results)}
+            )
+        except Exception as e:
+            # Wrap other exceptions
+            raise IngestionEngineError(
+                f"Unexpected error in ingestion engine: {str(e)}",
+                cause=e
+            ) from e
         finally:
             # Cleanup
-            if not adapter_task.done():
+            if adapter_task and not adapter_task.done():
                 adapter_task.cancel()
-            if not processor.done():
-                processor.cancel()
+                try:
+                    await adapter_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    self.logger.error(f"Error cancelling adapter task: {str(e)}")
+                    
+            if processor_task and not processor_task.done():
+                processor_task.cancel()
+                try:
+                    await processor_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    self.logger.error(f"Error cancelling processor task: {str(e)}")

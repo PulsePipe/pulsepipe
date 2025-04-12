@@ -2,7 +2,7 @@
 
 **PulsePipe** is a modular, AI-native healthcare data pipeline. It ingests clinical data (HL7 v2, FHIR, CDA/CCDA, plain text, and custom templates), de-identifies and normalizes it, prepares it for LLM-friendly text processing, and generates vector representations for AI/ML tasks.
 
-PulsePipe transforms healthcare data into embedding-ready chunks annotated with rich metadata (patient hashes, timestamps, note types, etc.). It supports generating multiple vector formats via configurable embedding engines (ClinicalBERT, GPT-4, DeepSeek, and others) for use in vector databases such as Pinecone, Weaviate, or FAISS.
+PulsePipe transforms healthcare data into embedding-ready chunks annotated with rich metadata (patient hashes, timestamps, note types, etc.). It supports generating multiple vector formats via configurable embedding engines (ClinicalBERT, GPT-4, Llama v4, and others) for use in vector databases such as Pinecone, Weaviate, or FAISS.
 
 ## 🚀 Use Cases
 
@@ -23,7 +23,7 @@ PulsePipe is designed for AI-powered healthcare applications including:
 - **Canonical Clinical Data Model** (Pulse Clinical Content)
 - **De-identification Module** using Presidio + Clinical NER models (optional)
 - **Embedding-ready Pipeline**: Produces vector-ready chunks for AI/ML tasks
-- **Multiple embedding models** support: ClinicalBERT, GPT-family, DeepSeek, etc.
+- **Multiple embedding models** support: ClinicalBERT, GPT-family, Llama v4, etc.
 - **Multi-embedding generation**: Generate several embedding formats per chunk
 - **Metadata-first design** for context-rich, patient-safe vector chunks
 - **Flexible vector storage**: Pinecone, Weaviate, FAISS, or custom backends
@@ -64,7 +64,7 @@ PulsePipe is designed for AI-powered healthcare applications including:
    Generates one or more embedding vectors per chunk using:
    - ClinicalBERT (local)
    - OpenAI GPT-family (via API)
-   - DeepSeek (optional)
+   - Llama v4 (optional)
    - Other pluggable embedding models
 
 6. **Store**  

@@ -23,11 +23,17 @@
 
 from pulsepipe.models import Problem, PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
+from pulsepipe.utils.log_factory import LogFactory
 from .extractors import extract_patient_reference, extract_encounter_reference
 
 @fhir_mapper("Condition")
 class ProblemListMapper(BaseFHIRMapper):
+
     RESOURCE_TYPE = "Condition"
+
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing FHIR ProblemListMapper")
 
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
         # Only accept problem-list items
@@ -37,7 +43,7 @@ class ProblemListMapper(BaseFHIRMapper):
 
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
-        #print("🔥 Problem List patient id:", patient_id)
+        #self.logger.info("🔥 Problem List patient id:", patient_id)
         problem = Problem(
             code=resource.get("code", {}).get("coding", [{}])[0].get("code"),
             coding_method=resource.get("code", {}).get("coding", [{}])[0].get("system"),

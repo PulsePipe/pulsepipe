@@ -25,9 +25,9 @@ import os
 import yaml
 from pathlib import Path
 import sys
-import logging
+from pulsepipe.utils.log_factory import LogFactory
 
-logger = logging.getLogger(__name__)
+logger = LogFactory.get_logger(__name__)
 
 def get_config_dir() -> str:
     """Locate the config directory relative to the PulsePipe binary"""

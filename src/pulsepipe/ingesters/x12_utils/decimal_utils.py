@@ -22,9 +22,9 @@
 # src/pulsepipe/ingesters/x12_utils/decimal_utils.py
 
 from decimal import Decimal, InvalidOperation
-import logging
+from pulsepipe.utils.log_factory import LogFactory
 
-logger = logging.getLogger(__name__)
+logger = LogFactory.get_logger(__name__)
 
 def parse_x12_decimal(value: str, implied_decimal_places: int = 2) -> Decimal:
     """

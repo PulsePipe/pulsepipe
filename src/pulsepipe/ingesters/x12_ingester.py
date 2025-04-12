@@ -21,7 +21,7 @@
 
 # src/pulsepipe/ingesters/x12_ingester.py
 
-import logging
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import PulseOperationalContent, MessageCache
 from .x12_utils import base_mapper
 from .x12_utils import (
@@ -33,9 +33,11 @@ from .x12_utils import (
     svc_mapper,
 )
 
-logger = logging.getLogger(__name__)
-
 class X12Ingester:
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing X12Ingester")
+
     def parse(self, raw_data: str) -> PulseOperationalContent:
         if not raw_data.strip():
             raise ValueError("Empty X12 data received")
@@ -57,18 +59,17 @@ class X12Ingester:
             )
 
             for segment_text in segments:
-                #print("RAW segment text:", segment_text)
                 elements = segment_text.split('*')
                 segment_id = elements[0]
                 elements = elements[1:]
                 self._map_segment(segment_id, elements, content, cache)
 
-            logger.info(f"Successfully parsed X12 message with {len(segments)} segments")
+            self.logger.info(f"Successfully parsed X12 message with {len(segments)} segments")
 
             return content
 
         except Exception as e:
-            logger.exception("X12 parsing error")
+            self.logger.exception("X12 parsing error")
             raise ValueError("Failed to parse X12 message") from e
 
 
@@ -113,7 +114,7 @@ class X12Ingester:
             if mapper.accepts(segment_id):
                 try:
                     mapper.map(segment_id, elements, content, cache)
-                    logger.debug(f"Mapped segment {segment_id} using {mapper.__class__.__name__}")
+                    self.logger.debug(f"Mapped segment {segment_id} using {mapper.__class__.__name__}")
                 except Exception as e:
-                    logger.exception(f"Error mapping segment {segment_id} with {mapper.__class__.__name__}")
+                    self.logger.exception(f"Error mapping segment {segment_id} with {mapper.__class__.__name__}")
                 break  # Only one mapper should handle a segment

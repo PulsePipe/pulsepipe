@@ -22,9 +22,13 @@
 # src/pulsepipe/ingesters/cda_ingester.py
 
 from .base import Ingester
-
+from pulsepipe.utils.log_factory import LogFactory
 
 class CDAIngester(Ingester):
+    def __init__(self):
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing CDAIngester")
+
     def parse(self, raw_data: str) -> dict:
         # TODO: Implement CDA / CCDA / CCD parsing logic
         return {}

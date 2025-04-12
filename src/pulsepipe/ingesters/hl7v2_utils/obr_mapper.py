@@ -21,21 +21,25 @@
 
 # src/pulsepipe/ingesters/hl7v2_utils/obr_mapper.py
 
-import logging
 from typing import Dict, Any
-
+from pulsepipe.utils.log_factory import LogFactory
 from .message import Segment
 from .base_mapper import HL7v2Mapper, register_mapper
 from pulsepipe.models import LabReport, LabObservation
 from pulsepipe.models.clinical_content import PulseClinicalContent
 
-logger = logging.getLogger(__name__)
 
 class OBRMapper(HL7v2Mapper):
+    def __init__(self):
+        self.segment = "OBR"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing HL7v2 OBRMapper")
+
     def accepts(self, seg: Segment) -> bool:
-        return (seg.id == 'OBR')
+        return (seg.id == self.segment)
 
     def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
+        self.logger.debug("{self.segment} Segment: {seg}")
         try:
             get = lambda f, c=1, s=1: seg.get(f"{f}.{c}.{s}")
 
@@ -70,9 +74,9 @@ class OBRMapper(HL7v2Mapper):
                 encounter_id=cache.get("encounter_id")
             )
             content.lab.append(report)
-            logger.info(f"Mapped OBR {panel_code} - {panel_text}")
+            self.logger.info(f"Mapped OBR {panel_code} - {panel_text}")
 
         except Exception as e:
-            logger.exception("Error mapping OBR segment")
+            self.logger.exception("Error mapping OBR segment")
 
 register_mapper(OBRMapper())

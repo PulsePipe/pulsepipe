@@ -22,14 +22,21 @@
 # src/pulsepipe/ingesters/x12_utils/cas_mapper.py
 
 from .base_mapper import BaseX12Mapper
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import Adjustment
 from .decimal_utils import parse_x12_decimal
 
 class CASMapper(BaseX12Mapper):
+    def __init__(self):
+        self.typeCode = "CAS"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing X12 CLPMapper")
+    
     def accepts(self, segment_id: str) -> bool:
-        return segment_id == "CAS"
+        return segment_id == self.typeCode
 
     def map(self, segment_id: str, elements: list, content, cache: dict):
+        self.logger.debug("{self.typeCode} elements: {elements}")
         i = 0
         while i + 2 < len(elements):
             group_code = elements[i]

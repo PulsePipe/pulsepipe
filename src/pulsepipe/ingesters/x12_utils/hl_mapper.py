@@ -22,12 +22,19 @@
 # src/pulsepipe/ingesters/x12_utils/hl_mapper.py
 
 from .base_mapper import BaseX12Mapper
+from pulsepipe.utils.log_factory import LogFactory
 
 class HLMapper(BaseX12Mapper):
+    def __init__(self):
+        self.typeCode = "HL"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing X12 HLMapper")
+
     def accepts(self, segment_id: str) -> bool:
-        return segment_id == "HL"
+        return segment_id == self.typeCode
 
     def map(self, segment_id: str, elements: list, content, cache: dict):
+        self.logger.debug("{self.typeCode} elements: {elements}")
         hl_id = elements[0]
         hl_parent = elements[1] if len(elements) > 1 else None
         hl_code = elements[2] if len(elements) > 2 else None
@@ -42,4 +49,4 @@ class HLMapper(BaseX12Mapper):
             "code": hl_code
         }
 
-        #print(f"HL Detected: id={hl_id}, parent={hl_parent}, code={hl_code}")
+        #self.logger.info(f"HL Detected: id={hl_id}, parent={hl_parent}, code={hl_code}")

@@ -21,14 +21,12 @@
 
 # src/pulsepipe/ingesters/hl7v2_utils/pv1_mapper.py
 
-import logging
 from typing import Dict, Any, List
+from pulsepipe.utils.log_factory import LogFactory
 from .message import Segment
 from .base_mapper import HL7v2Mapper, register_mapper
 from pulsepipe.models.encounter import EncounterInfo, EncounterProvider
 from pulsepipe.models.clinical_content import PulseClinicalContent
-
-logger = logging.getLogger(__name__)
 
 # - PV1 (Patient Visit)
 #   - PV1-1: Set ID
@@ -84,10 +82,16 @@ logger = logging.getLogger(__name__)
 #   - PV1-51: Visit Indicator
 #   - PV1-52: Other Healthcare Provider
 class PV1Mapper(HL7v2Mapper):
+    def __init__(self):
+        self.segment = "PV1"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing HL7v2 PV1Mapper")
+
     def accepts(self, seg: Segment) -> bool:
-        return (seg.id == 'PV1')
+        return (seg.id == self.segment)
 
     def map(self, seg: Segment, content: PulseClinicalContent, cache: Dict[str, Any]):
+        self.logger.debug("{self.segment} Segment: {seg}")
         try:
             pv1 = seg
             enc: EncounterInfo = None
@@ -95,11 +99,11 @@ class PV1Mapper(HL7v2Mapper):
 
             enc.id = pv1.get(19)
 
-            logger.info(f"Mapped PV1: {enc.id} - {providers}")
+            self.logger.info(f"Mapped PV1: {enc.id} - {providers}")
             content.encounter = enc
     
         except Exception as e:
-            logger.exception(f"Error mapping PV1 segment: {e}")
+            self.logger.exception(f"Error mapping PV1 segment: {e}")
 
 register_mapper(PV1Mapper())
 

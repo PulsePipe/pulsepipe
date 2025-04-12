@@ -23,10 +23,14 @@
 
 import pytest
 from pulsepipe.cli.banner import get_banner, EMOJI_SLOGAN, BANNER
+from pulsepipe.utils.log_factory import LogFactory
+
+logger = LogFactory.get_logger(__name__)
+logger.info("📁 Initializing CLI Banner Tests")
 
 def test_get_banner_full():
     banner = get_banner()
-    print("\n" + banner)  # Print with leading newline for clean separation
+    logger.info("\n" + banner)  # Print with leading newline for clean separation
     assert "PulsePipe CLI" in banner
     assert EMOJI_SLOGAN in banner
     assert BANNER in banner  # Check that the ASCII banner content is present
@@ -34,7 +38,7 @@ def test_get_banner_full():
 
 def test_get_banner_minimal():
     banner = get_banner(theme="minimal")
-    print("\n" + banner)
+    logger.info("\n" + banner)
     assert banner == f"PulsePipe CLI {EMOJI_SLOGAN}"
 
 def test_banner_respects_config():

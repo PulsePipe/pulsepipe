@@ -23,15 +23,21 @@
 
 from .base_mapper import BaseX12Mapper
 from decimal import Decimal
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models import Claim
 from .decimal_utils import parse_x12_decimal
 
 class CLPMapper(BaseX12Mapper):
+    def __init__(self):
+        self.typeCode = "CLP"
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing X12 CLPMapper")
+
     def accepts(self, segment_id: str) -> bool:
-        return segment_id == "CLP"
+        return segment_id == self.typeCode
 
     def map(self, segment_id: str, elements: list, content, cache: dict):
-        print("CLP elements:", elements)
+        self.logger.debug("{self.typeCode} elements: {elements}")
 
         claim_status_code = elements[1]
         claim_status_map = {

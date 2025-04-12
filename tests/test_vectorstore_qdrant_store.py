@@ -19,15 +19,22 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/pipelines/vectorstore/__init__.py
+# tests/test_vectorstore_qdrant.py
 
-from .base_vectorstore import VectorStore, VectorStoreConnectionError
-from .weaviate_store import WeaviateVectorStore
-from .qdrant_store import QdrantVectorStore
+import pytest
+from pulsepipe.pipelines.vectorstore.qdrant_store import QdrantVectorStore
 
-__all__ = [
-    "VectorStore",
-    "QdrantVectorStore",
-    "WeaviateVectorStore",
-    "VectorStoreConnectionError",
-]
+def test_qdrant_upsert_and_query():
+    store = QdrantVectorStore()
+
+    dummy_vectors = [{
+        "id": 1,
+        "embedding": [0.1, 0.2, 0.3],
+        "metadata": {"patient_id": "456", "note": "glucose high"}
+    }]
+    namespace = "test_qdrant"
+
+    store.upsert(namespace, dummy_vectors)
+    results = store.query(namespace, [0.1, 0.2, 0.3], top_k=1)
+
+    assert isinstance(results, list)

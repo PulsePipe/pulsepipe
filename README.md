@@ -4,28 +4,33 @@
 
 PulsePipe transforms healthcare data into embedding-ready chunks annotated with rich metadata (patient hashes, timestamps, note types, etc.). It supports generating multiple vector formats via configurable embedding engines (ClinicalBERT, GPT-4, DeepSeek, and others) for use in vector databases such as Pinecone, Weaviate, or FAISS.
 
-PulsePipe is designed for AI-powered applications including:
+## 🚀 Use Cases
+
+PulsePipe is designed for AI-powered healthcare applications including:
 - Clinical semantic search
 - Clinical decision support
 - Patient similarity matching
 - Embedding-driven analytics
 - Hybrid structured + unstructured data pipelines
+- **Local question-answering on clinical data** - ask questions about patient history, treatments, and outcomes without sending PHI to external services
+- **Operational analytics** - analyze resource utilization, workflows, and quality metrics using natural language queries
 
 ---
 
 ## ✨ Features
 
-- Modular multi-format ingestion (FHIR, HL7 v2.x, CDA/CCDA, Plain Text)
-- Canonical Clinical Data Model (Pulse Clinical Content)
-- De-identification Module using Presidio + Clinical NER models (optional)
-- Embedding-ready Pipeline: Produces vector-ready chunks for AI/ML tasks
-- Supports multiple embedding models (ClinicalBERT, GPT-family, DeepSeek, etc.)
-- Supports generating multiple embedding formats per chunk
-- Metadata-first design for context-rich, patient-safe vector chunks
-- Flexible vector storage (Pinecone, Weaviate, FAISS, or custom backends)
-- Built on `pydantic` for strict schema validation
-- Compatible with modern Python toolchains (Poetry, Pytest, Mypy)
-- Designed for AI/NLP enhanced ingestion pipelines
+- **Modular multi-format ingestion**: FHIR, HL7 v2.x, CDA/CCDA, Plain Text
+- **Canonical Clinical Data Model** (Pulse Clinical Content)
+- **De-identification Module** using Presidio + Clinical NER models (optional)
+- **Embedding-ready Pipeline**: Produces vector-ready chunks for AI/ML tasks
+- **Multiple embedding models** support: ClinicalBERT, GPT-family, DeepSeek, etc.
+- **Multi-embedding generation**: Generate several embedding formats per chunk
+- **Metadata-first design** for context-rich, patient-safe vector chunks
+- **Flexible vector storage**: Pinecone, Weaviate, FAISS, or custom backends
+- **Built on `pydantic`** for strict schema validation
+- **Modern Python toolchain** compatibility (Poetry, Pytest, Mypy)
+- **AI/NLP enhanced** ingestion pipelines
+- **On-premises execution**: Run completely locally within your secure environment for maximum data privacy
 
 ---
 
@@ -74,6 +79,199 @@ PulsePipe is designed for AI-powered applications including:
 
 ---
 
+## 📦 Installation & Setup
+
+### Using Poetry (Recommended)
+
+```bash
+# Install dependencies and set up virtual environment
+poetry install
+
+# Build project
+poetry build
+
+# (Optional) Publish build artifacts
+poetry publish --repository <repo>
+
+# Open Python REPL with managed virtualenv
+poetry run python
+```
+
+### Docker Setup for Vector Databases
+
+PulsePipe works with various vector databases which can be easily set up using Docker. We provide ready-to-use configurations for Weaviate and Qdrant to simplify your development and testing process.
+
+```bash
+# Navigate to the vector database setup directory
+cd tests/docker_environment/vectordatabases
+
+# Start Weaviate and Qdrant
+docker compose up -d
+
+# Check running containers
+docker ps
+
+# Stop the databases
+docker compose down
+```
+
+The `docker-compose.yaml` includes:
+
+#### Weaviate Configuration
+```yaml
+weaviate:
+  image: semitechnologies/weaviate:1.27.17
+  ports:
+    - "8080:8080"    # HTTP API
+    - "50051:50051"  # gRPC API
+  environment:
+    ENABLE_MODULES: ""
+    DEFAULT_VECTORIZER_MODULE: "none"
+    ENABLE_GRPC: "true"
+    CLUSTER_HOSTNAME: "node1"
+```
+
+#### Qdrant Configuration
+```yaml
+qdrant:
+  image: qdrant/qdrant
+  ports:
+    - "6333:6333"
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "http://localhost:6333/collections"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+```
+
+For production deployments or custom configurations, you can modify the environment variables and port mappings as needed.
+
+---
+
+## 🧪 Testing & 🐞 Debugging
+
+```bash
+# Run all unit tests
+poetry run pytest -s
+
+# Run specific test
+poetry run pytest -s tests/test_hl7v2_ingester.py
+
+# Generate coverage report
+poetry run pytest --cov=src/ --cov-report=term-missing tests/
+
+# Type checking (static analysis)
+poetry run mypy src/ tests/
+
+# Linting and formatting
+poetry run black --check src/ tests/
+poetry run isort --check-only src/ tests/
+
+# Auto-fix formatting
+poetry run black src/ tests/
+poetry run isort src/ tests/
+```
+
+---
+
+## 🛠️ Usage
+
+PulsePipe is designed for CLI-first interaction. Once installed, run pipelines using:
+
+```bash
+# Basic pipeline execution
+pulsepipe run --profile <your_profile>
+
+# Run with summary report
+pulsepipe run --profile patient_fhir --summary
+
+# Print normalized data model
+pulsepipe run --profile patient_fhir --print-model
+
+# Run using adapter + ingester configs directly
+pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
+
+# Run all pipelines from a pipeline.yaml
+pulsepipe run --pipeline-config pipeline.yaml
+```
+
+### Configuration Management
+
+```bash
+# Validate a config
+pulsepipe config validate --profile patient_fhir
+
+# List processed files for file watcher
+pulsepipe config filewatcher list
+
+# View model schemas
+pulsepipe model schema pulsepipe.models.PulseClinicalContent
+```
+
+### 💬 Clinical and Operational Chat Prompts
+
+PulsePipe's vector embeddings enable powerful question-answering capabilities over clinical data. Below are example prompts for common clinical and operational use cases.
+
+#### Clinical Chat Prompts
+
+```
+# Patient History Review
+Given the lab results and vital signs for Patient X over the past 6 months, 
+what trends should I be concerned about?
+
+# Medication Review
+Show me potential medication interactions for this patient's current prescriptions.
+
+# Clinical Decision Support
+Based on this patient's history of hypertension and recent lab values, 
+what treatment protocols align with current guidelines?
+
+# Similar Case Finding
+Find cases similar to this patient with unexplained fever and joint pain who 
+responded well to Treatment Y.
+```
+
+#### Operational Chat Prompts
+
+```
+# Resource Utilization
+What is the average length of stay for patients with diagnosis X 
+compared to similar institutions?
+
+# Workflow Optimization
+Identify bottlenecks in our current triage process based on patient flow data.
+
+# Quality Metrics
+Show compliance trends for core measures across departments over the last quarter.
+
+# Billing and Coding
+Identify potential documentation gaps that could affect coding accuracy for procedures X and Y.
+```
+
+Configure these prompts in your application by using PulsePipe's embedding context:
+
+```python
+from pulsepipe.chat import PulseChat
+
+# Initialize chat with your vector database
+chat = PulseChat(vector_store="weaviate", collection="patient_data")
+
+# Run a clinical query with metadata filters
+response = chat.query(
+    prompt="What treatment options were considered for this patient's condition?",
+    filters={
+        "patient_id": "123456",
+        "date_range": {"from": "2023-01-01", "to": "2023-06-30"},
+        "document_types": ["progress_notes", "consults"]
+    }
+)
+```
+
+For **full CLI documentation**, see  
+📄 [`src/pulsepipe/cli/README.md`](src/pulsepipe/cli/README.md)
+
+---
+
 ## 📜 License
 
 PulsePipe is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — and that's on purpose.
@@ -93,98 +291,16 @@ For full details, see the [LICENSE](./LICENSE.md) and [LICENSE-EXCEPTIONS](./LIC
 
 ---
 
-## 📦 Installation & Building
-
-```bash
-poetry install   # Installs dependencies and sets up the virtual environment
-
-poetry build     # Builds project into dist/*.whl and dist/*.tar.gz
-
-poetry publish --repository <repo>      # Publishes build artifacts to specified repository (optional)
-
-poetry run python  # Opens a Python REPL using the managed virtualenv
-```
-
----
-
-## 🧪 Testing & 🐞 Debugging the Pipeline
-
-### ✅ Unit Testing & QA
-
-```bash
-# Run all unit tests
-poetry run pytest -s
-
-# Run specific unit test
-poetry run pytest -s tests/test_hl7v2_ingester.py
-
-# Run verbose
-poetry run pytest -s
-
-# Run tests with coverage report
-poetry run pytest --cov=src/ --cov-report=term-missing tests/
-
-# Type checking (static analysis)
-poetry run mypy src/ tests/
-
-# Linting (PEP8 compliance)
-poetry run black --check src/ tests/
-poetry run isort --check-only src/ tests/
-
-# Auto-fix formatting (format code in-place)
-poetry run black src/ tests/
-poetry run isort src/ tests/
-```
-
----
-
-## 📦 Running and Using
-
-PulsePipe is built for CLI-first interaction. Once installed via Poetry, you can run pipelines using a simple command:
-
-```bash
-pulsepipe run --profile <your_profile>
-```
-
-This will load the specified YAML profile and start ingesting and processing data based on your configuration.
-
-### Common Commands
-
-```bash
-# Run a pipeline using a profile
-pulsepipe run --profile patient_fhir
-
-# View a summary after run
-pulsepipe run --profile patient_fhir --summary
-
-# Print the normalized data model
-pulsepipe run --profile patient_fhir --print-model
-
-# Run using adapter + ingester configs directly
-pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
-
-# Run all pipelines from a pipeline.yaml
-pulsepipe run --pipeline-config pipeline.yaml
-```
-
-You can also manage configs, inspect models, and reset bookmarks using CLI subcommands:
-
-```bash
-# Validate a config
-pulsepipe config validate --profile patient_fhir
-
-# List processed files for file watcher
-pulsepipe config filewatcher list
-
-# View model schemas
-pulsepipe model schema pulsepipe.models.PulseClinicalContent
-```
-
-For **full documentation**, see  
-📄 [`src/pulsepipe/cli/README.md`](src/pulsepipe/cli/README.md)
-
-
----
 ## 📈 Architecture Diagram
 
 ![PulsePipe Architecture](docs/pulsepipe_architecture_layers.png)
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
+
+## 📞 Support
+
+- GitHub Issues: For bug reports and feature requests

@@ -19,15 +19,23 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/pipelines/vectorstore/__init__.py
+# src/pulsepipe/pipelines/vectorstore/vectorstore.py
 
-from .base_vectorstore import VectorStore, VectorStoreConnectionError
-from .weaviate_store import WeaviateVectorStore
-from .qdrant_store import QdrantVectorStore
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any
 
-__all__ = [
-    "VectorStore",
-    "QdrantVectorStore",
-    "WeaviateVectorStore",
-    "VectorStoreConnectionError",
-]
+
+class VectorStore(ABC):
+    @abstractmethod
+    def upsert(self, namespace: str, vectors: List[Dict[str, Any]]) -> None:
+        pass
+
+    @abstractmethod
+    def query(self, namespace: str, query_vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
+        pass
+
+
+class VectorStoreConnectionError(Exception):
+    def __init__(self, engine: str, host: str, port: int):
+        message = f"❌ Unable to connect to {engine} vector store at {host}:{port} 🚫🛜"
+        super().__init__(message)

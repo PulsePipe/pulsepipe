@@ -79,6 +79,14 @@ PulsePipe is designed for AI-powered healthcare applications including:
 
 ---
 
+## 🖥️ CLI Screenshot
+
+![pulsepipe CLI](docs/cli.png)
+
+When you launch the CLI, you'll see a startup banner and environment summary like this, including loaded configuration and available commands.
+
+---
+
 ## 📦 Installation & Setup
 
 ### Using Poetry (Recommended)

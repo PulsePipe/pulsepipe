@@ -21,8 +21,6 @@
 
 # src/pulsepipe/pipelines/concurrent_executor.py
 
-# src/pulsepipe/pipelines/concurrent_executor.py
-
 """
 Concurrent pipeline executor for PulsePipe.
 
@@ -30,9 +28,9 @@ Orchestrates the execution of pipeline stages in parallel using queues.
 """
 
 import asyncio
+import time
 from typing import Dict, List, Any, Optional
 import traceback
-import time
 
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import PipelineError, ConfigurationError
@@ -84,12 +82,16 @@ class ConcurrentPipelineExecutor:
         # Stop event for signaling shutdown
         self.stop_event = asyncio.Event()
         
-    async def execute_pipeline(self, context: PipelineContext) -> Any:
+        # Global timeout
+        self.timeout = None
+        
+    async def execute_pipeline(self, context: PipelineContext, timeout: Optional[float] = None) -> Any:
         """
         Execute a pipeline with concurrent stages.
         
         Args:
             context: Pipeline execution context with configuration
+            timeout: Global timeout for pipeline execution in seconds
             
         Returns:
             Final results dict with stage-specific outputs
@@ -98,6 +100,16 @@ class ConcurrentPipelineExecutor:
             PipelineError: If pipeline execution fails
         """
         logger.info(f"{context.log_prefix} Starting concurrent pipeline execution")
+        
+        # Set timeout
+        self.timeout = timeout
+        if timeout:
+            logger.info(f"{context.log_prefix} Pipeline timeout set to {timeout} seconds")
+            
+        # Create timeout task if needed
+        timeout_task = None
+        if timeout:
+            timeout_task = asyncio.create_task(self._timeout_handler(timeout))
         
         try:
             # Determine which stages are enabled
@@ -139,6 +151,24 @@ class ConcurrentPipelineExecutor:
                 details={"pipeline": context.name},
                 cause=e
             )
+        finally:
+            # Cancel timeout task if it exists
+            if timeout_task:
+                timeout_task.cancel()
+                try:
+                    await timeout_task
+                except asyncio.CancelledError:
+                    pass
+    
+    async def _timeout_handler(self, timeout_seconds: float):
+        """Handle global timeout for the pipeline."""
+        try:
+            await asyncio.sleep(timeout_seconds)
+            logger.warning(f"Pipeline timeout reached after {timeout_seconds} seconds, stopping execution")
+            self.stop_event.set()
+        except asyncio.CancelledError:
+            logger.debug("Timeout handler cancelled")
+            raise
     
     def _get_enabled_stages(self, context: PipelineContext) -> List[str]:
         """Determine which stages are enabled and their execution order."""
@@ -180,7 +210,7 @@ class ConcurrentPipelineExecutor:
         
         # Create a queue for each stage output
         for stage in enabled_stages:
-            queues[f"{stage}_output"] = asyncio.Queue()
+            queues[f"{stage}_output"] = asyncio.Queue(maxsize=100)  # Set a reasonable queue size
         
         return queues
     
@@ -189,6 +219,9 @@ class ConcurrentPipelineExecutor:
     ) -> Dict[str, asyncio.Task]:
         """Create and start tasks for each stage."""
         tasks = {}
+        
+        # Track stage start order for better logging
+        stage_order = 0
         
         # Create a task for each stage
         for stage_name in enabled_stages:
@@ -209,6 +242,9 @@ class ConcurrentPipelineExecutor:
             # Get output queue
             output_queue = self.queues.get(f"{stage_name}_output")
             
+            # Start the stage and mark its execution order
+            context.start_stage(stage_name)
+            
             # Create task
             task = asyncio.create_task(
                 self._run_stage(
@@ -216,10 +252,15 @@ class ConcurrentPipelineExecutor:
                     stage_name=stage_name,
                     context=context,
                     input_queue=input_queue,
-                    output_queue=output_queue
-                )
+                    output_queue=output_queue,
+                    order=stage_order
+                ),
+                name=f"pipeline_{context.name}_{stage_name}"
             )
             tasks[stage_name] = task
+            stage_order += 1
+            
+            logger.info(f"{context.log_prefix} Started stage worker: {stage_name} (order: {stage_order})")
         
         return tasks
     
@@ -229,42 +270,85 @@ class ConcurrentPipelineExecutor:
         stage_name: str,
         context: PipelineContext,
         input_queue: Optional[asyncio.Queue] = None,
-        output_queue: Optional[asyncio.Queue] = None
+        output_queue: Optional[asyncio.Queue] = None,
+        order: int = 0
     ) -> Dict[str, Any]:
         """Run a single stage as a worker."""
         stage_results = []
-        
-        try:
-            # Mark stage start
-            context.start_stage(stage_name)
-            logger.info(f"{context.log_prefix} Started stage worker: {stage_name}")
-            
+        item_count = 0
+        stage_start_time = time.time()
+        last_progress_time = stage_start_time
+
+        last_item_count = 0
+    
+        try:            
             # Special case for ingestion (no input queue)
             if stage_name == "ingestion":
-                result = await stage.execute(context)
-                if result:
-                    # Put result in output queue
-                    if isinstance(result, list):
-                        # For batch results, put each item separately
-                        for item in result:
-                            await output_queue.put(item)
-                            stage_results.append(item)
-                    else:
-                        # Single result
-                        await output_queue.put(result)
-                        stage_results.append(result)
+                try:
+                    result = await stage.execute(context)
+                    if result:
+                        # Put result in output queue
+                        if isinstance(result, list):
+                            # For batch results, put each item separately
+                            for item in result:
+                                if self.stop_event.is_set():
+                                    logger.info(f"{context.log_prefix} Stop event detected in {stage_name}, stopping item processing")
+                                    break
+                                    
+                                await output_queue.put(item)
+                                stage_results.append(item)
+                                item_count += 1
+                                
+                                # Log progress periodically
+                                current_time = time.time()
+                                if current_time - last_progress_time > 30.0:  # No progress for 30 seconds
+                                    if item_count == last_item_count:  # No new items processed
+                                        logger.warning(f"{context.log_prefix} No progress in {stage_name} for 30s, might be stuck")
+                                        
+                                        # After 3 no-progress warnings (90 seconds), forcibly terminate
+                                        if no_progress_warnings > 2:
+                                            logger.error(f"{context.log_prefix} Stage {stage_name} appears stuck, forcing completion")
+                                            break  # Exit loop and complete stage
+                                            
+                                        no_progress_warnings += 1
+                                    else:
+                                        # Reset if we made progress
+                                        last_item_count = item_count
+                                        last_progress_time = current_time
+                        else:
+                            # Single result
+                            await output_queue.put(result)
+                            stage_results.append(result)
+                            item_count = 1
+                except Exception as e:
+                    logger.error(f"{context.log_prefix} Error in ingestion stage: {e}")
+                    context.add_error(stage_name, f"Failed to execute stage: {str(e)}")
                     
                 # Mark stage completion for ingestion
                 logger.info(f"{context.log_prefix} Ingestion completed, sent {len(stage_results)} items to next stage")
                 
                 # Signal the end of this stage's output
-                await output_queue.put(None)
+                if output_queue:
+                    await output_queue.put(None)
             else:
                 # For other stages, process items from input queue
+                if not input_queue:
+                    logger.error(f"{context.log_prefix} No input queue for stage {stage_name}")
+                    context.add_error(stage_name, "Missing input queue")
+                    if output_queue:
+                        await output_queue.put(None)  # Signal end even if error
+                    return {
+                        "stage": stage_name,
+                        "status": "failed",
+                        "error": "Missing input queue",
+                        "result_count": 0,
+                        "results": []
+                    }
+                
                 while not self.stop_event.is_set():
                     try:
                         # Get item from input queue with timeout
-                        item = await asyncio.wait_for(input_queue.get(), timeout=5.0)
+                        item = await asyncio.wait_for(input_queue.get(), timeout=10.0)
                         
                         # Check for end-of-queue marker
                         if item is None:
@@ -272,12 +356,23 @@ class ConcurrentPipelineExecutor:
                             break
                         
                         # Process item
-                        result = await stage.execute(context, item)
-                        
-                        # Put result in output queue if we have one
-                        if result and output_queue:
-                            await output_queue.put(result)
-                            stage_results.append(result)
+                        try:
+                            result = await stage.execute(context, item)
+                            
+                            # Put result in output queue if we have one
+                            if result and output_queue:
+                                await output_queue.put(result)
+                                stage_results.append(result)
+                                item_count += 1
+                                
+                                # Log progress periodically
+                                current_time = time.time()
+                                if current_time - last_progress_time > 5.0:
+                                    logger.info(f"{context.log_prefix} {stage_name}: Processed {item_count} items so far")
+                                    last_progress_time = current_time
+                        except Exception as e:
+                            logger.error(f"{context.log_prefix} Error processing item in {stage_name}: {e}")
+                            context.add_error(stage_name, f"Error processing item: {str(e)}")
                         
                         # Mark item as processed
                         input_queue.task_done()
@@ -287,14 +382,20 @@ class ConcurrentPipelineExecutor:
                         if self.stop_event.is_set():
                             logger.info(f"{context.log_prefix} Stop event detected in {stage_name}, exiting")
                             break
-                        # Continue waiting for more items
+                        # Log that we're still waiting for input
+                        logger.debug(f"{context.log_prefix} {stage_name} waiting for input...")
                         continue
+                    except Exception as e:
+                        logger.error(f"{context.log_prefix} Unexpected error in {stage_name}: {e}")
+                        if self.stop_event.is_set():
+                            break
                 
                 # Signal the end of this stage's output
                 if output_queue:
                     await output_queue.put(None)
                 
-                logger.info(f"{context.log_prefix} Stage {stage_name} completed, processed {len(stage_results)} items")
+                stage_duration = time.time() - stage_start_time
+                logger.info(f"{context.log_prefix} Stage {stage_name} completed in {stage_duration:.2f}s, processed {item_count} items")
             
             # Mark stage completion
             context.end_stage(stage_name, stage_results)
@@ -302,12 +403,18 @@ class ConcurrentPipelineExecutor:
             return {
                 "stage": stage_name,
                 "status": "completed",
-                "result_count": len(stage_results),
+                "result_count": item_count,
+                "duration": time.time() - stage_start_time,
                 "results": stage_results
             }
             
         except asyncio.CancelledError:
             logger.info(f"{context.log_prefix} Stage {stage_name} was cancelled")
+            
+            # Signal end-of-stream to next stage
+            if output_queue:
+                await output_queue.put(None)
+                
             raise
         
         except Exception as e:
@@ -317,6 +424,10 @@ class ConcurrentPipelineExecutor:
             # Record error in context
             context.add_error(stage_name, f"Failed to execute stage: {str(e)}")
             
+            # Signal end-of-stream to next stage
+            if output_queue:
+                await output_queue.put(None)
+            
             # Propagate error
             raise PipelineError(
                 f"Error in pipeline stage '{stage_name}': {str(e)}",
@@ -324,6 +435,7 @@ class ConcurrentPipelineExecutor:
                 cause=e
             )
     
+
     async def _wait_for_completion(
         self, tasks: Dict[str, asyncio.Task], context: PipelineContext
     ) -> Dict[str, Any]:
@@ -333,6 +445,11 @@ class ConcurrentPipelineExecutor:
         
         # Create a task set for asyncio.wait
         task_set = set(tasks.values())
+        
+        # Start time for tracking overall duration
+        start_time = time.time()
+        last_status_time = start_time
+        pending_count = len(task_set)
         
         # Wait for all tasks to complete
         while task_set:
@@ -365,12 +482,27 @@ class ConcurrentPipelineExecutor:
             
             # Update the task set
             task_set = pending
+            
+            # Log a status update periodically
+            current_time = time.time()
+            if current_time - last_status_time > 30.0 and pending:
+                pending_count = len(pending)
+                elapsed = current_time - start_time
+                pending_stages = [name for name, task in tasks.items() if task in pending]
+                logger.info(f"{context.log_prefix} Pipeline status: {len(results)}/{len(tasks)} stages completed, "
+                           f"{pending_count} pending ({', '.join(pending_stages)}), "
+                           f"elapsed: {elapsed:.1f}s")
+                last_status_time = current_time
         
         # Return the combined results
+        total_duration = time.time() - start_time
+        logger.info(f"{context.log_prefix} All pipeline stages completed in {total_duration:.2f}s")
+        
         return {
             "status": "completed" if not errors else "completed_with_errors",
             "results": results,
-            "errors": errors
+            "errors": errors,
+            "duration": total_duration
         }
     
     async def _cancel_all_tasks(self):
@@ -382,9 +514,13 @@ class ConcurrentPipelineExecutor:
         
         # Wait for all tasks to be cancelled
         if self.tasks:
-            await asyncio.gather(*self.tasks.values(), return_exceptions=True)
+            pending_tasks = [task for task in self.tasks.values() if not task.done()]
+            if pending_tasks:
+                await asyncio.gather(*pending_tasks, return_exceptions=True)
+                logger.info(f"Cancelled {len(pending_tasks)} pending tasks")
     
     async def stop(self):
         """Signal all tasks to stop."""
+        logger.info("Setting stop event for all pipeline tasks")
         self.stop_event.set()
         await self._cancel_all_tasks()

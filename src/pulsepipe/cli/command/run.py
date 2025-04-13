@@ -184,6 +184,8 @@ def find_profile_path(profile_name: str) -> Optional[str]:
     return None
 
 
+# Updated options in src/pulsepipe/cli/command/run.py
+
 @click.command()
 @click.option('--adapter', '-a', type=click.Path(exists=True, dir_okay=False), help="Adapter config YAML")
 @click.option('--ingester', '-i', type=click.Path(exists=True, dir_okay=False), help="Ingester config YAML")
@@ -193,11 +195,13 @@ def find_profile_path(profile_name: str) -> Optional[str]:
 @click.option('--all', 'run_all', is_flag=True, help="Run all pipelines in config")
 @click.option('--timeout', type=float, default=30.0, help="Timeout for file-based processing")
 @click.option('--continuous/--one-time', 'continuous_mode', default=None)
+@click.option('--concurrent', '-cc', is_flag=True, help="Run pipeline stages concurrently")
+@click.option('--watch', '-w', is_flag=True, help="Watch mode - keep running and process files as they arrive")
 @click.option('--verbose', '-v', is_flag=True, help="Show detailed error information")
 @output_options
 @click.pass_context
 def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, timeout,
-        continuous_mode, print_model, summary, output, pretty, verbose):
+        continuous_mode, concurrent, watch, print_model, summary, output, pretty, verbose):
     """Run a data processing pipeline.
     
     Process healthcare data through configurable adapters and ingesters.
@@ -256,7 +260,9 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                 summary=summary,
                 print_model=print_model,
                 pretty=pretty,
-                verbose=verbose
+                verbose=verbose,
+                concurrent=concurrent,
+                watch=watch
             ))
             
             # Check for success
@@ -274,7 +280,9 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                 "print_model": print_model,
                 "pretty": pretty,
                 "verbose": verbose,
-                "output_path": output
+                "output_path": output,
+                "concurrent": concurrent,
+                "watch": watch
             }
 
             if continuous_mode is not None:
@@ -361,7 +369,9 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                 summary=summary,
                 print_model=print_model,
                 pretty=pretty,
-                verbose=verbose
+                verbose=verbose,
+                concurrent=concurrent,
+                watch=watch
             ))
             
             # Check for success

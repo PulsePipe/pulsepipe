@@ -3,7 +3,7 @@
 
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
-## ✅ MVP Scope [40% Complete]
+## ✅ MVP Scope [45% Complete]
 ## 🟣 Short-Term Goals [0% Complete]
 ## 🟠 Mid-Term Goals [0% Complete]
 ## 🟠 Long-Term Goals [0% Complete]
@@ -45,6 +45,8 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Pinecone
     - [x] Weaviate
     - [x] Qdrant
+- [ ] 📖 Pipeline Concurrent Step Execution
+    - [ ] Add queues to relay messages between steps
 - [ ] 📖 CLI Model Description
     - [ ] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
     - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views

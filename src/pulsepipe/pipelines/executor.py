@@ -20,7 +20,6 @@
 # ------------------------------------------------------------------------------
 
 # src/pulsepipe/pipelines/executor.py
-# src/pulsepipe/pipelines/executor.py (Updated version)
 
 """
 Pipeline executor for PulsePipe.

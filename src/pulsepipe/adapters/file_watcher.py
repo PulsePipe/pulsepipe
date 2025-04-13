@@ -43,6 +43,7 @@ class FileWatcherAdapter(Adapter):
     def __init__(self, config: dict):
         self.logger = LogFactory.get_logger(__name__)
         self.logger.info("📁 Initializing FileWatcherAdapter")
+        self._stop_event = asyncio.Event()
 
         try:
             # Extract configuration options
@@ -108,6 +109,12 @@ class FileWatcherAdapter(Adapter):
                 cause=e
             ) from e
 
+
+    async def stop(self):
+        self.logger.info("🛑 Stop event set on FileWatcherAdapter")
+        self._stop_event.set()
+
+
     async def process_existing_files(self, queue: asyncio.Queue):
         """Process existing files in the watch directory"""
         self.logger.info(f"🔍 Checking for existing files in {self.watch_path}")
@@ -168,6 +175,10 @@ class FileWatcherAdapter(Adapter):
         
         try:
             async for changes in awatch(self.watch_path):
+                if self._stop_event.is_set():
+                    self.logger.info("🛑 Detected stop event. Exiting watch loop.")
+                    break
+
                 for _, file_path in changes:
                     str_path = str(file_path)
                     self.logger.info(f"📡 Detected file: {file_path}")

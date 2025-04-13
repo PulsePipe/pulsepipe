@@ -19,15 +19,24 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-persistence:
-  db_type: sqlite
-  sqlite:
-    db_path: .pulsepipe/state/ingestion.sqlite3
+# src/pulsepipe/pipelines/__init__.py
 
-logging:
-  type: text                      # rich | json | text | none
-  level: info                     # debug | info | warning | error
-  destination: both               # stdout | file | both | syslog | cloud
-  file_path: logs/pulse.log       # relative or absolute path to the log directory
-  show_banner: false               # shows the PulsePipe banner in the CLI
-  include_emoji: false            # disable emoji for Windows compatibility
+"""
+PulsePipe data pipelines package.
+
+Provides a modular pipeline architecture for healthcare data processing.
+"""
+
+from .context import PipelineContext
+from .executor import PipelineExecutor
+from .runner import PipelineRunner
+
+# Export key classes
+__all__ = [
+    "PipelineContext",
+    "PipelineExecutor",
+    "PipelineRunner"
+]
+
+# Create a singleton instance of the pipeline runner for easy access
+runner = PipelineRunner()

@@ -22,12 +22,15 @@
 # src/pulsepipe/pipelines/chuncker/clinical_chunker.py
 
 from typing import List, Dict, Any
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models.clinical_content import PulseClinicalContent
 
 
 class ClinicalSectionChunker:
     def __init__(self, include_metadata: bool = True):
         self.include_metadata = include_metadata
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing ClinicalSectionChunker")
 
     def chunk(self, content: PulseClinicalContent) -> List[Dict[str, Any]]:
         chunks = []
@@ -48,4 +51,5 @@ class ClinicalSectionChunker:
                     }
                 chunks.append(chunk)
 
+        self.logger.info(f"🧩 ClinicalSectionChunker produced {len(chunks)} chunks 🧠 (patient_id={patient_id}, encounter_id={encounter_id})")
         return chunks

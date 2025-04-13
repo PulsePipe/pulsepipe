@@ -22,12 +22,15 @@
 # src/pulsepipe/pipelines/chuncker/operational_chunker.py
 
 from typing import List, Dict, Any
+from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models.operational_content import PulseOperationalContent
 
 
 class OperationalEntityChunker:
     def __init__(self, include_metadata: bool = True):
         self.include_metadata = include_metadata
+        self.logger = LogFactory.get_logger(__name__)
+        self.logger.info("📁 Initializing OperationalEntityChunker")
 
     def chunk(self, content: PulseOperationalContent) -> List[Dict[str, Any]]:
         chunks = []
@@ -48,4 +51,5 @@ class OperationalEntityChunker:
                     }
                 chunks.append(chunk)
 
+        self.logger.info(f"🧩 OperationalEntityChunker produced {len(chunks)} chunks 🧠 (transaction_type={transaction_type}, org_id={org_id})")
         return chunks

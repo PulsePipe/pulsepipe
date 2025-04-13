@@ -189,6 +189,7 @@ class PipelineContext:
         self.warnings.append(warning)
         logger.warning(f"{self.log_prefix} Warning in {stage}: {message}")
     
+
     def get_stage_config(self, stage_name: str) -> Dict[str, Any]:
         """
         Get configuration for a specific pipeline stage.
@@ -203,6 +204,11 @@ class PipelineContext:
         if stage_name in self.config:
             logger.info(f"{self.log_prefix} Found direct config for stage: {stage_name}")
             return self.config[stage_name]
+        
+        # For vectorstore, also check the top level configuration
+        if stage_name == "vectorstore" and "vectorstore" in self.config:
+            logger.info(f"{self.log_prefix} Found vectorstore config at top level")
+            return self.config["vectorstore"]
         
         # Check common alternate names
         alternate_names = {

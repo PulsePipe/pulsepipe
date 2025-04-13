@@ -46,44 +46,86 @@ import threading
 import signal
 
 
+# Simplified signal handler for src/pulsepipe/cli/command/run.py
+
 def run_async_with_shutdown(coro):
+    """Run an async coroutine with proper shutdown handling."""
+    import asyncio
+    import signal
+    import os
+    import sys
+    
+    # Create a new event loop
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
-    stop_event = asyncio.Event()
-
-    def handle_shutdown(signum, frame):
-        print(f"\n🛑 Caught signal {signum}, setting stop_event")
-        loop.call_soon_threadsafe(stop_event.set)
-
-    # ✅ Portable signal registration — works on Windows and Linux
-    signal.signal(signal.SIGINT, handle_shutdown)
-    signal.signal(signal.SIGTERM, handle_shutdown)
-
-    async def main():
-        main_task = asyncio.create_task(coro)
-        stop_task = asyncio.create_task(stop_event.wait())
-
-        done, pending = await asyncio.wait(
-            [main_task, stop_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-
-        if stop_task in done:
-            print("🛑 Shutdown requested, cancelling main task...")
-            main_task.cancel()
-            try:
-                await main_task
-            except asyncio.CancelledError:
-                pass
-            return {"success": False, "errors": ["Pipeline cancelled by user"]}
-
-        return await main_task
-
+    
+    # Track whether we're shutting down
+    is_shutting_down = False
+    
+    # Create main task
+    main_task = None
+    
+    def force_exit(signum, frame):
+        print("\n⚠️ Force exiting due to multiple interrupt signals...")
+        os._exit(1)  # Force exit the process
+    
+    def signal_handler(signum, frame):
+        nonlocal is_shutting_down
+        if is_shutting_down:
+            # If already shutting down and got another signal, force exit
+            force_exit(signum, frame)
+            return
+            
+        is_shutting_down = True
+        print(f"\n🛑 Shutdown requested (signal {signum})...")
+        
+        # Cancel the main task if it exists
+        if main_task and not main_task.done():
+            loop.call_soon_threadsafe(main_task.cancel)
+        
+        # Schedule loop stop if it's running
+        if loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
+    
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
-        return loop.run_until_complete(main())
+        # Define the main task
+        main_task = loop.create_task(coro)
+        
+        # Run until complete
+        result = loop.run_until_complete(main_task)
+        return result
+    except asyncio.CancelledError:
+        print("✅ Operation cancelled gracefully")
+        return {"success": False, "errors": ["Operation cancelled by user"]}
+    except KeyboardInterrupt:
+        print("✅ Operation interrupted by keyboard")
+        return {"success": False, "errors": ["Operation interrupted by user"]}
+    except Exception as e:
+        print(f"❌ Error during execution: {e}")
+        return {"success": False, "errors": [str(e)]}
     finally:
-        loop.close()
+        try:
+            # Cancel any remaining tasks
+            tasks = asyncio.all_tasks(loop)
+            for task in tasks:
+                task.cancel()
+            
+            # Allow tasks to finalize
+            if tasks:
+                loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            
+            # Finally, close the loop
+            loop.close()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+        
+        # Reset signal handlers to default
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
 
 def display_error(error: PulsePipeError, verbose: bool = False):

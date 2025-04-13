@@ -15,7 +15,7 @@
 # We welcome community contributions — if you make it better, 
 # share it back. The whole healthcare ecosystem wins.
 # ------------------------------------------------------------------------------
-# 
+# ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
@@ -29,13 +29,24 @@ pipelines:
       type: file_watcher
       watch_path: ./incoming/fhir
       extensions: [".json", ".xml"]
-      continuous: true
+      continuous: false
     ingester:
       type: fhir
       version: "R4"
     chunker:
       type: auto
       export_chunks_to: "jsonl"
+    embedding:
+      type: clinical
+      model_name: "all-MiniLM-L6-v2"
+      export_embeddings_to: "jsonl"
+    # Explicitly include vectorstore configuration inside the pipeline
+    vectorstore:
+      enabled: true
+      engine: weaviate
+      host: http://localhost
+      port: 8080
+      namespace_prefix: pulsepipe_fhir
        
   - name: hl7v2_lab_results
     description: "Process HL7v2 lab results"
@@ -44,13 +55,23 @@ pipelines:
       type: file_watcher
       watch_path: ./incoming/hl7
       extensions: [".hl7"]
-      continuous: true
+      continuous: false
     ingester:
       type: hl7v2
       message_types: ["ORU^R01"]
     chunker:
       type: auto
       export_chunks_to: "jsonl"
+    embedding:
+      type: clinical
+      model_name: "all-MiniLM-L6-v2"
+    # Explicitly include vectorstore configuration inside the pipeline
+    vectorstore:
+      enabled: true
+      engine: weaviate
+      host: http://localhost
+      port: 8080
+      namespace_prefix: pulsepipe_hl7
       
   - name: x12_billing
     description: "Process X12 billing data"
@@ -59,14 +80,25 @@ pipelines:
       type: file_watcher
       watch_path: ./incoming/x12
       extensions: [".x12", ".837", ".278", ".txt"]
-      continuous: true
+      continuous: false
     ingester:
       type: x12
       transaction_types: ["837", "835", "278"]
     chunker:
       type: auto
       export_chunks_to: "jsonl"
+    embedding:
+      type: operational
+      model_name: "all-MiniLM-L6-v2"
+    # Explicitly include vectorstore configuration inside the pipeline
+    vectorstore:
+      enabled: true
+      engine: weaviate
+      host: http://localhost
+      port: 8080
+      namespace_prefix: pulsepipe_x12
 
+# Global vectorstore configuration (for backward compatibility)
 vectorstore:
   api_key: null
   enabled: true

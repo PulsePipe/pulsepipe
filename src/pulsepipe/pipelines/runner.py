@@ -57,6 +57,7 @@ class PipelineRunner:
         """Initialize the pipeline runner."""
         self.executor = PipelineExecutor()
     
+
     async def run_pipeline(self, config: Dict[str, Any], name: str, **kwargs) -> Dict[str, Any]:
         """
         Run a single pipeline with the given configuration.
@@ -65,7 +66,8 @@ class PipelineRunner:
             config: Pipeline configuration
             name: Pipeline name
             **kwargs: Additional options
-            
+                concurrent: Whether to run the pipeline with concurrent stages
+                
         Returns:
             Dictionary with execution results
             
@@ -84,8 +86,21 @@ class PipelineRunner:
         )
         
         try:
+            # Check if concurrent execution is requested
+            concurrent = kwargs.get('concurrent', False)
+            
+            if concurrent:
+                # Use concurrent executor
+                from pulsepipe.pipelines.concurrent_executor import ConcurrentPipelineExecutor
+                executor = ConcurrentPipelineExecutor()
+                logger.info(f"{context.log_prefix} Using concurrent pipeline execution")
+            else:
+                # Use standard executor
+                executor = self.executor
+                logger.info(f"{context.log_prefix} Using sequential pipeline execution")
+            
             # Execute the pipeline
-            result = await self.executor.execute_pipeline(context)
+            result = await executor.execute_pipeline(context)
             
             # Get execution summary
             summary = context.get_summary()
@@ -137,6 +152,7 @@ class PipelineRunner:
                 "warnings": context.warnings if hasattr(context, 'warnings') else []
             }
     
+
     async def run_multiple_pipelines(self, config_path: str, pipeline_names: Optional[List[str]] = None, 
                                   run_all: bool = False, **kwargs) -> List[Dict[str, Any]]:
         """

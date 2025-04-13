@@ -32,6 +32,7 @@ import asyncio
 import click
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
+import signal
 
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
@@ -42,13 +43,12 @@ from pulsepipe.utils.errors import (
 )
 from pulsepipe.cli.options import output_options
 from pulsepipe.pipelines.runner import PipelineRunner
-import threading
-import signal
 
+logger = LogFactory.get_logger(__name__)
 
-# Simplified signal handler for src/pulsepipe/cli/command/run.py
+# Improved signal handler for graceful shutdown
 
-def run_async_with_shutdown(coro):
+def run_async_with_shutdown(coro, runner=None):
     """Run an async coroutine with proper shutdown handling."""
     import asyncio
     import signal
@@ -69,6 +69,13 @@ def run_async_with_shutdown(coro):
         print("\n⚠️ Force exiting due to multiple interrupt signals...")
         os._exit(1)  # Force exit the process
     
+    async def shutdown_procedure():
+        """Gracefully shut down all running pipelines"""
+        if runner:
+            print("\n🛑 Stopping all running pipelines...")
+            await runner.stop_all_pipelines()
+            print("✅ All pipelines stopped")
+    
     def signal_handler(signum, frame):
         nonlocal is_shutting_down
         if is_shutting_down:
@@ -78,6 +85,10 @@ def run_async_with_shutdown(coro):
             
         is_shutting_down = True
         print(f"\n🛑 Shutdown requested (signal {signum})...")
+        
+        # Schedule shutdown procedure
+        if runner:
+            shutdown_task = asyncio.run_coroutine_threadsafe(shutdown_procedure(), loop)
         
         # Cancel the main task if it exists
         if main_task and not main_task.done():
@@ -184,8 +195,6 @@ def find_profile_path(profile_name: str) -> Optional[str]:
     return None
 
 
-# Updated options in src/pulsepipe/cli/command/run.py
-
 @click.command()
 @click.option('--adapter', '-a', type=click.Path(exists=True, dir_okay=False), help="Adapter config YAML")
 @click.option('--ingester', '-i', type=click.Path(exists=True, dir_okay=False), help="Ingester config YAML")
@@ -193,15 +202,18 @@ def find_profile_path(profile_name: str) -> Optional[str]:
 @click.option('--pipeline-config', '-pc', type=click.Path(exists=True, dir_okay=False), help="Pipeline config YAML")
 @click.option('--pipeline', '-n', multiple=True, help="Specific pipeline names to run")
 @click.option('--all', 'run_all', is_flag=True, help="Run all pipelines in config")
-@click.option('--timeout', type=float, default=30.0, help="Timeout for file-based processing")
+@click.option('--timeout', type=float, default=None, help="Timeout for pipeline execution in seconds")
 @click.option('--continuous/--one-time', 'continuous_mode', default=None)
 @click.option('--concurrent', '-cc', is_flag=True, help="Run pipeline stages concurrently")
+@click.option('--concurrent-pipelines/--sequential-pipelines', default=True, 
+              help="Run multiple pipelines concurrently or sequentially")
 @click.option('--watch', '-w', is_flag=True, help="Watch mode - keep running and process files as they arrive")
 @click.option('--verbose', '-v', is_flag=True, help="Show detailed error information")
 @output_options
 @click.pass_context
 def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, timeout,
-        continuous_mode, concurrent, watch, print_model, summary, output, pretty, verbose):
+        continuous_mode, concurrent, concurrent_pipelines, watch, print_model, 
+        summary, output, pretty, verbose):
     """Run a data processing pipeline.
     
     Process healthcare data through configurable adapters and ingesters.
@@ -252,18 +264,22 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                     
             click.echo(f"📋 Using profile: {profile} from {profile_path}")
             
-            # Run the pipeline
-            result = run_async_with_shutdown(runner.run_pipeline(
-                config=profile_config,
-                name=profile,
-                output_path=output,
-                summary=summary,
-                print_model=print_model,
-                pretty=pretty,
-                verbose=verbose,
-                concurrent=concurrent,
-                watch=watch
-            ))
+            # Run the pipeline with improved shutdown handling
+            result = run_async_with_shutdown(
+                runner.run_pipeline(
+                    config=profile_config,
+                    name=profile,
+                    output_path=output,
+                    summary=summary,
+                    print_model=print_model,
+                    pretty=pretty,
+                    verbose=verbose,
+                    concurrent=concurrent,
+                    watch=watch,
+                    timeout=timeout
+                ),
+                runner=runner
+            )
             
             # Check for success
             if not result.get("success", False):
@@ -282,21 +298,31 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                 "verbose": verbose,
                 "output_path": output,
                 "concurrent": concurrent,
-                "watch": watch
+                "concurrent_pipelines": concurrent_pipelines,
+                "watch": watch,
+                "timeout": timeout
             }
 
             if continuous_mode is not None:
                 kwargs["continuous_override"] = continuous_mode
                 
-            results = run_async_with_shutdown(runner.run_multiple_pipelines(
-                config_path=pipeline_config,
-                pipeline_names=list(pipeline) if pipeline else None,
-                run_all=run_all,
-                **kwargs
-            ))
+            results = run_async_with_shutdown(
+                runner.run_multiple_pipelines(
+                    config_path=pipeline_config,
+                    pipeline_names=list(pipeline) if pipeline else None,
+                    run_all=run_all,
+                    **kwargs
+                ),
+                runner=runner
+            )
             
             # Check for success - we consider it successful if at least one pipeline succeeded
-            success = any(r["result"].get("success", False) for r in results if r.get("result"))
+            success = False
+            for r in results:
+                result_data = r.get("result", {})
+                if isinstance(result_data, dict) and result_data.get("success", False):
+                    success = True
+                    break
             
             if not success:
                 logger.error("All pipelines failed")
@@ -307,7 +333,8 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                 click.echo("\nPipeline Execution Summary:")
                 for result in results:
                     name = result["name"]
-                    success = result["result"].get("success", False)
+                    result_data = result.get("result", {})
+                    success = isinstance(result_data, dict) and result_data.get("success", False)
                     status = "✅ Success" if success else "❌ Failed"
                     click.echo(f"{status}: {name}")
                     
@@ -361,18 +388,22 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
             
             click.echo(f"📋 Using adapter from {adapter} and ingester from {ingester}")
             
-            # Run the pipeline
-            result = run_async_with_shutdown(runner.run_pipeline(
-                config=combined_config,
-                name="cli_direct",
-                output_path=output,
-                summary=summary,
-                print_model=print_model,
-                pretty=pretty,
-                verbose=verbose,
-                concurrent=concurrent,
-                watch=watch
-            ))
+            # Run the pipeline with improved shutdown handling
+            result = run_async_with_shutdown(
+                runner.run_pipeline(
+                    config=combined_config,
+                    name="cli_direct",
+                    output_path=output,
+                    summary=summary,
+                    print_model=print_model,
+                    pretty=pretty,
+                    verbose=verbose,
+                    concurrent=concurrent,
+                    watch=watch,
+                    timeout=timeout
+                ),
+                runner=runner
+            )
             
             # Check for success
             if not result.get("success", False):

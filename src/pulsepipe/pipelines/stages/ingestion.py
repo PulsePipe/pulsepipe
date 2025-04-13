@@ -105,12 +105,20 @@ class IngestionStage(PipelineStage):
                     # Use timeout for one-time processing
                     timeout = context.config.get("timeout", 30.0)
             
+            if timeout == None:
+                timeout = 5
+
             self.logger.info(f"{context.log_prefix} Running ingestion engine" + 
                            (f" with timeout: {timeout}s" if timeout else " without timeout"))
             
             # Run the ingestion engine
             result = await engine.run(timeout=timeout)
-            
+        
+            # Always signal completion to downstream stages, even if no data found
+            if not result:
+                self.logger.warning(f"{context.log_prefix} No data was ingested, signaling completion anyway")
+                return None  # Signal end-of-stream to next stage
+        
             # Check for and handle processing errors
             if hasattr(engine, 'processing_errors') and engine.processing_errors:
                 error_count = len(engine.processing_errors)

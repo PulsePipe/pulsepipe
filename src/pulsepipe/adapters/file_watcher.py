@@ -22,8 +22,11 @@
 # src/pulsepipe/adapters/file_watcher.py
 
 import asyncio
+import os
+import time
 from pathlib import Path
-from watchfiles import awatch
+from typing import Set, Dict, Any, List, Optional
+
 from .base import Adapter
 from pulsepipe.persistence.factory import get_shared_sqlite_connection
 from .file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
@@ -44,6 +47,7 @@ class FileWatcherAdapter(Adapter):
         self.logger = LogFactory.get_logger(__name__)
         self.logger.info("📁 Initializing FileWatcherAdapter")
         self._stop_event = asyncio.Event()
+        self._scan_interval = 1.0  # Default scan interval in seconds
 
         try:
             # Extract configuration options
@@ -51,12 +55,22 @@ class FileWatcherAdapter(Adapter):
             self.file_extensions = tuple(config.get("extensions", [".json"]))
             self.continuous = config.get("continuous", True)
             
+            # Allow configurable scan interval
+            if "scan_interval" in config:
+                interval = float(config["scan_interval"])
+                if interval > 0:
+                    self._scan_interval = interval
+            
             self.logger.info(f"🔍 Watch path: {self.watch_path}")
             self.logger.info(f"📦 Watching extensions: {self.file_extensions}")
+            self.logger.info(f"⏱️ Scan interval: {self._scan_interval}s")
 
             # Initialize the bookmark store for tracking processed files
             sqlite_conn = get_shared_sqlite_connection({})
             self.bookmarks = SQLiteBookmarkStore(sqlite_conn)
+            
+            # Track existing files to detect new ones
+            self._known_files: Set[str] = set()
             
         except KeyError as e:
             # Specific error for missing required configuration
@@ -90,7 +104,8 @@ class FileWatcherAdapter(Adapter):
                     ) from e
             
             # Process existing files first
-            await self.process_existing_files(queue)
+            files_processed = await self.process_existing_files(queue)
+            self.logger.info(f"📋 Processed {files_processed} existing files")
             
             # If continuous mode is enabled, continue watching for new files
             if self.continuous:
@@ -115,33 +130,44 @@ class FileWatcherAdapter(Adapter):
         self._stop_event.set()
 
 
-    async def process_existing_files(self, queue: asyncio.Queue):
-        """Process existing files in the watch directory"""
+    async def process_existing_files(self, queue: asyncio.Queue) -> int:
+        """Process existing files in the watch directory and return count of processed files"""
         self.logger.info(f"🔍 Checking for existing files in {self.watch_path}")
         files_processed = 0
         file_errors = []
         
         try:
-            for file_path in self.watch_path.glob('**/*'):
-                if file_path.is_file() and file_path.suffix in self.file_extensions:
-                    str_path = str(file_path)
-                    if not self.bookmarks.is_processed(str_path):
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                raw_data = f.read()
-                            await queue.put(raw_data)
-                            self.logger.info(f"✅ Enqueued: {file_path}")
-                            self.bookmarks.mark_processed(str_path)
-                            files_processed += 1
-                        except Exception as e:
-                            error_details = {
-                                "file_path": str(file_path),
-                                "error_type": type(e).__name__
-                            }
-                            self.logger.error(f"❌ Error reading {file_path}: {e}")
-                            file_errors.append(error_details)
+            matching_files = self._find_matching_files()
             
-            self.logger.info(f"📋 Processed {files_processed} existing files")
+            for file_path in matching_files:
+                str_path = str(file_path)
+                
+                # Add to known files set for future change detection
+                self._known_files.add(str_path)
+                
+                # Skip already processed files
+                if self.bookmarks.is_processed(str_path):
+                    continue
+                
+                try:
+                    # Read and process the file
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        raw_data = f.read()
+                    
+                    # Put data on the queue
+                    await queue.put(raw_data)
+                    self.logger.info(f"✅ Enqueued: {file_path}")
+                    
+                    # Mark as processed
+                    self.bookmarks.mark_processed(str_path)
+                    files_processed += 1
+                except Exception as e:
+                    error_details = {
+                        "file_path": str(file_path),
+                        "error_type": type(e).__name__
+                    }
+                    self.logger.error(f"❌ Error reading {file_path}: {e}")
+                    file_errors.append(error_details)
             
             # If we encountered errors but processed some files, continue
             if file_errors and files_processed > 0:
@@ -169,44 +195,64 @@ class FileWatcherAdapter(Adapter):
                 ) from e
             raise
 
+
     async def watch_for_changes(self, queue: asyncio.Queue):
         """Continuously watch for file changes"""
         self.logger.info(f"👀 Watching for changes in {self.watch_path}")
         
         try:
-            async for changes in awatch(self.watch_path):
-                if self._stop_event.is_set():
-                    self.logger.info("🛑 Detected stop event. Exiting watch loop.")
-                    break
-
-                for _, file_path in changes:
-                    str_path = str(file_path)
-                    self.logger.info(f"📡 Detected file: {file_path}")
+            # Initial set of known files
+            if not self._known_files:
+                self._known_files = set(str(f) for f in self._find_matching_files())
+            
+            while not self._stop_event.is_set():
+                # Check for new files
+                current_files = set(str(f) for f in self._find_matching_files())
+                
+                # Find new files (in current but not in known)
+                new_files = current_files - self._known_files
+                
+                # Process new files
+                for file_path in new_files:
+                    self.logger.info(f"📡 Detected new file: {file_path}")
                     
-                    # Skip files with unsupported extensions
-                    if not file_path.endswith(self.file_extensions):
-                        self.logger.info(f"⛔ Skipping unsupported file type: {file_path}")
-                        continue
-                        
-                    # Skip already processed files
-                    if self.bookmarks.is_processed(str_path):
+                    # Skip already processed files (extra safety check)
+                    if self.bookmarks.is_processed(file_path):
                         self.logger.info(f"🔁 Already processed: {file_path}")
                         continue
-                        
+                    
                     try:
+                        # Read and process the file
                         with open(file_path, 'r', encoding='utf-8') as f:
                             raw_data = f.read()
+                        
+                        # Put data on the queue
                         await queue.put(raw_data)
                         self.logger.info(f"✅ Enqueued: {file_path}")
-                        self.bookmarks.mark_processed(str_path)
+                        
+                        # Mark as processed
+                        self.bookmarks.mark_processed(file_path)
                     except FileNotFoundError:
-                        # This can happen if the file is deleted before we read it
                         self.logger.info(f"🚫 File disappeared before processing: {file_path}")
-                    except PermissionError as e:
+                    except PermissionError:
                         self.logger.error(f"🔒 Permission denied for file: {file_path}")
                     except Exception as e:
                         self.logger.error(f"❌ Error reading {file_path}: {e}")
-                        
+                
+                # Update known files
+                self._known_files = current_files
+                
+                # Wait for a bit before the next scan
+                try:
+                    # Use asyncio.wait_for so we can cancel it when stop is requested
+                    await asyncio.wait_for(
+                        self._stop_event.wait(), 
+                        timeout=self._scan_interval
+                    )
+                except asyncio.TimeoutError:
+                    # This is expected - timeout just means keep scanning
+                    pass
+                
         except asyncio.CancelledError:
             self.logger.info("🛑 File watcher task was cancelled")
             raise
@@ -216,3 +262,17 @@ class FileWatcherAdapter(Adapter):
                 details={"watch_path": str(self.watch_path)},
                 cause=e
             ) from e
+
+
+    def _find_matching_files(self) -> List[Path]:
+        """Find all files in watch_path with matching extensions"""
+        matching_files = []
+        
+        try:
+            for file_path in self.watch_path.glob('**/*'):
+                if file_path.is_file() and file_path.suffix in self.file_extensions:
+                    matching_files.append(file_path)
+            return matching_files
+        except Exception as e:
+            self.logger.error(f"Error scanning directory {self.watch_path}: {e}")
+            return []

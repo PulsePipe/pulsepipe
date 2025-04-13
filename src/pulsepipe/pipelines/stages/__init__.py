@@ -98,10 +98,16 @@ class PipelineStage(ABC):
 # Import specific stage implementations
 from .ingestion import IngestionStage
 from .chunking import ChunkingStage
+from .deid import DeidentificationStage
+from .embedding import EmbeddingStage
+from .vectorstore import VectorStoreStage
 
 # Make stages available at package level
 __all__ = [
     "PipelineStage",
     "IngestionStage",
-    "ChunkingStage"
+    "ChunkingStage",
+    "DeidentificationStage", 
+    "EmbeddingStage",
+    "VectorStoreStage"
 ]

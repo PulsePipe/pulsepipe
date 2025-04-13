@@ -20,6 +20,7 @@
 # ------------------------------------------------------------------------------
 
 # src/pulsepipe/pipelines/executor.py
+# src/pulsepipe/pipelines/executor.py (Updated version)
 
 """
 Pipeline executor for PulsePipe.
@@ -27,15 +28,16 @@ Pipeline executor for PulsePipe.
 Orchestrates the execution of pipeline stages in the correct order.
 """
 
-from typing import Any, Dict, List, Optional, Union, Type
+from typing import Any, List
 import asyncio
 import traceback
-
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import PipelineError, ConfigurationError
 from pulsepipe.pipelines.context import PipelineContext
 from pulsepipe.pipelines.stages import PipelineStage, IngestionStage, ChunkingStage
 from pulsepipe.pipelines.stages.deid import DeidentificationStage
+from pulsepipe.pipelines.stages.embedding import EmbeddingStage
+from pulsepipe.pipelines.stages.vectorstore import VectorStoreStage
 
 logger = LogFactory.get_logger(__name__)
 
@@ -57,14 +59,17 @@ class PipelineExecutor:
             "ingestion": IngestionStage(),
             "deid": DeidentificationStage(),
             "chunking": ChunkingStage(),
-            # Add more stages as they are implemented
+            "embedding": EmbeddingStage(),
+            "vectorstore": VectorStoreStage(),
         }
         
         # Define stage dependencies (which stages depend on which)
         self.stage_dependencies = {
             "ingestion": [],           # Ingestion has no dependencies
             "deid": ["ingestion"],     # Deid depends on ingestion
-            "chunking": ["ingestion"]  # Chunking can depend on either ingestion or deid
+            "chunking": ["ingestion"], # Chunking can depend on either ingestion or deid
+            "embedding": ["chunking"], # Embedding depends on chunking
+            "vectorstore": ["embedding"] # Vectorstore depends on embedding
         }
     
 
@@ -183,6 +188,14 @@ class PipelineExecutor:
         # Check if chunking is enabled
         if context.is_stage_enabled("chunking"):
             enabled_stages.append("chunking")
+            
+        # Check if embedding is enabled
+        if context.is_stage_enabled("embedding"):
+            enabled_stages.append("embedding")
+            
+        # Check if vectorstore is enabled
+        if context.is_stage_enabled("vectorstore"):
+            enabled_stages.append("vectorstore")
         
         # Validate dependencies
         for stage in enabled_stages:

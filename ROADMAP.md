@@ -32,7 +32,7 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] 🧬 Composable Chunking + Embedding Framework
     - [x] `Chunker` base class interfaces
     - [x] `Embedder` base class interfaces
-    - [ ] YAML configuration for chunkers and embedders in `pipeline.yaml`
+    - [x] YAML configuration for chunkers and embedders in `pipeline.yaml`
     - [ ] `NarrativeChunker`: extracts and truncates text narrative fields
     - [ ] `FhirBundleSplitterChunker`: splits on `entry.resource`
     - [x] `ClinicalEmbedder`: calls local ClinicalBERT for embedding clinical canonical data model

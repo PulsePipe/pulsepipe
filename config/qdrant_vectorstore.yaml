@@ -19,17 +19,10 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# pulsepipe.yaml
+# qdrant_vectorstore.yaml
 
-persistence:
-  db_type: sqlite
-  sqlite:
-    db_path: .pulsepipe/state/ingestion.sqlite3
-
-logging:
-  type: text                      # rich | json | text | none
-  level: info                     # debug | info | warning | error
-  destination: both               # stdout | file | both | syslog | cloud
-  file_path: logs/pulse.log       # relative or absolute path to the log directory
-  show_banner: true               # shows the PulsePipe banner in the CLI
-  include_emoji: false            # disable emoji for Windows compatibility
+vectorstore:
+  enabled: true
+  engine: qdrant
+  host: http://localhost:6333
+  namespace_prefix: pulsepipe_fhir

@@ -14,21 +14,23 @@ poetry install
 
 ### Configuration Profiles
 
-A configuration profile combines adapter, ingester, and logging settings into a single YAML file:
+A configuration profile combines all pipeline stage configurations into a single YAML file:
 
 ```yaml
 # Example: config/patient_fhir.yaml
 profile:
   name: patient_fhir
   description: "Patient data from FHIR R4 source"
-  created_at: "2025-04-05"  # Optional
+  created_at: "2025-04-05"
 
+# Input stage - reads data from source
 adapter:
   type: file_watcher
   watch_path: "./data/fhir"
   extensions: [".json", ".xml"]
   continuous: true  # Set to false for one-time processing
 
+# Parsing stage - converts source data to canonical models
 ingester:
   type: fhir
   version: "R4"
@@ -36,6 +38,27 @@ ingester:
     - Patient
     - Observation
 
+# Chunking stage - splits content into smaller pieces
+chunker:
+  type: clinical
+  export_chunks_to: "jsonl"  # Optional, to save chunks to file
+  include_metadata: true
+
+# Embedding stage - converts text chunks to vector embeddings
+embedding:
+  type: clinical
+  model_name: "all-MiniLM-L6-v2"
+  export_embeddings_to: "jsonl"  # Optional, to save embeddings to file
+
+# Vector database stage - stores embeddings for retrieval
+vectorstore:
+  enabled: true
+  engine: weaviate
+  host: "http://localhost"
+  port: 8080
+  namespace_prefix: "pulsepipe_fhir"
+
+# Logging configuration
 logging:
   level: "INFO"  # debug | info | warning | error
   type: rich      # rich | json | none  
@@ -46,7 +69,7 @@ logging:
 
 ### Component-specific Config Files
 
-You can also create separate config files for adapters and ingesters:
+You can also create separate config files for each pipeline stage:
 
 ```yaml
 # Example: config/fhir_adapter.yaml
@@ -67,51 +90,33 @@ ingester:
     - Observation
 ```
 
-These can be used directly with the CLI or combined into a profile using the `create-profile` command.
-
-### Pipeline Configuration
-
-For running multiple pipelines, create a pipeline configuration file:
+```yaml
+# Example: config/clinical_chunker.yaml
+chunker:
+  type: clinical
+  export_chunks_to: "jsonl"
+  include_metadata: true
+```
 
 ```yaml
-# Example: pipeline.yaml
-pipelines:
-  - name: fhir_clinical
-    description: "Process FHIR clinical data files"
-    active: true
-    adapter:
-      type: file_watcher
-      watch_path: "./incoming/fhir"
-      extensions: [".json", ".xml"]
-      continuous: true  # Set to continuously watch for files
-    ingester:
-      type: fhir
-      version: "R4"
-        
-  - name: hl7v2_lab_results
-    description: "Process HL7v2 lab results"
-    active: true
-    adapter:
-      type: file_watcher
-      watch_path: "./incoming/hl7"
-      extensions: [".hl7", ".txt"]
-      continuous: true
-    ingester:
-      type: hl7v2
-      message_types: ["ORU^R01"]
-        
-  - name: x12_billing
-    description: "Process X12 billing and prior auth data"
-    active: false  # Inactive pipeline, only runs with --all flag
-    adapter:
-      type: file_watcher
-      watch_path: "./incoming/x12"
-      extensions: [".x12", ".837", ".278", ".txt"]
-      continuous: true
-    ingester:
-      type: x12
-      transaction_types: ["837", "835", "278"]
+# Example: config/clinical_embedding.yaml
+embedding:
+  type: clinical
+  model_name: "all-MiniLM-L6-v2"
+  export_embeddings_to: "jsonl"
 ```
+
+```yaml
+# Example: config/vectorstore.yaml
+vectorstore:
+  enabled: true
+  engine: weaviate
+  host: "http://localhost"
+  port: 8080
+  namespace_prefix: "pulsepipe_fhir"
+```
+
+These can be used directly with the CLI or combined into a profile using the `create-profile` command.
 
 ### Managing Configurations
 
@@ -127,8 +132,8 @@ pulsepipe config validate --all
 
 # Create a new profile from existing configs
 pulsepipe config create-profile \
-  --adapter fhir.yaml \
-  --ingester json.yaml \
+  --adapter fhir_adapter.yaml \
+  --ingester fhir_ingester.yaml \
   --name patient_fhir \
   --description "Patient data from FHIR R4 source"
 ```
@@ -138,7 +143,7 @@ pulsepipe config create-profile \
 Profiles can be created in several ways:
 
 1. **Manually create profile YAML files:**
-   Create a YAML file in the `config/` directory with your adapter, ingester, and logging settings:
+   Create a YAML file in the `config/` directory with configurations for all pipeline stages:
 
    ```bash
    # Example: config/patient_fhir.yaml
@@ -147,19 +152,25 @@ Profiles can be created in several ways:
    
    Use the [Configuration Profiles](#configuration-profiles) section above as a template.
 
-2. **Use the create-profile command** to combine existing adapter and ingester configurations:
+2. **Use the create-profile command** to combine existing stage configurations:
 
    ```bash
-   # First create separate adapter and ingester configs
+   # First create separate stage configs
    nano config/fhir_adapter.yaml
    nano config/fhir_ingester.yaml
+   nano config/clinical_chunker.yaml
+   nano config/clinical_embedding.yaml
+   nano config/vectorstore.yaml
    
    # Then combine them into a profile
    pulsepipe config create-profile \
-     --adapter config/fhir_adapter.yaml \
-     --ingester config/fhir_ingester.yaml \
-     --name patient_fhir \
-     --description "Patient data from FHIR R4 source"
+    --adapter config/fhir_adapter.yaml \
+    --ingester config/fhir_ingester.yaml \
+    --chunker config/clinical_chunker.yaml \
+    --embedding config/clinical_embedding.yaml \
+    --vectorstore config/qdrant_vectorstore.yaml \
+    --name patient_fhir \
+    --description "Patient data from FHIR R4 source"
    ```
 
 3. **Copy and modify an existing profile:**
@@ -171,52 +182,59 @@ Profiles can be created in several ways:
 
 ## Usage
 
-### Running Pipelines
+### Running Complete Pipelines
 
-Run a pipeline with a configuration profile:
+Run a complete pipeline with a configuration profile:
 
 ```bash
-# Run using a profile
+# Run using a profile (recommended approach for complete pipelines)
 pulsepipe run --profile patient_fhir
 
 # Show a summary of processed data
 pulsepipe run --profile patient_fhir --summary
 
 # Print the full normalized model
-pulsepipe run --profile lab_hl7 --print-model
+pulsepipe run --profile patient_fhir --print-model
 
 # Save output to a file
 pulsepipe run --profile patient_fhir --print-model --output patient_data.json
-
-# Specify a custom pipeline ID
-pulsepipe run --profile patient_fhir --pipeline-id my-pipeline-123
-
-# Run with specific adapter and ingester configs
-pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
-
-# Validate config without running the pipeline
-pulsepipe run --dry-run --profile patient_fhir
 ```
 
-### Running Multiple Pipelines
+### Running with Explicit Component Configurations
 
-PulsePipe supports running multiple pipelines from a pipeline configuration file:
+You can also run the pipeline with explicitly specified component configurations:
 
 ```bash
-# Run all active pipelines defined in pipeline.yaml
-pulsepipe run --pipeline-config pipeline.yaml
+# Run with specific component configs
+pulsepipe run \
+  --adapter adapter.yaml \
+  --ingester ingester.yaml \
+  --chunker chunker.yaml \
+  --embedding embedding.yaml \
+  --vectorstore vectorstore.yaml
 
-# Run specific pipelines from the config file
-pulsepipe run --pipeline-config pipeline.yaml --pipeline fhir_clinical --pipeline x12_billing
+# Run with minimal configuration (adapter and ingester only)
+# Note: This will only perform ingestion without chunking, embedding, or vector storage
+pulsepipe run --adapter adapter.yaml --ingester ingester.yaml
+```
 
-# Run all pipelines including inactive ones
-pulsepipe run --pipeline-config pipeline.yaml --all
+### Pipeline Execution Options
 
+```bash
 # Run in one-time processing mode (overriding continuous setting)
-pulsepipe run --pipeline-config pipeline.yaml --one-time
+pulsepipe run --profile patient_fhir --one-time
 
-# Run in continuous watch mode (multiple pipelines run concurrently)
-pulsepipe run --pipeline-config pipeline.yaml --continuous
+# Run in continuous watch mode
+pulsepipe run --profile patient_fhir --continuous
+
+# Run with concurrent pipeline stages (improved performance)
+pulsepipe run --profile patient_fhir --concurrent
+
+# Set a timeout for pipeline execution (in seconds)
+pulsepipe run --profile patient_fhir --timeout 300
+
+# Enable verbose logging for debugging
+pulsepipe run --profile patient_fhir --verbose
 ```
 
 ### File Watcher Management

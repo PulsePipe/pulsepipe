@@ -30,11 +30,10 @@ Provides high-level interface for running pipelines.
 import os
 import asyncio
 import json
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, Any, Optional
 
 from pulsepipe.utils.log_factory import LogFactory
-from pulsepipe.utils.config_loader import load_config
-from pulsepipe.utils.errors import PipelineError, ConfigurationError
+from pulsepipe.utils.errors import PipelineError
 from pulsepipe.pipelines.context import PipelineContext
 from pulsepipe.pipelines.executor import PipelineExecutor
 
@@ -47,9 +46,8 @@ class PipelineRunner:
     High-level interface for running PulsePipe pipelines.
     
     This class handles:
-    - Loading pipeline configurations
     - Setting up execution context
-    - Running single or multiple pipelines
+    - Running a single pipeline
     - Coordinating outputs and reporting
     """
     
@@ -57,7 +55,6 @@ class PipelineRunner:
         """Initialize the pipeline runner."""
         self.executor = PipelineExecutor()
     
-
     async def run_pipeline(self, config: Dict[str, Any], name: str, **kwargs) -> Dict[str, Any]:
         """
         Run a single pipeline with the given configuration.
@@ -151,89 +148,3 @@ class PipelineRunner:
                 "errors": context.errors if hasattr(context, 'errors') else [str(e)],
                 "warnings": context.warnings if hasattr(context, 'warnings') else []
             }
-    
-
-    async def run_multiple_pipelines(self, config_path: str, pipeline_names: Optional[List[str]] = None, 
-                                  run_all: bool = False, **kwargs) -> List[Dict[str, Any]]:
-        """
-        Run multiple pipelines from a configuration file.
-        
-        Args:
-            config_path: Path to pipeline configuration file
-            pipeline_names: List of specific pipelines to run (optional)
-            run_all: Whether to run all pipelines including inactive ones
-            **kwargs: Additional options
-            
-        Returns:
-            List of dictionaries with execution results
-            
-        Raises:
-            ConfigurationError: If pipeline configuration is invalid
-        """
-        # Load pipeline configuration
-        try:
-            config = load_config(config_path)
-        except Exception as e:
-            raise ConfigurationError(
-                f"Failed to load pipeline configuration file: {config_path}",
-                cause=e
-            )
-        
-        pipelines = config.get('pipelines', [])
-        if not pipelines:
-            raise ConfigurationError(
-                f"No pipelines found in {config_path}",
-                details={"pipeline_config_path": config_path}
-            )
-        
-        # Determine which pipelines to run
-        target_pipelines = []
-        if pipeline_names:
-            target_pipelines = [p for p in pipelines if p.get('name') in pipeline_names]
-            if not target_pipelines:
-                raise ConfigurationError(
-                    f"No matching pipelines found for names: {', '.join(pipeline_names)}",
-                    details={"available_pipelines": [p.get('name') for p in pipelines]}
-                )
-        elif run_all:
-            target_pipelines = pipelines
-        else:
-            target_pipelines = [p for p in pipelines if p.get('active', True)]
-        
-        logger.info(f"Running {len(target_pipelines)} pipeline(s)")
-        
-        # Execute pipelines (sequentially for now)
-        results = []
-        for pipeline_config in target_pipelines:
-            pipeline_name = pipeline_config.get('name', 'unnamed')
-            
-            # Prepare output path
-            output_path = kwargs.get('output_path')
-            if output_path:
-                base, ext = os.path.splitext(output_path)
-                pipeline_output = f"{base}_{pipeline_name}{ext}"
-            else:
-                pipeline_output = None
-            
-            # Run the pipeline
-            logger.info(f"Starting pipeline: {pipeline_name}")
-            
-            # Create a modified copy of kwargs without 'output_path'
-            pipeline_kwargs = {k: v for k, v in kwargs.items() if k != 'output_path'}
-
-            # Now use the pipeline-specific output_path and the modified kwargs
-            result = await self.run_pipeline(
-                config=pipeline_config,
-                name=pipeline_name,
-                output_path=pipeline_output,
-                **pipeline_kwargs
-            )
-            
-            # Store result
-            results.append({
-                "name": pipeline_name,
-                "result": result
-            })
-        
-        # Return all results
-        return results

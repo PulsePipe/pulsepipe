@@ -24,12 +24,14 @@
 """
 Configuration management commands for PulsePipe CLI.
 """
+
+
 import os
 import shutil
-import sys
 import yaml
 import click
 from typing import Dict, Any
+from datetime import datetime
 from pathlib import Path
 
 from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
@@ -139,17 +141,25 @@ def validate(ctx, profile, validate_all):
               help='Adapter config file')
 @click.option('--ingester', '-i', type=str, required=True,
               help='Ingester config file')
+@click.option('--chunker', '-c', type=str,
+              help='Chunker config file')
+@click.option('--embedding', '-e', type=str,
+              help='Embedding config file')
+@click.option('--vectorstore', '-vs', type=str,
+              help='Vectorstore config file')
 @click.option('--name', '-n', type=str, required=True,
               help='Profile name to create')
 @click.option('--description', '-d', type=str,
               help='Profile description')
 @click.option('--force', '-f', is_flag=True,
               help='Overwrite existing profile')
-def create_profile(base, adapter, ingester, name, description, force):
+def create_profile(base, adapter, ingester, chunker, embedding, vectorstore, name, description, force):
     """Create a unified profile from separate config files.
     
     Examples:
         pulsepipe config create-profile --adapter fhir.yaml --ingester json.yaml --name patient_fhir
+        pulsepipe config create-profile --adapter fhir.yaml --ingester json.yaml --chunker chunker.yaml \\
+            --embedding embedding.yaml --vectorstore vectorstore.yaml --name complete_fhir
     """
     logger = LogFactory.get_logger("config.create_profile")
     
@@ -171,6 +181,26 @@ def create_profile(base, adapter, ingester, name, description, force):
         adapter_config = load_config(adapter)
         ingester_config = load_config(ingester)
         
+        # Load optional components
+        chunker_config = {}
+        embedding_config = {}
+        vectorstore_config = {}
+        
+        if chunker:
+            chunker_config = load_config(chunker)
+            if not chunker_config.get("chunker"):
+                click.echo(f"⚠️ Warning: '{chunker}' does not contain a chunker configuration")
+        
+        if embedding:
+            embedding_config = load_config(embedding)
+            if not embedding_config.get("embedding"):
+                click.echo(f"⚠️ Warning: '{embedding}' does not contain an embedding configuration")
+        
+        if vectorstore:
+            vectorstore_config = load_config(vectorstore)
+            if not vectorstore_config.get("vectorstore"):
+                click.echo(f"⚠️ Warning: '{vectorstore}' does not contain a vectorstore configuration")
+        
         # Create unified profile
         from datetime import datetime
         profile_config = {
@@ -180,11 +210,21 @@ def create_profile(base, adapter, ingester, name, description, force):
                 "created_at": datetime.now().strftime("%Y-%m-%d")
             },
             "adapter": adapter_config.get("adapter", {}),
-            "ingester": ingester_config.get("ingester", {}),
-            "logging": base_config.get("logging", {})
+            "ingester": ingester_config.get("ingester", {})
         }
         
-        # Write profile
+        # Add optional configurations
+        if chunker_config.get("chunker"):
+            profile_config["chunker"] = chunker_config.get("chunker", {})
+        if embedding_config.get("embedding"):
+            profile_config["embedding"] = embedding_config.get("embedding", {})
+        if vectorstore_config.get("vectorstore"):
+            profile_config["vectorstore"] = vectorstore_config.get("vectorstore", {})
+        
+        # Add logging from base config
+        profile_config["logging"] = base_config.get("logging", {})
+        
+        # Write profile to yaml file
         with open(profile_path, 'w') as f:
             yaml.dump(profile_config, f, default_flow_style=False, sort_keys=False)
         
@@ -214,39 +254,60 @@ def list(ctx, config_dir):
         profiles = []
         for filename in os.listdir(config_dir):
             if filename.endswith(".yaml") and not filename.startswith("_"):
-                # Only consider files that might be profiles
-                if filename in ["adapter.yaml", "ingester.yaml", "pulsepipe.yaml"]:
-                    continue
-                    
+                # Check if file contains a profile key at root level
                 profile_path = os.path.join(config_dir, filename)
                 try:
-                    profile_data = load_config(profile_path)
-                    
-                    # Check if it's a valid profile with adapter and ingester
-                    if "adapter" in profile_data and "ingester" in profile_data:
-                        profile_name = filename.replace(".yaml", "")
-                        description = (profile_data.get("profile", {}).get("description", "")
-                                      or f"{profile_data['adapter'].get('type', 'unknown')} + "
-                                      f"{profile_data['ingester'].get('type', 'unknown')}")
-                        
-                        profiles.append((profile_name, description))
+                    with open(profile_path, 'r') as f:
+                        config_data = yaml.safe_load(f)
+                        # Only consider files that have a 'profile' key at root level
+                        if isinstance(config_data, dict) and "profile" in config_data:
+                            profile_name = filename.replace(".yaml", "")
+                            # Extract description from profile if available
+                            profile_info = config_data.get("profile", {})
+                            description = profile_info.get("description", "")
+                            
+                            # Check for adapter and ingester (required components)
+                            has_adapter = "adapter" in config_data
+                            has_ingester = "ingester" in config_data
+                            
+                            # Check for optional components
+                            has_chunker = "chunker" in config_data
+                            has_embedding = "embedding" in config_data
+                            has_vectorstore = "vectorstore" in config_data
+                            
+                            # Create components indicator
+                            components = []
+                            if has_adapter:
+                                components.append("adapter")
+                            if has_ingester:
+                                components.append("ingester")
+                            if has_chunker:
+                                components.append("chunker")
+                            if has_embedding:
+                                components.append("embedding")
+                            if has_vectorstore:
+                                components.append("vectorstore")
+                            
+                            components_str = ", ".join(components)
+                            
+                            # Only add if it has at least adapter and ingester
+                            if has_adapter and has_ingester:
+                                profiles.append((profile_name, description, components_str))
                 except Exception:
                     # Skip invalid profiles
                     pass
         
         if profiles:
             click.echo("Available profiles:")
-            for name, desc in sorted(profiles):
+            for name, desc, components in sorted(profiles):
                 click.echo(f"  • {name}: {desc}")
+                click.echo(f"    Components: {components}")
         else:
             click.echo("No profiles found. Use 'pulsepipe config create-profile' to create one.")
             
     except Exception as e:
         click.echo(f"❌ Error listing profiles: {str(e)}", err=True)
 
-# src/pulsepipe/cli/commands/config.py
-
-# Add to the existing config.py file
 
 @config.group()
 def filewatcher():
@@ -347,3 +408,57 @@ def delete_files(config_path, profile):
         except Exception as e:
             click.echo(f"❌ Failed to delete {path}: {e}")
     click.echo(f"✅ Deleted {deleted} files.")
+
+@config.command()
+@click.option('--name', '-n', type=str, required=True,
+              help='Profile name to delete')
+@click.option('--force', '-f', is_flag=True,
+              help='Delete without confirmation')
+def delete_profile(name, force):
+    """Delete a configuration profile.
+    
+    Examples:
+        pulsepipe config delete-profile --name old_profile
+        pulsepipe config delete-profile --name unused_profile --force
+    """
+    logger = LogFactory.get_logger("config.delete_profile")
+    
+    # Search for the profile in known locations
+    # Define possible locations in priority order
+    possible_locations = [
+        # 1. Check in ./config/ next to the binary
+        os.path.join("config", f"{name}.yaml"),
+        # 2. Check in the current directory
+        f"{name}.yaml",
+        # 3. Check in the location relative to the script directory (for development)
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "config", f"{name}.yaml"),
+        # 4. As a fallback, try the src path
+        os.path.join("src", "pulsepipe", "config", f"{name}.yaml"),
+    ]
+    
+    # Find the profile file
+    profile_path = None
+    for location in possible_locations:
+        if os.path.exists(location):
+            profile_path = location
+            break
+    
+    if not profile_path:
+        click.echo(f"❌ Profile not found: {name}", err=True)
+        return
+    
+    # Confirm deletion unless force flag is used
+    if not force:
+        confirm = click.confirm(f"Are you sure you want to delete profile '{name}' at {profile_path}?")
+        if not confirm:
+            click.echo("Operation cancelled.")
+            return
+    
+    try:
+        # Delete the profile file
+        os.remove(profile_path)
+        click.echo(f"✅ Deleted profile: {name} from {profile_path}")
+        
+    except Exception as e:
+        logger.error(f"Failed to delete profile {name}: {str(e)}", exc_info=True)
+        click.echo(f"❌ Error deleting profile: {str(e)}", err=True)

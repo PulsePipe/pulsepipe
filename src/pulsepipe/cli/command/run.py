@@ -22,7 +22,7 @@
 # src/pulsepipe/cli/command/run.py
 
 """
-Run command implementation using the new pipeline architecture.
+Run command implementation for single pipeline execution.
 """
 
 import os
@@ -31,7 +31,8 @@ import json
 import asyncio
 import click
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional
+
 import signal
 
 from pulsepipe.utils.log_factory import LogFactory
@@ -72,9 +73,9 @@ def run_async_with_shutdown(coro, runner=None):
     async def shutdown_procedure():
         """Gracefully shut down all running pipelines"""
         if runner:
-            print("\n🛑 Stopping all running pipelines...")
-            await runner.stop_all_pipelines()
-            print("✅ All pipelines stopped")
+            print("\n🛑 Stopping running pipeline...")
+            # For the single pipeline version, we don't need to stop multiple pipelines
+            print("✅ Pipeline stopped")
     
     def signal_handler(signum, frame):
         nonlocal is_shutting_down
@@ -198,25 +199,23 @@ def find_profile_path(profile_name: str) -> Optional[str]:
 @click.command()
 @click.option('--adapter', '-a', type=click.Path(exists=True, dir_okay=False), help="Adapter config YAML")
 @click.option('--ingester', '-i', type=click.Path(exists=True, dir_okay=False), help="Ingester config YAML")
+@click.option('--chunker', '-c', type=click.Path(exists=True, dir_okay=False), help="Chunker config YAML")
+@click.option('--embedding', '-e', type=click.Path(exists=True, dir_okay=False), help="Embedding config YAML")
+@click.option('--vectorstore', '-vs', type=click.Path(exists=True, dir_okay=False), help="Vector store config YAML")
 @click.option('--profile', '-p', type=str, help="Profile name to use (e.g., new_profile)")
-@click.option('--pipeline-config', '-pc', type=click.Path(exists=True, dir_okay=False), help="Pipeline config YAML")
-@click.option('--pipeline', '-n', multiple=True, help="Specific pipeline names to run")
-@click.option('--all', 'run_all', is_flag=True, help="Run all pipelines in config")
 @click.option('--timeout', type=float, default=None, help="Timeout for pipeline execution in seconds")
 @click.option('--continuous/--one-time', 'continuous_mode', default=None)
 @click.option('--concurrent', '-cc', is_flag=True, help="Run pipeline stages concurrently")
-@click.option('--concurrent-pipelines/--sequential-pipelines', default=True, 
-              help="Run multiple pipelines concurrently or sequentially")
 @click.option('--watch', '-w', is_flag=True, help="Watch mode - keep running and process files as they arrive")
 @click.option('--verbose', '-v', is_flag=True, help="Show detailed error information")
 @output_options
 @click.pass_context
-def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, timeout,
-        continuous_mode, concurrent, concurrent_pipelines, watch, print_model, 
+def run(ctx, adapter, ingester, chunker, embedding, vectorstore, profile, timeout,
+        continuous_mode, concurrent, watch, print_model, 
         summary, output, pretty, verbose):
     """Run a data processing pipeline.
     
-    Process healthcare data through configurable adapters and ingesters.
+    Process healthcare data through configurable adapter, ingester, chunker, embedding and vectorstore stages.
     """
     logger = LogFactory.get_logger("cli.run")
     
@@ -264,6 +263,19 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                     
             click.echo(f"📋 Using profile: {profile} from {profile_path}")
             
+            # Check for chunker, embedding, and vectorstore configurations
+            has_chunker = "chunker" in profile_config
+            has_embedding = "embedding" in profile_config
+            has_vectorstore = "vectorstore" in profile_config
+            
+            # Warn about missing pipeline stages
+            if not has_chunker:
+                click.echo("⚠️ Warning: Profile does not include chunker configuration")
+            if not has_embedding:
+                click.echo("⚠️ Warning: Profile does not include embedding configuration")
+            if not has_vectorstore:
+                click.echo("⚠️ Warning: Profile does not include vectorstore configuration")
+            
             # Run the pipeline with improved shutdown handling
             result = run_async_with_shutdown(
                 runner.run_pipeline(
@@ -286,59 +298,7 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
                 logger.error(f"Pipeline execution failed: {result.get('errors')}")
                 ctx.exit(1)
                 
-        # Handle pipeline config execution
-        elif pipeline_config:
-            click.echo(f"📋 Using pipeline config: {pipeline_config}")
-            
-            # Set up kwargs for pipeline runner
-            kwargs = {
-                "summary": summary,
-                "print_model": print_model,
-                "pretty": pretty,
-                "verbose": verbose,
-                "output_path": output,
-                "concurrent": concurrent,
-                "concurrent_pipelines": concurrent_pipelines,
-                "watch": watch,
-                "timeout": timeout
-            }
-
-            if continuous_mode is not None:
-                kwargs["continuous_override"] = continuous_mode
-                
-            results = run_async_with_shutdown(
-                runner.run_multiple_pipelines(
-                    config_path=pipeline_config,
-                    pipeline_names=list(pipeline) if pipeline else None,
-                    run_all=run_all,
-                    **kwargs
-                ),
-                runner=runner
-            )
-            
-            # Check for success - we consider it successful if at least one pipeline succeeded
-            success = False
-            for r in results:
-                result_data = r.get("result", {})
-                if isinstance(result_data, dict) and result_data.get("success", False):
-                    success = True
-                    break
-            
-            if not success:
-                logger.error("All pipelines failed")
-                ctx.exit(1)
-                
-            # Display summary of results
-            if len(results) > 1:
-                click.echo("\nPipeline Execution Summary:")
-                for result in results:
-                    name = result["name"]
-                    result_data = result.get("result", {})
-                    success = isinstance(result_data, dict) and result_data.get("success", False)
-                    status = "✅ Success" if success else "❌ Failed"
-                    click.echo(f"{status}: {name}")
-                    
-        # Handle explicit adapter/ingester config execution
+        # Handle explicit component config execution
         elif adapter and ingester:
             # Load adapter config
             try:
@@ -381,12 +341,57 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
             # Combine configs into a single pipeline config
             combined_config = {
                 "adapter": adapter_config,
-                "ingester": ingester_config,
-                # Include chunker if it exists in the ingester config
-                "chunker": ingester_config.get("chunker", {})
+                "ingester": ingester_config
             }
             
+            # Add chunker config if provided
+            if chunker:
+                try:
+                    chunker_config = load_config(chunker).get('chunker', {})
+                    if not chunker_config:
+                        click.echo(f"⚠️ Warning: File '{chunker}' does not contain chunker configuration")
+                    else:
+                        combined_config["chunker"] = chunker_config
+                except Exception as e:
+                    click.echo(f"⚠️ Warning: Failed to load chunker configuration: {str(e)}")
+            
+            # Add embedding config if provided
+            if embedding:
+                try:
+                    embedding_config = load_config(embedding).get('embedding', {})
+                    if not embedding_config:
+                        click.echo(f"⚠️ Warning: File '{embedding}' does not contain embedding configuration")
+                    else:
+                        combined_config["embedding"] = embedding_config
+                except Exception as e:
+                    click.echo(f"⚠️ Warning: Failed to load embedding configuration: {str(e)}")
+            
+            # Add vectorstore config if provided
+            if vectorstore:
+                try:
+                    vectorstore_config = load_config(vectorstore).get('vectorstore', {})
+                    if not vectorstore_config:
+                        click.echo(f"⚠️ Warning: File '{vectorstore}' does not contain vectorstore configuration")
+                    else:
+                        combined_config["vectorstore"] = vectorstore_config
+                except Exception as e:
+                    click.echo(f"⚠️ Warning: Failed to load vectorstore configuration: {str(e)}")
+            
             click.echo(f"📋 Using adapter from {adapter} and ingester from {ingester}")
+            if chunker:
+                click.echo(f"📋 Using chunker from {chunker}")
+            if embedding:
+                click.echo(f"📋 Using embedding from {embedding}")
+            if vectorstore:
+                click.echo(f"📋 Using vectorstore from {vectorstore}")
+            
+            # Log warnings for missing stages
+            if not chunker:
+                click.echo("⚠️ Warning: No chunker configuration provided")
+            if not embedding:
+                click.echo("⚠️ Warning: No embedding configuration provided")
+            if not vectorstore:
+                click.echo("⚠️ Warning: No vectorstore configuration provided")
             
             # Run the pipeline with improved shutdown handling
             result = run_async_with_shutdown(
@@ -413,10 +418,9 @@ def run(ctx, adapter, ingester, profile, pipeline_config, pipeline, run_all, tim
         # No configuration provided
         else:
             raise CLIError(
-                "You must specify either --profile, --pipeline-config, or both --adapter and --ingester",
+                "You must specify either --profile, or both --adapter and --ingester",
                 details={
                     "profile": profile,
-                    "pipeline_config": pipeline_config,
                     "adapter": adapter,
                     "ingester": ingester
                 }

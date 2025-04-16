@@ -39,8 +39,19 @@ class X12Ingester:
         self.logger.info("📁 Initializing X12Ingester")
 
     def parse(self, raw_data: str) -> PulseOperationalContent:
-        if not raw_data.strip():
-            raise ValueError("Empty X12 data received")
+        if not raw_data or not raw_data.strip():
+            self.logger.warning("Empty X12 data received, returning empty model")
+            return PulseOperationalContent(
+                transaction_type="UNKNOWN",
+                interchange_control_number="UNKNOWN",
+                functional_group_control_number="UNKNOWN",
+                organization_id="UNKNOWN",
+                claims=[], 
+                charges=[], 
+                payments=[], 
+                adjustments=[], 
+                prior_authorizations=[]
+            )
 
         try:
             segments = [line.strip() for line in raw_data.strip().split('~') if line.strip()]
@@ -69,8 +80,19 @@ class X12Ingester:
             return content
 
         except Exception as e:
-            self.logger.exception("X12 parsing error")
-            raise ValueError("Failed to parse X12 message") from e
+            self.logger.exception(f"X12 parsing error: {str(e)}")
+            # Return empty model instead of raising exception
+            return PulseOperationalContent(
+                transaction_type="ERROR",
+                interchange_control_number="ERROR",
+                functional_group_control_number="ERROR",
+                organization_id="UNKNOWN",
+                claims=[], 
+                charges=[], 
+                payments=[], 
+                adjustments=[], 
+                prior_authorizations=[]
+            )
 
 
     def _detect_transaction_type(self, segments: list) -> dict:

@@ -22,6 +22,7 @@
 # src/pulsepipe/pipelines/chuncker/operational_chunker.py
 
 from typing import List, Dict, Any
+from pulsepipe.models.clinical_content import PulseClinicalContent
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.models.operational_content import PulseOperationalContent
 
@@ -33,6 +34,15 @@ class OperationalEntityChunker:
         self.logger.info("📁 Initializing OperationalEntityChunker")
 
     def chunk(self, content: PulseOperationalContent) -> List[Dict[str, Any]]:
+        if content is None:
+            self.logger.warning("Received None content in chunker, skipping")
+            return []
+
+         # Check for the expected content type
+        if not isinstance(content, (PulseClinicalContent, PulseOperationalContent)):
+            self.logger.warning(f"Unexpected content type in chunker: {type(content)}")
+            return []
+
         chunks = []
 
         transaction_type = content.transaction_type or "unknown"

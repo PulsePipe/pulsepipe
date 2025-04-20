@@ -29,13 +29,20 @@ from pulsepipe.ingesters.plaintext_ingester import PlainTextIngester
 from pulsepipe.utils.log_factory import LogFactory
 from .config_loader import load_config
 
-def create_adapter(config: dict):
+def create_adapter(config: dict, **kwargs):
     log_config = load_config()
 
     adapter_type = config["type"]
 
     if adapter_type == "file_watcher":
-        return FileWatcherAdapter(config)
+        adapter = FileWatcherAdapter(config)
+        
+        # Check for special flags 
+        if kwargs.get('single_scan'):
+            # Add a flag to do a single scan and then exit
+            adapter.single_scan_mode = True
+        
+        return adapter
     
     raise ValueError(f"Unsupported adapter type: {adapter_type}")
 

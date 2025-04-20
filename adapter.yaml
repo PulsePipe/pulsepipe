@@ -25,6 +25,3 @@ adapter:
   type: file_watcher
   watch_path: F:\developer\pulsepipe\incoming\fhir
   extensions: [".fhir", ".json", ".xml", ".txt"]
-
-ingester:
-  type: fhir

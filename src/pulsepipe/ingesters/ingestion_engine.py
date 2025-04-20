@@ -99,6 +99,34 @@ class IngestionEngine:
         except asyncio.CancelledError:
             self.logger.debug("Process task was cancelled")
     
+    def _get_current_results(self) -> Any:
+        """
+        Get the current results without waiting for the adapter to finish.
+        For continuous mode operation.
+        
+        Returns:
+            Current results list, single result, or None if no real data processed.
+            Not returning an empty model helps prevent pipeline restart loops.
+        """
+        # In continuous mode, we need to return all accumulated results
+        # and then clear the results list so it doesn't grow unbounded
+        if len(self.results) == 1:
+            # Return the single result
+            result = self.results[0]
+            # Clear results to avoid duplicate processing
+            self.results = []
+            return result
+        elif len(self.results) > 1:
+            # Return all results as a list
+            results = self.results.copy()
+            # Clear results to avoid duplicate processing
+            self.results = []
+            return results
+        else:
+            self.logger.debug("No data was processed yet in continuous mode, returning None")
+            # Return None instead of empty model to prevent continuous processing loops
+            return None
+    
     async def run(self, timeout: Optional[float] = 30.0) -> Any:
         """
         Run the ingestion pipeline with adapter and ingester.
@@ -106,9 +134,11 @@ class IngestionEngine:
         Args:
             timeout: Seconds to wait for processing. None for no timeout.
                      Set to a reasonable value for one-time runs.
+                     For continuous mode, set to None.
                      
         Returns:
             Processed content, list of processed content, or empty model if nothing processed.
+            In continuous mode, returns current results without waiting for adapter to finish.
             
         Raises:
             IngestionEngineError: If there's an error in the ingestion process
@@ -128,18 +158,51 @@ class IngestionEngine:
             # If continuous mode is disabled in FileWatcherAdapter, adapter_task might complete
             # Wait for the adapter task with a timeout
             try:
-                await asyncio.wait_for(adapter_task, timeout=timeout)
-                self.logger.info("Adapter task completed normally")
-            except asyncio.TimeoutError:
-                # For continuous watchers, this is expected - we'll stop after timeout
+                # Handle differently based on mode
                 if timeout is not None:
-                    self.logger.info(f"Stopping adapter after {timeout} seconds")
-                
-            # Signal processor to stop once queue is empty
-            self.stop_flag.set()
-            
-            # Wait for processor to finish
-            await processor_task
+                    # One-time processing mode
+                    await asyncio.wait_for(adapter_task, timeout=timeout)
+                    self.logger.info("Adapter task completed normally")
+                    # Signal processor to stop once queue is empty
+                    self.stop_flag.set()
+                    # Wait for processor to finish
+                    await processor_task
+                else:
+                    # CONTINUOUS MODE:
+                    # For continuous mode, we have to avoid getting stuck
+                    # A better approach is to watch for a bit, and then return results
+                    self.logger.info("Running in continuous mode - will watch for up to 5 seconds, then process results")
+                    
+                    # Watch for a short period to detect files
+                    try:
+                        # Wait with a short timeout to grab initial files
+                        await asyncio.wait_for(adapter_task, timeout=5.0)
+                        self.logger.info("Adapter task completed (all files processed)")
+                    except asyncio.TimeoutError:
+                        # Expected in continuous mode
+                        self.logger.info("Completed initial file processing, returning results")
+                        # Cancel the adapter task - we'll restart it next time
+                        adapter_task.cancel()
+                    
+                    # Make sure processor has time to process everything
+                    # Wait a short time for any in-flight processing
+                    await asyncio.sleep(0.5)
+                    
+                    # Return what we've found so far
+                    if self.results:
+                        count = len(self.results) if isinstance(self.results, list) else 1
+                        self.logger.info(f"Processed {count} items, returning for pipeline processing")
+                        return self._get_current_results() 
+                    else:
+                        self.logger.info("No files found to process")
+                        return None
+            except asyncio.TimeoutError:
+                # For one-time processing with timeout, stop after timeout
+                self.logger.info(f"Stopping adapter after {timeout} seconds")
+                # Signal processor to stop once queue is empty
+                self.stop_flag.set()
+                # Wait for processor to finish
+                await processor_task
             
             # Check for processing errors
             if self.processing_errors:
@@ -166,8 +229,15 @@ class IngestionEngine:
                 if hasattr(self.ingester, 'parse') and callable(self.ingester.parse):
                     try:
                         if 'X12' in self.ingester.__class__.__name__:
-                            return PulseOperationalContent()
+                            # Create with required fields to avoid validation errors
+                            return PulseOperationalContent(
+                                transaction_type="UNKNOWN",
+                                interchange_control_number="NONE",
+                                functional_group_control_number="NONE",
+                                organization_id="NONE"
+                            )
                         else:
+                            # Clinical content doesn't have required fields
                             return PulseClinicalContent()
                     except Exception as e:
                         self.logger.error(f"Error creating empty model: {str(e)}")

@@ -88,8 +88,11 @@ class IngestionStage(PipelineStage):
         self.logger.info(f"{context.log_prefix} Creating ingester: {ingester_config.get('type', 'unknown')}")
         
         try:
-            # Create adapter
-            adapter = create_adapter(adapter_config)
+            # Check if we want a non-continuous processing mode
+            single_scan = context.config.get("single_scan", False)
+            
+            # Create adapter with appropriate flags
+            adapter = create_adapter(adapter_config, single_scan=single_scan)
             
             # Create ingester
             ingester = create_ingester(ingester_config)
@@ -104,9 +107,7 @@ class IngestionStage(PipelineStage):
                 if not continuous:
                     # Use timeout for one-time processing
                     timeout = context.config.get("timeout", 30.0)
-            
-            if timeout == None:
-                timeout = 5
+                # For continuous mode, use None (no timeout) to keep the pipeline running
 
             self.logger.info(f"{context.log_prefix} Running ingestion engine" + 
                            (f" with timeout: {timeout}s" if timeout else " without timeout"))
@@ -114,10 +115,19 @@ class IngestionStage(PipelineStage):
             # Run the ingestion engine
             result = await engine.run(timeout=timeout)
         
-            # Always signal completion to downstream stages, even if no data found
+            # Handle continuous mode empty results differently
+            adapter_config = context.config.get("adapter", {})
+            continuous_mode = False
+            if adapter_config.get("type") == "file_watcher":
+                continuous_mode = adapter_config.get("continuous", True)
+                
             if not result:
-                self.logger.warning(f"{context.log_prefix} No data was ingested, signaling completion anyway")
-                return None  # Signal end-of-stream to next stage
+                if continuous_mode:
+                    self.logger.debug(f"{context.log_prefix} No data ingested yet in continuous mode")
+                    return None  # Return None but don't signal completion
+                else:
+                    self.logger.warning(f"{context.log_prefix} No data was ingested, signaling completion anyway")
+                    return None  # Signal end-of-stream to next stage
         
             # Check for and handle processing errors
             if hasattr(engine, 'processing_errors') and engine.processing_errors:

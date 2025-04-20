@@ -285,51 +285,126 @@ class ConcurrentPipelineExecutor:
             # Special case for ingestion (no input queue)
             if stage_name == "ingestion":
                 try:
-                    result = await stage.execute(context)
-                    if result:
-                        # Put result in output queue
-                        if isinstance(result, list):
-                            # For batch results, put each item separately
-                            for item in result:
-                                if self.stop_event.is_set():
-                                    logger.info(f"{context.log_prefix} Stop event detected in {stage_name}, stopping item processing")
-                                    break
-                                    
-                                await output_queue.put(item)
-                                stage_results.append(item)
-                                item_count += 1
-                                
-                                # Log progress periodically
-                                current_time = time.time()
-                                if current_time - last_progress_time > 30.0:  # No progress for 30 seconds
-                                    if item_count == last_item_count:  # No new items processed
-                                        logger.warning(f"{context.log_prefix} No progress in {stage_name} for 30s, might be stuck")
+                    # Check for continuous mode adapter
+                    adapter_config = context.config.get("adapter", {})
+                    continuous_mode = False
+                    if adapter_config.get("type") == "file_watcher":
+                        continuous_mode = adapter_config.get("continuous", True)
+                    
+                    if continuous_mode:
+                        logger.info(f"{context.log_prefix} Running ingestion in continuous mode")
+                        logger.info(f"{context.log_prefix} Starting continuous ingestion")
+                        
+                        # First execution starts the continuous adapter
+                        # This returns immediately with initial results
+                        result = await stage.execute(context)
+                        
+                        # Process initial results
+                        if result:
+                            if isinstance(result, list):
+                                # For batch results, put each item separately
+                                for item in result:
+                                    if self.stop_event.is_set():
+                                        logger.info(f"{context.log_prefix} Stop event detected in {stage_name}, stopping item processing")
+                                        break
                                         
-                                        # After 3 no-progress warnings (90 seconds), forcibly terminate
-                                        if no_progress_warnings > 2:
-                                            logger.error(f"{context.log_prefix} Stage {stage_name} appears stuck, forcing completion")
-                                            break  # Exit loop and complete stage
-                                            
-                                        no_progress_warnings += 1
+                                    await output_queue.put(item)
+                                    stage_results.append(item)
+                                    item_count += 1
+                            else:
+                                # Single result
+                                await output_queue.put(result)
+                                stage_results.append(result)
+                                item_count += 1
+                            
+                            # Log progress
+                            logger.info(f"{context.log_prefix} Ingestion processed {item_count} total items")
+                        
+                        # Now periodically poll for new results (every 1 second)
+                        # This simulates a continuous flow of data
+                        while not self.stop_event.is_set():
+                            try:
+                                # Short timeout to poll for new results
+                                new_result = await asyncio.wait_for(stage.execute(context), timeout=1.0)
+                                
+                                # Process any new results
+                                if new_result:
+                                    if isinstance(new_result, list):
+                                        # For batch results, put each item separately
+                                        for item in new_result:
+                                            if self.stop_event.is_set():
+                                                break
+                                                
+                                            await output_queue.put(item)
+                                            stage_results.append(item)
+                                            item_count += 1
                                     else:
-                                        # Reset if we made progress
-                                        last_item_count = item_count
-                                        last_progress_time = current_time
-                        else:
-                            # Single result
-                            await output_queue.put(result)
-                            stage_results.append(result)
-                            item_count = 1
+                                        # Single result
+                                        await output_queue.put(new_result)
+                                        stage_results.append(new_result)
+                                        item_count += 1
+                                    
+                                    # Log progress
+                                    logger.info(f"{context.log_prefix} Ingestion processed {item_count} total items")
+                            except asyncio.TimeoutError:
+                                # This is expected - just retry
+                                await asyncio.sleep(0.5)  # Brief pause between polls
+                            except Exception as e:
+                                logger.error(f"{context.log_prefix} Error in continuous ingestion poll: {e}")
+                                await asyncio.sleep(1.0)  # Longer pause after error
+                        
+                        logger.info(f"{context.log_prefix} Continuous ingestion completed, processed {item_count} items")
+                    else:
+                        # Standard one-time ingestion
+                        result = await stage.execute(context)
+                        if result:
+                            # Put result in output queue
+                            if isinstance(result, list):
+                                # For batch results, put each item separately
+                                for item in result:
+                                    if self.stop_event.is_set():
+                                        logger.info(f"{context.log_prefix} Stop event detected in {stage_name}, stopping item processing")
+                                        break
+                                        
+                                    await output_queue.put(item)
+                                    stage_results.append(item)
+                                    item_count += 1
+                                    
+                                    # Log progress periodically
+                                    current_time = time.time()
+                                    if current_time - last_progress_time > 30.0:  # No progress for 30 seconds
+                                        if item_count == last_item_count:  # No new items processed
+                                            logger.warning(f"{context.log_prefix} No progress in {stage_name} for 30s, might be stuck")
+                                            
+                                            # After 3 no-progress warnings (90 seconds), forcibly terminate
+                                            if no_progress_warnings > 2:
+                                                logger.error(f"{context.log_prefix} Stage {stage_name} appears stuck, forcing completion")
+                                                break  # Exit loop and complete stage
+                                                
+                                            no_progress_warnings += 1
+                                        else:
+                                            # Reset if we made progress
+                                            last_item_count = item_count
+                                            last_progress_time = current_time
+                            else:
+                                # Single result
+                                await output_queue.put(result)
+                                stage_results.append(result)
+                                item_count = 1
                 except Exception as e:
                     logger.error(f"{context.log_prefix} Error in ingestion stage: {e}")
                     context.add_error(stage_name, f"Failed to execute stage: {str(e)}")
                     
-                # Mark stage completion for ingestion
-                logger.info(f"{context.log_prefix} Ingestion completed, sent {len(stage_results)} items to next stage")
-                
-                # Signal the end of this stage's output
-                if output_queue:
-                    await output_queue.put(None)
+                # For continuous mode, we don't signal completion until explicitly stopped
+                if continuous_mode:
+                    logger.info(f"{context.log_prefix} Ingestion stage ongoing - processed {len(stage_results)} items so far")
+                else:
+                    # For one-time processing, mark completion
+                    logger.info(f"{context.log_prefix} Ingestion completed, sent {len(stage_results)} items to next stage")
+                    
+                    # Signal the end of this stage's output (ONLY for non-continuous mode)
+                    if output_queue:
+                        await output_queue.put(None)
             else:
                 # For other stages, process items from input queue
                 if not input_queue:

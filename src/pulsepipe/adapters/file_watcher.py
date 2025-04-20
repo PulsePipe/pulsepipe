@@ -47,7 +47,7 @@ class FileWatcherAdapter(Adapter):
         self.logger = LogFactory.get_logger(__name__)
         self.logger.info("📁 Initializing FileWatcherAdapter")
         self._stop_event = asyncio.Event()
-        self._scan_interval = 1.0  # Default scan interval in seconds
+        self._scan_interval = 5.0  # Default scan interval in seconds
 
         try:
             # Extract configuration options
@@ -243,6 +243,13 @@ class FileWatcherAdapter(Adapter):
                 self._known_files = current_files
                 
                 # Wait for a bit before the next scan
+                # Check if a flag was passed to just do a single scan and complete
+                single_scan = getattr(self, 'single_scan_mode', False)
+                if single_scan:
+                    # In single scan mode, process once and then exit
+                    self.logger.info("Single scan mode enabled - processed existing files, exiting")
+                    return
+                
                 try:
                     # Use asyncio.wait_for so we can cancel it when stop is requested
                     await asyncio.wait_for(

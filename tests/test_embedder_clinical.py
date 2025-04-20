@@ -44,13 +44,17 @@ def mock_sentence_transformer(monkeypatch):
     mock_model.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
     mock_model.get_sentence_embedding_dimension.return_value = 3
     
-    # Mock the SentenceTransformer constructor directly via monkeypatch
-    # This avoids the warning from torch's async operations
-    def mock_transformer_constructor(*args, **kwargs):
-        return mock_model
+    # Import SentenceTransformer directly to avoid importing torch
+    import sys
+    if 'sentence_transformers' not in sys.modules:
+        sys.modules['sentence_transformers'] = MagicMock()
     
-    # Apply the monkeypatch before importing torch in SentenceTransformer
-    monkeypatch.setattr('sentence_transformers.SentenceTransformer', mock_transformer_constructor)
+    # Create a mock SentenceTransformer class
+    mock_st_class = MagicMock()
+    mock_st_class.return_value = mock_model
+    
+    # Patch the SentenceTransformer constructor
+    monkeypatch.setattr('sentence_transformers.SentenceTransformer', mock_st_class)
     
     yield mock_model
 

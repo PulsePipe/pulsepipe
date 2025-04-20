@@ -3,12 +3,9 @@
 
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
-## ✅ MVP Scope [50% Complete]
-## 🟣 Short-Term Goals [0% Complete]
-## 🟠 Mid-Term Goals [0% Complete]
-## 🟠 Long-Term Goals [0% Complete]
-
 ---
+#### ✅ MVP Scope      [ 65% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
+#### 🟠 Mid-Term Goals [  0% Complete ]                      🟠 Long-Term Goals  [  0% Complete ]
 
 ## ✅ MVP Scope
 
@@ -40,13 +37,12 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] CLI options to test chunking/embedding flows
     - [ ] Output of chunks and embeddings in vector-friendly format (e.g., JSONL)
     - [ ] Embedding pipeline supporting ClinicalBERT
-    - [ ] Embedding pipeline supporting MiniLM-L6-v2
+    - [x] Embedding pipeline supporting MiniLM-L6-v2
 - [ ] Vector database integration:
-    - [ ] Pinecone
     - [x] Weaviate
     - [x] Qdrant
-- [ ] 📖 Pipeline Concurrent Step Execution
-    - [ ] Add queues to relay messages between steps
+- [x] 📖 Pipeline Concurrent Step Execution
+    - [x] Add queues to relay messages between steps
 - [ ] 📖 CLI Model Description
     - [ ] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
     - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
@@ -60,15 +56,21 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Use for unit/integration tests of mappers and embedding steps
 - [ ] Complete Unit Tests:
     - [x] Banner Display
-    - [ ] Filewatcher Adapter
+    - [x] Filewatcher Adapter
     - [x] Ingestors (FHIR, HL7v2, X12)
-    - [ ] CLI command parsing and context propagation
-    - [ ] Canonical Models and Pydantic schemas
-    - [ ] YAML configuration loading and validation
-    - [ ] Logging setup and enrichment
-    - [ ] Chunker framework and implementation coverage
+    - [x] CLI command parsing and context propagation
+    - [x] Canonical Models and Pydantic schemas
+    - [x] YAML configuration loading and validation
+    - [x] Logging setup and enrichment
+    - [x] Chunker framework and implementation coverage
     - [x] Embedder call mocking and fallback logic
-    - [ ] Vector DB connectivity and document serialization
+    - [x] Vector DB connectivity and document serialization
+    - [x] Integrate Pytests with Github Actions
+    - [x] Add a Code Coverage Report
+    - [ ] Code Coverage >=85% (Current coverage at 70%)
+    - [ ] Review existing tests for superficial coverage (init-only tests without meaningful validation)
+    - [ ] Add tests for error paths and boundary conditions (malformed data, connection failures, timeouts)
+    - [ ] Expand coverage for complex logic branches in high-risk modules (parsers, config handlers, pipeline execution)
 
 ---
 
@@ -115,6 +117,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Explore metadata extraction and usage: Displays key extracted metadata (e.g., patient ID, doc type, timestamps), showing how it's used for indexing, filtering, and downstream querying.
     - [ ] Enable basic vector space visualization and inspection: Provides 2D/3D projections (e.g., t-SNE, UMAP) of embedded vectors to explore clustering and identify embedding anomalies or outliers.
 - [ ] Vector database integration:
+    - [ ] Pinecone
     - [ ] Milvus
     - [ ] pgvector/PostgreSQL
     - [ ] Chroma

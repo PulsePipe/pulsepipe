@@ -95,7 +95,7 @@ PID|1||234567^^^HOSP^MR||SMITH^JANE||19450215|F"""
         # This should parse without error, getting what it can from the valid parts
         content = ingester.parse(partially_valid)
         assert content[0] is not None
-        logger.info("\nHL7 Content: \n", content[0], "\n")
+        logger.info(f"\nHL7 Content: \n{content[0]}\n")
         assert content[0].patient is not None  # Should have extracted patient info from valid segments
         
         logger.info("Malformed message test passed")
@@ -172,7 +172,7 @@ OBX|5|NM|O2SAT^OXYGEN SATURATION^L||98|%|95-100|N|||F"""
 
         logger.info(f"Lab reports: {len(content[0].lab)}")
         logger.info(f"Vital signs: {len(content[0].vital_signs)}")
-        logger.info("!!!!Lab Result\n", content[2])
+        logger.info(f"!!!!Lab Result\n{content[2]}")
         # Verify lab results are present
         assert len(content[2].lab) > 0, "Should have lab results from the CBC in ORU message"
 

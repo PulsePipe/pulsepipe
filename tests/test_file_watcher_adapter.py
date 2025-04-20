@@ -28,6 +28,8 @@ from pulsepipe.adapters.file_watcher import FileWatcherAdapter
 
 @pytest.mark.asyncio
 async def test_file_watcher_adapter_enqueues_data(tmp_path):
+    """Test that the file watcher adapter correctly enqueues data from detected files."""
+    # Setup the test directory
     ingest_path = tmp_path / "fixtures"
     ingest_path.mkdir(parents=True, exist_ok=True)
 
@@ -37,23 +39,37 @@ async def test_file_watcher_adapter_enqueues_data(tmp_path):
         "bookmark_file": ".bookmark.dat"
     }
 
+    # Create adapter and queue
     adapter = FileWatcherAdapter(adapter_config)
     queue = asyncio.Queue()
 
+    # Create a run task with proper cleanup
     task = asyncio.create_task(adapter.run(queue))
-
-    test_content = '{"resourceType": "Patient", "id": "test-patient"}'
-    test_file = ingest_path / "test_patient.json"
-
-    await asyncio.sleep(0.5)
-    test_file.write_text(test_content, encoding='utf-8')
-
+    
     try:
-        raw_data = await asyncio.wait_for(queue.get(), timeout=3)
-    except asyncio.TimeoutError:
-        task.cancel()
-        pytest.fail("Adapter did not enqueue data in time.")
-
-    assert raw_data == test_content
-
-    task.cancel()
+        # Create and write the test file after a short delay to ensure adapter is running
+        test_content = '{"resourceType": "Patient", "id": "test-patient"}'
+        test_file = ingest_path / "test_patient.json"
+    
+        await asyncio.sleep(0.5)
+        test_file.write_text(test_content, encoding='utf-8')
+    
+        # Wait for the data to be processed and enqueued
+        try:
+            raw_data = await asyncio.wait_for(queue.get(), timeout=3)
+        except asyncio.TimeoutError:
+            pytest.fail("Adapter did not enqueue data in time.")
+    
+        # Verify the content matches
+        assert raw_data == test_content
+        
+    finally:
+        # Always cleanup the task properly
+        if not task.done():
+            task.cancel()
+            try:
+                # Use short timeout to avoid blocking test cleanup
+                await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                # These are expected during cancellation
+                pass

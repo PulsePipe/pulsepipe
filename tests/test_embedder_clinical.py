@@ -23,7 +23,7 @@
 
 import pytest
 import asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import numpy as np
 from pulsepipe.pipelines.embedders.clinical_embedder import ClinicalEmbedder
 from pulsepipe.utils.log_factory import LogFactory
@@ -35,15 +35,24 @@ logger.info("📁 Initializing Clinical Embedder Tests")
 # Mock for SentenceTransformer to avoid actual model loading
 @pytest.fixture
 def mock_sentence_transformer(monkeypatch):
+    """
+    Create a mock for SentenceTransformer with proper implementation
+    that avoids triggering asyncio warnings in torch.
+    """
+    # Create a proper mock for the model
     mock_model = MagicMock()
     mock_model.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
     mock_model.get_sentence_embedding_dimension.return_value = 3
     
-    mock_st = MagicMock()
-    mock_st.return_value = mock_model
+    # Mock the SentenceTransformer constructor directly via monkeypatch
+    # This avoids the warning from torch's async operations
+    def mock_transformer_constructor(*args, **kwargs):
+        return mock_model
     
-    with patch('sentence_transformers.SentenceTransformer', mock_st):
-        yield mock_st
+    # Apply the monkeypatch before importing torch in SentenceTransformer
+    monkeypatch.setattr('sentence_transformers.SentenceTransformer', mock_transformer_constructor)
+    
+    yield mock_model
 
 class TestClinicalEmbedder:
     """Tests for the ClinicalEmbedder class."""
@@ -72,25 +81,22 @@ class TestClinicalEmbedder:
         """Test the embed method with various inputs."""
         embedder = ClinicalEmbedder()
         
-        # Configure mock for empty list
-        mock_model = mock_sentence_transformer.return_value
-        mock_model.encode.return_value = np.array([])
+        # Configure mock for various test cases
+        mock_sentence_transformer.encode.side_effect = [
+            np.array([]),  # First call returns empty array for empty input
+            np.array([[0.1, 0.2, 0.3]]),  # Second call returns one embedding
+            np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])  # Third call returns two embeddings
+        ]
         
         # Test with empty list
         result = await embedder.embed([])
         assert result == []  # Should return empty list
-        
-        # Configure mock for single text
-        mock_model.encode.return_value = np.array([[0.1, 0.2, 0.3]])
         
         # Test with single text
         texts = ["The patient presents with hypertension and diabetes."]
         result = await embedder.embed(texts)
         assert len(result) == 1
         assert len(result[0]) == 3  # 3-dimensional vectors
-        
-        # Configure mock for multiple texts
-        mock_model.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
         
         # Test with multiple texts
         texts = [
@@ -105,6 +111,13 @@ class TestClinicalEmbedder:
     def test_embed_chunk(self, mock_sentence_transformer):
         """Test embedding a single chunk."""
         embedder = ClinicalEmbedder()
+        
+        # Configure mock for various test cases
+        mock_sentence_transformer.encode.side_effect = [
+            np.array([0.1, 0.2, 0.3]),  # For empty content
+            np.array([0.4, 0.5, 0.6]),  # For string content
+            np.array([0.7, 0.8, 0.9])   # For list content
+        ]
 
         # Test with empty content
         chunk = {"content": ""}

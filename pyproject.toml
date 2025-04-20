@@ -3,7 +3,7 @@ name = "pulsepipe"
 version = "25.04.05"
 description = "Ingestion and Clinical Normalization Framework for Healthcare Data"
 authors = ["Amir Abrams amirabrams@mail.com"]
-license = "MIT"
+license = "AGPL-3.0"
 readme = "README.md"
 packages = [{ include = "pulsepipe", from = "src" }]
 

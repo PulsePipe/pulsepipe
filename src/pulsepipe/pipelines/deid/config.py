@@ -15,17 +15,39 @@
 # We welcome community contributions — if you make it better, 
 # share it back. The whole healthcare ecosystem wins.
 # ------------------------------------------------------------------------------
-# 
+# ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# pytest.config
+# src/pulsepipe/pipelines/deid/config.py
 
 
-[pytest]
-addopts = -ra
-filterwarnings =
-    ignore:coroutine .* was never awaited:RuntimeWarning
-    ignore:It is deprecated to return a value that is not None from a test case:DeprecationWarning
-    ignore:The configuration option \"asyncio_default_fixture_loop_scope\" is unset
-    ignore:Accessing this attribute on the instance is deprecated
+"""
+Configuration constants for de-identification.
+
+This file contains sensitive configuration parameters that should be
+kept separate from the main codebase and potentially customized in
+production environments.
+"""
+
+# Default salt used for deterministic hashing
+# This should be changed in production environments and kept secure
+DEFAULT_SALT = "PulsePipe-2025-DEID"
+
+# Hash length configurations
+PATIENT_ID_HASH_LENGTH = 16
+MRN_HASH_LENGTH = 16
+GENERAL_ID_HASH_LENGTH = 12
+ACCOUNT_HASH_LENGTH = 8
+
+# Default redaction markers
+REDACTION_MARKERS = {
+    "name": "[REDACTED-NAME]",
+    "mrn": "[REDACTED-MRN]",
+    "ssn": "[REDACTED-SSN]",
+    "date": "[REDACTED-DATE]",
+    "address": "[REDACTED-ADDRESS]",
+    "phone": "[REDACTED-PHONE]",
+    "email": "[REDACTED-EMAIL]",
+    "id": "[REDACTED-ID]"
+}

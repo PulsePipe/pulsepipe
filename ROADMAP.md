@@ -3,7 +3,7 @@
 
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
-## ✅ MVP Scope [45% Complete]
+## ✅ MVP Scope [50% Complete]
 ## 🟣 Short-Term Goals [0% Complete]
 ## 🟠 Mid-Term Goals [0% Complete]
 ## 🟠 Long-Term Goals [0% Complete]

@@ -23,6 +23,7 @@ torch = {version = "^2.6.0", extras = ["cuda11.8"]}
 weaviate = "^0.1.2"
 qdrant-client = "^1.13.3"
 weaviate-client = "^4.13.2"
+pytest-cov = "^6.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

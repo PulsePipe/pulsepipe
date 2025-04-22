@@ -48,7 +48,10 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
 - [ ] Robust error handling in the ingestion pipeline to account for messy healthcare data
     - [ ] Keep track of data ingested vs un-ingested for later AI feedback
-- [ ] De-identification via Presidio + Clinical NER models
+- [ ] De-identification
+    - [x] HIPAA's 18 Identifiers -- Safe harbor
+    - [X] Presidio
+    - [ ] Clinical NER models
 - [ ] 🧪 Synthetic Test Dataset
     - [ ] Integrate Synthia to generate high-fidelity synthetic FHIR data
     - [ ] Generate a small, high-quality synthetic dataset (FHIR, HL7v2, X12)

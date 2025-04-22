@@ -24,8 +24,10 @@
 """
 De-identification stage for PulsePipe pipeline.
 
-Handles the removal or redaction of PHI/PII from healthcare data
-according to HIPAA Safe Harbor method with configurable options.
+Includes support for Microsoft Presidio for advanced PII/PHI detection using
+NLP techniques, with fallback to traditional regex-based redaction.
+
+Implements the HIPAA Safe Harbor method with configurable options.
 """
 
 import re
@@ -34,6 +36,9 @@ import uuid
 from typing import Any, Dict, List, Optional, Union, Tuple
 from datetime import datetime, date
 
+from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
+from presidio_anonymizer import AnonymizerEngine
+from presidio_analyzer.nlp_engine import SpacyNlpEngine
 from pulsepipe.utils.errors import DeidentificationError, ConfigurationError
 from pulsepipe.pipelines.context import PipelineContext
 from pulsepipe.pipelines.stages import PipelineStage
@@ -61,6 +66,16 @@ class DeidentificationStage(PipelineStage):
     def __init__(self):
         """Initialize the de-identification stage."""
         super().__init__("deid")
+
+        nlp_engine = SpacyNlpEngine(models=[{"lang_code": "en", "model_name": "en_core_web_lg"}])
+        nlp_engine.load()
+
+        # Create a clean registry for just English
+        registry = RecognizerRegistry()
+        registry.load_predefined_recognizers()
+
+        self.analyzer = AnalyzerEngine(registry=registry, nlp_engine=nlp_engine, supported_languages=["en"])
+        self.anonymizer = AnonymizerEngine()
         
         # These are the default PHI type handlers
         self.phi_handlers = {
@@ -103,6 +118,29 @@ class DeidentificationStage(PipelineStage):
             "license": re.compile(r'\b[A-Z](?:\d[- ]?){6,8}[A-Z0-9]\b', re.IGNORECASE)
         }
     
+
+    def _redact_phi_with_presidio(self, text: str) -> str:
+        if not text:
+            return text
+        results = self.analyzer.analyze(text=text, language='en')
+        return self.anonymizer.anonymize(text=text, analyzer_results=results).text
+
+
+    def _redact_text(self, text: str, config: Dict[str, Any]) -> str:
+        """
+        Combined redaction: Presidio first (if enabled), fallback to regex.
+        """
+        if not text:
+            return text
+        try:
+            if config.get("use_presidio_for_text", False):
+                text = self._redact_phi_with_presidio(text)
+        except Exception as e:
+            self.logger.warning(f"Presidio redaction failed, using regex fallback: {str(e)}")
+        return self._redact_phi_from_text(text, config)
+
+
+
     async def execute(self, context: PipelineContext, input_data: Any = None) -> Any:
         """
         Execute the de-identification process.
@@ -439,7 +477,7 @@ class DeidentificationStage(PipelineStage):
         
         # Handle narrative text which might contain PHI
         if hasattr(imaging_report, "narrative") and imaging_report.narrative:
-            imaging_report.narrative = self._redact_phi_from_text(imaging_report.narrative, config)
+            imaging_report.narrative = self._redact_text(imaging_report.narrative, config)
         
         return imaging_report
     
@@ -454,7 +492,7 @@ class DeidentificationStage(PipelineStage):
         
         # Handle text content which contains PHI
         if hasattr(note, "text") and note.text:
-            note.text = self._redact_phi_from_text(note.text, config)
+            note.text = self._redact_text(note.text, config)
         
         # Handle author information
         if hasattr(note, "author_id"):

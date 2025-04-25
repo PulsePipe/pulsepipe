@@ -25,6 +25,18 @@ from typing import Optional
 from pydantic import BaseModel
 
 class SocialHistory(BaseModel):
+    """
+    Represents social, behavioral, and environmental factors affecting a patient's health.
+    
+    Social history documents aspects of a patient's life that may impact their
+    health status or treatment planning. This includes information about
+    substance use (tobacco, alcohol, drugs), occupation, living situation,
+    education, and other social determinants of health.
+    
+    These factors play a crucial role in holistic healthcare delivery and
+    are essential for understanding risk factors, tailoring treatments, and
+    addressing barriers to care.
+    """
     description: Optional[str]                  # "Smoker", "Alcohol Use", "Homelessness"
     code: Optional[str]                         # SNOMED or local
     coding_method: Optional[str]

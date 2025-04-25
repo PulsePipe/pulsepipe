@@ -39,6 +39,17 @@ class MicrobiologyOrganism(BaseModel):
     sensitivities: List[MicrobiologySensitivity] = []
 
 class MicrobiologyReport(BaseModel):
+    """
+    Represents a clinical microbiology test report.
+    
+    Microbiology reports document the results of laboratory tests performed
+    to identify infectious organisms and their susceptibility to antimicrobial
+    agents. These reports are critical for diagnosing infections and selecting
+    appropriate antibiotic therapy.
+    
+    A complete report includes specimen information, identified organisms, 
+    and antimicrobial susceptibility test results (antibiogram).
+    """
     report_id: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]

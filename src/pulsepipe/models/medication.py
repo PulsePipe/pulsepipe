@@ -25,6 +25,20 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Medication(BaseModel):
+    """
+    Represents a medication prescribed to a patient.
+    
+    This model captures medication orders or prescriptions, including details
+    about the drug, dosage, administration instructions, and prescription status.
+    Unlike the MAR model which records actual administration events, this model
+    represents the prescriber's intent for medication therapy.
+    
+    Medications can be active, discontinued, or completed, and may be associated
+    with specific encounters or represent ongoing medication therapy.
+    
+    This includes both prescription medications and over-the-counter (OTC) 
+    medications that patients take at home.
+    """
     code: Optional[str]
     coding_method: Optional[str]
     name: Optional[str]

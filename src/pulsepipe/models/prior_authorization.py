@@ -26,6 +26,19 @@ from pydantic import BaseModel
 from datetime import datetime
 
 class PriorAuthorization(BaseModel):
+    """
+    Represents a prior authorization request or response.
+    
+    Prior authorizations are requests to health insurance companies for
+    approval to provide specific services, medications, or procedures
+    before they're delivered to patients. They're a key component of
+    healthcare utilization management and cost control.
+    
+    This model captures both the request details and the payer's response,
+    including approval status, authorized services, and relevant timeframes.
+    Prior authorizations are typically handled via X12 278 transactions in
+    healthcare EDI systems.
+    """
     auth_id: Optional[str]
     patient_id: Optional[str]
     provider_id: Optional[str]

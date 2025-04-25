@@ -25,6 +25,19 @@ from typing import Optional, Union
 from pydantic import BaseModel
 
 class VitalSign(BaseModel):
+    """
+    Represents a physiological measurement or vital sign.
+    
+    Vital signs are clinical measurements of essential body functions
+    that provide critical indicators of a patient's physical state.
+    Standard vital signs include temperature, blood pressure, pulse rate,
+    respiratory rate, oxygen saturation, height, weight, and pain level.
+    
+    These measurements form the foundation of patient assessment and
+    are used to track changes in a patient's condition over time.
+    Abnormal vital signs often serve as early indicators of clinical
+    deterioration or improvement.
+    """
     code: Optional[str]
     coding_method: Optional[str]
     display: Optional[str]

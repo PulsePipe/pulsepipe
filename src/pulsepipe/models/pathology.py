@@ -31,6 +31,18 @@ class PathologyFinding(BaseModel):
     comment: Optional[str]                # Additional notes on the finding
 
 class PathologyReport(BaseModel):
+    """
+    Represents a pathology examination report on tissue specimens.
+    
+    Pathology reports document the examination of cells and tissues by a 
+    pathologist to diagnose disease. They're crucial for cancer diagnosis,
+    staging, and treatment planning, as well as for diagnosing other
+    conditions that require tissue analysis.
+    
+    A complete report typically includes specimen information, gross and 
+    microscopic descriptions, and a diagnostic interpretation with additional
+    information like cancer staging and grading where applicable.
+    """
     report_id: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]

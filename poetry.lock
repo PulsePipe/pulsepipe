@@ -1912,11 +1912,14 @@ files = [
 ]
 
 [package.dependencies]
+huggingface_hub = {version = "*", optional = true, markers = "extra == \"transformers\""}
 phonenumbers = ">=8.12,<9.0.0"
 pyyaml = "*"
 regex = "*"
 spacy = ">=3.4.4,<3.7.0 || >3.7.0,<4.0.0"
+spacy_huggingface_pipelines = {version = "*", optional = true, markers = "extra == \"transformers\""}
 tldextract = "*"
+transformers = {version = "*", optional = true, markers = "extra == \"transformers\""}
 
 [package.extras]
 azure-ai-language = ["azure-ai-textanalytics", "azure-core"]
@@ -2831,6 +2834,23 @@ th = ["pythainlp (>=2.0)"]
 transformers = ["spacy_transformers (>=1.1.2,<1.4.0)"]
 
 [[package]]
+name = "spacy-huggingface-pipelines"
+version = "0.0.4"
+description = "spaCy wrapper for Hugging Face Transformers pipelines"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "spacy_huggingface_pipelines-0.0.4-py2.py3-none-any.whl", hash = "sha256:9e38ee6eba7a11fca32b7d14f38259f7805eec211e8959105a90c95915168b00"},
+    {file = "spacy_huggingface_pipelines-0.0.4.tar.gz", hash = "sha256:35b409ed7d20c5b36d788912570e3444ec1b0c344255e847bf722b3286279e95"},
+]
+
+[package.dependencies]
+spacy = ">=3.0.0,<4.0.0"
+torch = ">=1.8.0"
+transformers = ">=4.28.0,<5.0.0"
+
+[[package]]
 name = "spacy-legacy"
 version = "3.0.12"
 description = "Legacy registered functions for spaCy backwards compatibility"
@@ -3021,14 +3041,14 @@ files = [
 
 [[package]]
 name = "tldextract"
-version = "5.2.0"
+version = "5.3.0"
 description = "Accurately separates a URL's subdomain, domain, and public suffix, using the Public Suffix List (PSL). By default, this includes the public ICANN TLDs and their exceptions. You can optionally support the Public Suffix List's private domains as well."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "tldextract-5.2.0-py3-none-any.whl", hash = "sha256:59509cbf99628c9440f4d19d3a1fd8488d50297ea23879c136576263c5a04eba"},
-    {file = "tldextract-5.2.0.tar.gz", hash = "sha256:c3a8c4daf2c25a57f54d6ef6762aeac7eff5ac3da04cdb607130be757b8457ab"},
+    {file = "tldextract-5.3.0-py3-none-any.whl", hash = "sha256:f70f31d10b55c83993f55e91ecb7c5d84532a8972f22ec578ecfbe5ea2292db2"},
+    {file = "tldextract-5.3.0.tar.gz", hash = "sha256:b3d2b70a1594a0ecfa6967d57251527d58e00bb5a91a74387baa0d87a0678609"},
 ]
 
 [package.dependencies]
@@ -3558,4 +3578,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "d2e8230be4b307207b8d2cccc95d5e93156cb3b101997cdb14804651fcb55058"
+content-hash = "707e3a47d76ac51a67334bb3d063afd561022ee0c0ca21cad6f73f15ca9892fc"

@@ -50,6 +50,17 @@ from .order import Order
 from .implant import Implant
 
 class PulseClinicalContent(BaseModel):
+    """
+    Comprehensive container for all clinical content related to a patient.
+    
+    This model serves as the core clinical data structure in PulsePipe,
+    aggregating patient demographic information, encounter details, and
+    all clinical data elements that comprise a patient's medical record.
+    
+    It provides a standardized format for normalized healthcare data
+    regardless of the original source format (HL7, FHIR, CDA, etc.),
+    making it ideal for downstream AI processing and analytics.
+    """
     patient: Optional[PatientInfo]
     encounter: Optional[EncounterInfo]
     vital_signs: List[VitalSign] = []

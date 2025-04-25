@@ -27,6 +27,14 @@ from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
 class Charge(BaseModel):
+    """
+    Represents a billable service or item provided to a patient.
+    
+    Charges are the fundamental units of healthcare billing, representing
+    specific services, procedures, or items provided to a patient during
+    an encounter. Each charge has an associated code, description, and
+    monetary amount.
+    """
     charge_id: str
     encounter_id: Optional[str]
     patient_id: Optional[str]
@@ -45,6 +53,14 @@ class Charge(BaseModel):
 
 
 class Payment(BaseModel):
+    """
+    Represents a financial transaction made against a patient account.
+    
+    Payments can come from various sources including insurance companies,
+    patients, or other third-party payers. Each payment is typically
+    associated with one or more charges and may include remittance advice
+    information that explains how the payment should be applied.
+    """
     payment_id: str
     patient_id: Optional[str]
     encounter_id: Optional[str]
@@ -60,6 +76,14 @@ class Payment(BaseModel):
 
 
 class Adjustment(BaseModel):
+    """
+    Represents a modification to a charge amount that isn't a direct payment.
+    
+    Adjustments modify the outstanding balance on a patient account without
+    representing an actual payment. Common examples include contractual 
+    adjustments (insurance discounts), charity care, bad debt write-offs,
+    or corrections to billing errors.
+    """
     adjustment_id: str
     charge_id: Optional[str] 
     payment_id: Optional[str]
@@ -72,6 +96,17 @@ class Adjustment(BaseModel):
 
 
 class Claim(BaseModel):
+    """
+    Represents a formal request for payment submitted to a payer.
+    
+    A claim is a comprehensive document that bundles together multiple charges
+    for services provided to a patient, typically during a single encounter
+    or over a defined period. Claims are submitted to payers (insurance companies)
+    for reimbursement and go through various stages of processing before payment.
+    
+    Claims can be categorized as professional (from physicians), institutional
+    (from hospitals/facilities), or dental.
+    """
     claim_id: str
     patient_id: Optional[str]
     encounter_id: Optional[str]

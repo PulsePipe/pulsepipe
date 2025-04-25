@@ -36,7 +36,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] `OperationalEmbedder`: calls local MiniLM-L6-v2 for embedding operational canonical data model
     - [ ] CLI options to test chunking/embedding flows
     - [ ] Output of chunks and embeddings in vector-friendly format (e.g., JSONL)
-    - [ ] Embedding pipeline supporting ClinicalBERT
+    - [x] Embedding pipeline supporting ClinicalBERT
     - [x] Embedding pipeline supporting MiniLM-L6-v2
 - [ ] Vector database integration:
     - [x] Weaviate

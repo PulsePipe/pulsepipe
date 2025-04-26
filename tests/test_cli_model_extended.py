@@ -188,8 +188,7 @@ class TestCliModelExtended:
             mock_module.Patient = MockPatient
             mock_import.return_value = mock_module
             
-            # Run the model example command with UTF-8 output to avoid Windows issues
-            # when parsing output with json.loads
+            # Run the model example command
             result = runner.invoke(cli, ["model", "example", "pulsepipe.models.patient.Patient"])
             
             # Check the command execution
@@ -198,29 +197,19 @@ class TestCliModelExtended:
             # Make sure we have output
             assert result.output.strip()
             
-            # First strip any potential BOM or whitespace
-            clean_output = result.output.strip().lstrip('\ufeff')
-            
-            # Verify output is valid JSON - using Windows-safe parsing
-            try:
-                example_json = json.loads(clean_output)
+            # Extract only the JSON part from the output
+            # This will find the first '{' and take everything from there
+            json_start = result.output.find('{')
+            if json_start >= 0:
+                json_text = result.output[json_start:]
+                
+                # Verify output is valid JSON
+                example_json = json.loads(json_text)
                 assert example_json["id"] == "patient123"
                 assert example_json["name"] == "John Doe"
                 assert example_json["birth_date"] == "1980-01-01"
-            except json.JSONDecodeError as e:
-                # If we hit a decode error, print diagnostic info
-                print(f"JSON decode error: {str(e)}")
-                print(f"Output content (repr): {repr(clean_output)}")
-                print(f"Output length: {len(clean_output)}")
-                
-                # Try parsing character by character to identify the issue
-                for i, char in enumerate(clean_output):
-                    print(f"Char {i}: {repr(char)} (ord: {ord(char)})")
-                    if i > 10:  # Just show first few characters
-                        break
-                        
-                # Force the test to fail with the original error
-                raise
+            else:
+                pytest.fail("No JSON found in output")
 
     def test_model_example_fallback_to_schema(self, mock_config_loader):
         """Test the model example command falling back to schema when get_example not available."""
@@ -257,22 +246,25 @@ class TestCliModelExtended:
             # Make sure we have output
             assert result.output.strip()
             
-            # Clean output for Windows compatibility
-            clean_output = result.output.strip().lstrip('\ufeff')
+            # Find the JSON part in the output - locate the position of the first '{'
+            json_start = result.output.find('{')
+            assert json_start >= 0, "No JSON found in output"
+            
+            json_text = result.output[json_start:]
             
             # Verify output is valid JSON based on schema
             try:
-                example_json = json.loads(clean_output)
+                example_json = json.loads(json_text)
                 assert example_json["name"] == "example"
                 assert example_json["value"] == 0
             except json.JSONDecodeError as e:
                 # If we hit a decode error, print diagnostic info
                 print(f"JSON decode error: {str(e)}")
-                print(f"Output content (repr): {repr(clean_output)}")
-                print(f"Output length: {len(clean_output)}")
+                print(f"JSON content (repr): {repr(json_text)}")
+                print(f"JSON length: {len(json_text)}")
                 
                 # Try parsing character by character to identify the issue
-                for i, char in enumerate(clean_output):
+                for i, char in enumerate(json_text):
                     print(f"Char {i}: {repr(char)} (ord: {ord(char)})")
                     if i > 10:  # Just show first few characters
                         break

@@ -189,8 +189,19 @@ def find_profile_path(profile_name: str) -> Optional[str]:
     
     # Try each location
     for location in possible_locations:
-        if os.path.exists(location):
-            return location
+        # Always normalize path separators for Windows
+        if sys.platform == 'win32':
+            normalized_location = location.replace('\\', '/')
+        else:
+            normalized_location = location
+        
+        # Check if the file exists
+        if os.path.exists(normalized_location):
+            return normalized_location
+        
+        # On Windows, also try with the original separators
+        if sys.platform == 'win32' and os.path.exists(location):
+            return location.replace('\\', '/')
     
     # Return None if not found
     return None

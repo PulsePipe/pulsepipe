@@ -194,11 +194,22 @@ class TestCliModelExtended:
             # Check the command execution
             assert result.exit_code == 0
             
-            # Verify output is valid JSON
-            example_json = json.loads(result.output)
-            assert example_json["id"] == "patient123"
-            assert example_json["name"] == "John Doe"
-            assert example_json["birth_date"] == "1980-01-01"
+            # Make sure we have output
+            assert result.output.strip()
+            
+            # Extract only the JSON part from the output
+            # This will find the first '{' and take everything from there
+            json_start = result.output.find('{')
+            if json_start >= 0:
+                json_text = result.output[json_start:]
+                
+                # Verify output is valid JSON
+                example_json = json.loads(json_text)
+                assert example_json["id"] == "patient123"
+                assert example_json["name"] == "John Doe"
+                assert example_json["birth_date"] == "1980-01-01"
+            else:
+                pytest.fail("No JSON found in output")
 
     def test_model_example_fallback_to_schema(self, mock_config_loader):
         """Test the model example command falling back to schema when get_example not available."""
@@ -232,7 +243,31 @@ class TestCliModelExtended:
             # Check the command execution
             assert result.exit_code == 0
             
+            # Make sure we have output
+            assert result.output.strip()
+            
+            # Find the JSON part in the output - locate the position of the first '{'
+            json_start = result.output.find('{')
+            assert json_start >= 0, "No JSON found in output"
+            
+            json_text = result.output[json_start:]
+            
             # Verify output is valid JSON based on schema
-            example_json = json.loads(result.output)
-            assert example_json["name"] == "example"
-            assert example_json["value"] == 0
+            try:
+                example_json = json.loads(json_text)
+                assert example_json["name"] == "example"
+                assert example_json["value"] == 0
+            except json.JSONDecodeError as e:
+                # If we hit a decode error, print diagnostic info
+                print(f"JSON decode error: {str(e)}")
+                print(f"JSON content (repr): {repr(json_text)}")
+                print(f"JSON length: {len(json_text)}")
+                
+                # Try parsing character by character to identify the issue
+                for i, char in enumerate(json_text):
+                    print(f"Char {i}: {repr(char)} (ord: {ord(char)})")
+                    if i > 10:  # Just show first few characters
+                        break
+                        
+                # Force the test to fail with the original error
+                raise

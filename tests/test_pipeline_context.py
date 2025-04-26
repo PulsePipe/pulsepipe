@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# tests/test_pipeline_context.py
+
 """Unit tests for the pipeline context functionality."""
 
 import os
@@ -152,15 +154,32 @@ class TestPipelineContext(unittest.TestCase):
     @patch("builtins.open", new_callable=unittest.mock.mock_open)
     def test_export_results(self, mock_open, mock_makedirs):
         """Test exporting results to file."""
+        from pulsepipe.utils.path_normalizer import PlatformPath
+        
         # Test exporting a list of dictionaries
         data = [{"id": 1, "name": "test"}, {"id": 2, "name": "test2"}]
-        self.context.export_results(data, "ingestion", "json")
         
-        # Check proper directory creation
-        mock_makedirs.assert_called_once_with(os.path.dirname(os.path.abspath("/tmp/output_ingestion.json")), exist_ok=True)
+        # Mock the PlatformPath class
+        with patch('pulsepipe.utils.path_normalizer.PlatformPath') as MockPlatformPath:
+            # Setup the mock to return a specific path
+            mock_instance = MockPlatformPath.return_value
+            mock_instance.normalize_path.return_value = "/tmp/output_ingestion.json"
+            
+            # Call the method under test
+            self.context.export_results(data, "ingestion", "json")
+            
+            # Check that normalize_path was called with the right path
+            expected_path = "/tmp/output_ingestion.json"
+            
+            # Check directory creation was called exactly once with the right path
+            mock_makedirs.assert_called_once_with(os.path.dirname(os.path.abspath(expected_path)), exist_ok=True)
+            
+            # Check file opened with correct path
+            mock_open.assert_called_once_with(expected_path, "w", encoding='utf-8')
         
-        # Check file opened with correct path
-        mock_open.assert_called_once_with("/tmp/output_ingestion.json", "w")
+        # Reset mocks for the second test
+        mock_open.reset_mock()
+        mock_makedirs.reset_mock()
         
         # Test exporting Pydantic model
         from pulsepipe.models.patient import PatientInfo, PatientPreferences
@@ -194,18 +213,23 @@ class TestPipelineContext(unittest.TestCase):
                 patient_id="123"
             )
         )
-        mock_open.reset_mock()
-        mock_makedirs.reset_mock()
         
-        # Use mock_json instead of trying to patch the model_dump_json method
-        with patch('json.dump') as mock_json:
-            self.context.export_results(clinical_content, "patient", "json")
+        # Mock the PlatformPath class for the second test
+        with patch('pulsepipe.utils.path_normalizer.PlatformPath') as MockPlatformPath:
+            # Setup the mock to return a specific path
+            mock_instance = MockPlatformPath.return_value
+            mock_instance.normalize_path.return_value = "/tmp/output_patient.json"
             
-        mock_open.assert_called_once_with("/tmp/output_patient.json", "w")
+            # Use mock_json for the second test
+            with patch('json.dump') as mock_json:
+                self.context.export_results(clinical_content, "patient", "json")
+                
+            # Check file opened with correct path
+            mock_open.assert_called_once_with("/tmp/output_patient.json", "w", encoding='utf-8')
         
         # No output configured
         context_no_output = PipelineContext("test", self.config)
-        context_no_output.export_results(data)  # Should not raise an exception
+        context_no_output.export_results(data)
     
     def test_get_summary(self):
         """Test generating execution summary."""

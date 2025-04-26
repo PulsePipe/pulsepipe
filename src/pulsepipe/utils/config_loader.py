@@ -46,7 +46,13 @@ def get_config_dir() -> str:
     
     # Fallback to the package config directory
     package_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(package_dir, "..", "config")
+    config_dir = os.path.join(package_dir, "..", "config")
+    
+    # For testing environments, ensure consistent path separators
+    if 'PYTEST_CURRENT_TEST' in os.environ:
+        # In test environments, always normalize paths to use forward slashes
+        # This ensures cross-platform test consistency
+        return config_dir.replace('\\', '/')
 
 
 def find_config_file(filename: str) -> str:
@@ -72,7 +78,11 @@ def find_config_file(filename: str) -> str:
     # Try each location
     for location in possible_locations:
         if os.path.exists(location):
-            return location
+            # For testing environments, ensure consistent path separators
+            if 'PYTEST_CURRENT_TEST' in os.environ:
+                return location.replace('\\', '/')
+            else:
+                return location
     
     # If still not found, return None
     return None

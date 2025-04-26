@@ -106,12 +106,19 @@ class TestLogFactory:
         # This test will only run on Windows
         with patch('sys.platform', 'win32'):
             with patch('io.TextIOWrapper') as mock_wrapper:
+                # Configure the mock to return a value when called
+                mock_wrapper.return_value = MagicMock()
+                
+                # Create a stream mock with the necessary attributes
                 mock_stream = MagicMock()
                 mock_stream.buffer = MagicMock()
-                handler = WindowsSafeStreamHandler(mock_stream)
                 
-                # On Windows, it should wrap the stream with TextIOWrapper
-                mock_wrapper.assert_called_once()
+                # Make it look like stdout for the test
+                with patch('sys.stdout', mock_stream):
+                    handler = WindowsSafeStreamHandler(mock_stream)
+                    
+                    # On Windows, it should wrap the stream with TextIOWrapper
+                    mock_wrapper.assert_called_once()
 
     def test_windows_safe_file_handler(self):
         """Test WindowsSafeFileHandler creates directories as needed."""

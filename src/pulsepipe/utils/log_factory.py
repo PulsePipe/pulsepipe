@@ -411,7 +411,7 @@ class WindowsSafeFileHandler(logging.FileHandler):
             
             super().emit(record)
         except (ValueError, OSError) as e:
-            if "closed file" in str(e):
+            if "closed file" in str(e) or "I/O operation on closed file" in str(e):
                 # Try to reopen the file
                 try:
                     self.close()  # Ensure it's properly closed
@@ -437,7 +437,11 @@ class WindowsSafeFileHandler(logging.FileHandler):
         Ensure handler is closed when object is garbage collected.
         This is especially important for Windows to prevent 'I/O operation on closed file' errors.
         """
-        self.close()
+        try:
+            self.close()
+        except:
+            # Ignore any errors during finalization
+            pass
 
 
 class DomainAwareJsonFormatter:
@@ -530,7 +534,7 @@ class LogFactory:
     def _cleanup_file_handlers(cls):
         """Close and clean up any file handlers that were previously created."""
         # Close all tracked file handlers
-        for handler in cls._file_handlers:
+        for handler in list(cls._file_handlers):
             try:
                 if handler and hasattr(handler, 'close'):
                     handler.close()
@@ -544,6 +548,19 @@ class LogFactory:
         # Clear the list after cleanup
         cls._file_handlers = []
         
+        # Close any cached loggers' handlers
+        for logger_name, logger in list(cls._logger_cache.items()):
+            if logger and hasattr(logger, 'handlers'):
+                for handler in list(logger.handlers):
+                    if isinstance(handler, logging.FileHandler):
+                        try:
+                            logger.removeHandler(handler)
+                            handler.close()
+                            if hasattr(handler, 'stream'):
+                                handler.stream = None
+                        except (ValueError, OSError) as e:
+                            print(f"Warning: Error closing logger handler: {str(e)}")
+        
         # Also clean up any root logger file handlers to be safe
         if cls._root_logger:
             for handler in list(cls._root_logger.handlers):
@@ -556,6 +573,18 @@ class LogFactory:
                     except (ValueError, OSError) as e:
                         print(f"Warning: Error closing root logger file handler: {str(e)}")
         
+        # Also clean up any handlers in the main logger registry
+        for logger in [logging.getLogger(name) for name in logging.root.manager.loggerDict]:
+            for handler in list(logger.handlers):
+                if isinstance(handler, logging.FileHandler):
+                    try:
+                        logger.removeHandler(handler)
+                        handler.close()
+                        if hasattr(handler, 'stream'):
+                            handler.stream = None
+                    except (ValueError, OSError) as e:
+                        print(f"Warning: Error closing logger handler: {str(e)}")
+        
         # Use global cleanup for all WindowsSafeFileHandler instances
         WindowsSafeFileHandler.close_all()
         
@@ -565,7 +594,11 @@ class LogFactory:
         Ensure proper cleanup when class is being destroyed.
         This helps prevent 'I/O operation on closed file' errors on Windows.
         """
-        cls._cleanup_file_handlers()
+        try:
+            cls._cleanup_file_handlers()
+        except:
+            # Ignore errors during shutdown
+            pass
     
     @classmethod
     def init_from_config(cls, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None):

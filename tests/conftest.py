@@ -27,12 +27,32 @@ import pytest
 import os
 import sys
 import logging
+import atexit
 from pathlib import Path
 
 from pulsepipe.utils.log_factory import LogFactory, WindowsSafeFileHandler
 
+# Register global cleanup to ensure file handlers are closed at exit
+@atexit.register
+def cleanup_on_exit():
+    """Ensure all log handlers are closed on interpreter exit."""
+    LogFactory._cleanup_file_handlers()
+    WindowsSafeFileHandler.close_all()
+    
+    # Close any remaining handlers in the root logger
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        if isinstance(handler, logging.FileHandler):
+            try:
+                root_logger.removeHandler(handler)
+                handler.close()
+                if hasattr(handler, 'stream'):
+                    handler.stream = None
+            except:
+                pass
+
 @pytest.fixture(scope="session", autouse=True)
-def cleanup_log_files():
+def cleanup_log_files_session():
     """
     Cleanup any log files and handlers at the start and end of test session.
     This prevents "I/O operation on closed file" errors between tests.
@@ -41,6 +61,18 @@ def cleanup_log_files():
     LogFactory._cleanup_file_handlers()
     WindowsSafeFileHandler.close_all()
     
+    # Close any remaining handlers in the root logger
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        if isinstance(handler, logging.FileHandler):
+            try:
+                root_logger.removeHandler(handler)
+                handler.close()
+                if hasattr(handler, 'stream'):
+                    handler.stream = None
+            except:
+                pass
+    
     # Run tests
     yield
     
@@ -48,7 +80,48 @@ def cleanup_log_files():
     LogFactory._cleanup_file_handlers()
     WindowsSafeFileHandler.close_all()
     
+    # Close any remaining handlers in the root logger again
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        if isinstance(handler, logging.FileHandler):
+            try:
+                root_logger.removeHandler(handler)
+                handler.close()
+                if hasattr(handler, 'stream'):
+                    handler.stream = None
+            except:
+                pass
+
+@pytest.fixture(autouse=True)
+def cleanup_log_files_test():
+    """
+    Cleanup any log files and handlers before and after EACH test.
+    This ensures file handlers don't leak between tests on Windows.
+    """
+    # Clean up at start of each test
+    LogFactory._cleanup_file_handlers()
+    WindowsSafeFileHandler.close_all()
+    
     # Close any remaining handlers in the root logger
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        if isinstance(handler, logging.FileHandler):
+            try:
+                root_logger.removeHandler(handler)
+                handler.close()
+                if hasattr(handler, 'stream'):
+                    handler.stream = None
+            except:
+                pass
+    
+    # Run test
+    yield
+    
+    # Clean up after each test
+    LogFactory._cleanup_file_handlers()
+    WindowsSafeFileHandler.close_all()
+    
+    # Close any remaining handlers in the root logger again
     root_logger = logging.getLogger()
     for handler in list(root_logger.handlers):
         if isinstance(handler, logging.FileHandler):
@@ -92,23 +165,6 @@ def normalize_paths_for_tests():
             result = result.replace('\\', '/')
         return result
     
-    # Clean up file handlers before each test to prevent "I/O operation on closed file" errors
-    if sys.platform == 'win32':
-        LogFactory._cleanup_file_handlers()
-        WindowsSafeFileHandler.close_all()
-        
-        # Close any handlers in the root logger
-        root_logger = logging.getLogger()
-        for handler in list(root_logger.handlers):
-            if isinstance(handler, logging.FileHandler):
-                try:
-                    root_logger.removeHandler(handler)
-                    handler.close()
-                    if hasattr(handler, 'stream'):
-                        handler.stream = None
-                except:
-                    pass
-    
     # Only patch in testing environments
     if 'PYTEST_CURRENT_TEST' in os.environ:
         with pytest.MonkeyPatch.context() as mp:
@@ -130,8 +186,3 @@ def normalize_paths_for_tests():
             yield
     else:
         yield
-        
-    # Cleanup after each test on Windows
-    if sys.platform == 'win32':
-        LogFactory._cleanup_file_handlers()
-        WindowsSafeFileHandler.close_all()

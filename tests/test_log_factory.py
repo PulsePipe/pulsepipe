@@ -396,27 +396,30 @@ class TestLogFactory:
             formatter_instance.format.return_value = "FORMATTED MESSAGE"
             mock_formatter.return_value = formatter_instance
             
+            # Set up logging mocks
             with patch('logging.getLogger') as mock_get_logger:
+                # Create a root logger mock
                 mock_root_logger = MagicMock()
-                mock_logger = MagicMock()
-                mock_get_logger.side_effect = [mock_root_logger, mock_logger]
+                mock_root_logger.handlers = []
                 
-                # Initialize factory
+                # Create a test logger mock
+                mock_logger = MagicMock()
+                mock_logger.handlers = []
+                
+                # Configure side effect to return different loggers
+                mock_get_logger.side_effect = lambda name=None: mock_root_logger if name is None else mock_logger
+                
+                # Initialize factory (force a new logger creation)
+                LogFactory._logger_cache = {}
                 LogFactory.init_from_config(config)
                 
-                # Get logger and enhanced version
-                with patch('pulsepipe.utils.log_factory.LogFactory._enhance_logger', return_value=mock_logger):
+                # Get logger and enhanced version with deterministic mock
+                with patch('pulsepipe.utils.log_factory.LogFactory._enhance_logger', return_value=mock_logger) as mock_enhance:
                     logger = LogFactory.get_logger("pulsepipe.test")
                     
                     # The logger should be the same as our mock
                     assert logger is mock_logger
-                    
-                    # Test basic logging behavior
-                    mock_logger.debug.reset_mock()
-                    mock_logger.info.reset_mock()
-                    mock_logger.warning.reset_mock()
-                    mock_logger.error.reset_mock()
-                    mock_logger.critical.reset_mock()
+                    assert mock_enhance.called
                     
                     # Verify methods exist 
                     assert hasattr(logger, 'debug')

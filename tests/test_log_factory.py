@@ -49,8 +49,14 @@ class TestLogFactory:
         old_root_logger = LogFactory._root_logger
         old_logger_cache = LogFactory._logger_cache.copy()
         
+        # Clean up any existing file handlers first
+        LogFactory._cleanup_file_handlers()
+        
         # Reset after test
         yield
+        
+        # Clean up file handlers created during test
+        LogFactory._cleanup_file_handlers()
         
         # Restore values after test
         LogFactory._config = old_config
@@ -116,14 +122,38 @@ class TestLogFactory:
             # Directory shouldn't exist yet
             assert not os.path.exists(log_dir)
             
-            # Create handler
-            handler = WindowsSafeFileHandler(log_file)
-            
-            # Directory should be created
-            assert os.path.exists(log_dir)
-            
-            # Clean up
-            handler.close()
+            # Use context manager to ensure proper cleanup
+            handler = None
+            try:
+                # Create handler
+                handler = WindowsSafeFileHandler(log_file)
+                
+                # Directory should be created
+                assert os.path.exists(log_dir)
+                
+                # Test writing to log file
+                record = logging.LogRecord(
+                    name="test",
+                    level=logging.INFO,
+                    pathname="",
+                    lineno=0,
+                    msg="Test log message",
+                    args=(),
+                    exc_info=None
+                )
+                handler.emit(record)
+                handler.flush()
+                
+                # Verify file was created
+                assert os.path.exists(log_file)
+                
+            finally:
+                # Always clean up, even if test fails
+                if handler:
+                    try:
+                        handler.close()
+                    except (OSError, ValueError):
+                        pass  # Ignore errors during cleanup
 
     def test_domain_aware_json_formatter(self):
         """Test the DomainAwareJsonFormatter creates properly formatted JSON logs."""
@@ -302,10 +332,18 @@ class TestLogFactory:
             with patch('logging.getLogger'):
                 # Mock WindowsSafeFileHandler to avoid actual file creation
                 with patch('pulsepipe.utils.log_factory.WindowsSafeFileHandler') as mock_file_handler:
+                    # Set up the mock file handler for proper cleanup
+                    mock_handler_instance = MagicMock()
+                    mock_handler_instance.close = MagicMock()
+                    mock_file_handler.return_value = mock_handler_instance
+                    
                     LogFactory.init_from_config(config)
                     
                     # Should have created a file handler
                     mock_file_handler.assert_called_once_with(log_file, encoding='utf-8')
+                    
+                    # Manual cleanup to ensure test resources are released
+                    LogFactory._cleanup_file_handlers()
 
     def test_enhanced_logger_methods_simple(self, reset_log_factory):
         """Test the enhanced logger methods use appropriate formatter."""

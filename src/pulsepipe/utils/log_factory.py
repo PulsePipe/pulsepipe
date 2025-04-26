@@ -333,7 +333,62 @@ class WindowsSafeFileHandler(logging.FileHandler):
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
             
+        # Store filename for potential reopening
+        self._filename = filename
+        self._mode = mode
+        self._encoding = encoding
+        
+        # Initialize the parent class
         logging.FileHandler.__init__(self, filename, mode, encoding, delay)
+    
+    def close(self):
+        """
+        Close the file handler, ensuring file resources are properly released.
+        This is especially important on Windows where file handles can be problematic.
+        """
+        # Make sure the stream is flushed before closing on Windows
+        if self.stream:
+            try:
+                self.flush()
+                if hasattr(self.stream, "close") and not getattr(self.stream, "closed", False):
+                    try:
+                        self.stream.close()
+                    except (OSError, ValueError):
+                        # In case the file is already closed, just continue
+                        pass
+            except (OSError, ValueError):
+                # Ignore any errors during flush/close
+                pass
+            finally:
+                # Always set stream to None to prevent further operations on closed file
+                self.stream = None
+        
+    def emit(self, record):
+        """
+        Emit a record with extra error handling for Windows.
+        This overrides the parent method to handle cases where the file might be closed.
+        """
+        try:
+            # Check if stream is closed or None
+            if self.stream is None or getattr(self.stream, "closed", False):
+                # Reopen the stream
+                if self.stream is not None:
+                    self.close()  # Ensure it's properly closed
+                self.stream = self._open()  # Reopen
+            
+            super().emit(record)
+        except (ValueError, OSError) as e:
+            if "closed file" in str(e):
+                # Try to reopen the file
+                try:
+                    self.close()  # Ensure it's properly closed
+                    self.stream = self._open()  # Reopen
+                    super().emit(record)  # Try again
+                except Exception:
+                    # If reopening fails, just continue
+                    self.handleError(record)
+            else:
+                self.handleError(record)
 
 
 class DomainAwareJsonFormatter:
@@ -419,9 +474,45 @@ class LogFactory:
     # Logger cache to avoid creating duplicate loggers
     _logger_cache = {}
     
+    # Track all file handlers to ensure proper cleanup
+    _file_handlers = []
+    
+    @classmethod
+    def _cleanup_file_handlers(cls):
+        """Close and clean up any file handlers that were previously created."""
+        # Close all tracked file handlers
+        for handler in cls._file_handlers:
+            try:
+                if handler and hasattr(handler, 'close'):
+                    handler.close()
+                    # Explicitly set the stream to None in case close() didn't do it
+                    if hasattr(handler, 'stream'):
+                        handler.stream = None
+            except (ValueError, OSError) as e:
+                # Don't crash if there's an error closing a handler
+                print(f"Warning: Error closing file handler: {str(e)}")
+        
+        # Clear the list after cleanup
+        cls._file_handlers = []
+        
+        # Also clean up any root logger file handlers to be safe
+        if cls._root_logger:
+            for handler in list(cls._root_logger.handlers):
+                if isinstance(handler, logging.FileHandler):
+                    try:
+                        cls._root_logger.removeHandler(handler)
+                        handler.close()
+                        if hasattr(handler, 'stream'):
+                            handler.stream = None
+                    except (ValueError, OSError) as e:
+                        print(f"Warning: Error closing root logger file handler: {str(e)}")
+    
     @classmethod
     def init_from_config(cls, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None):
         """Initialize the LogFactory from configuration dict."""
+        # Clean up any existing file handlers first
+        cls._cleanup_file_handlers()
+        
         # Update config
         if config:
             cls._config.update(config)
@@ -476,6 +567,12 @@ class LogFactory:
         # Remove existing handlers to avoid duplication
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
+            # If it's a file handler, make sure it's closed properly
+            if isinstance(handler, logging.FileHandler):
+                try:
+                    handler.close()
+                except (OSError, ValueError):
+                    pass
         
         # Create the appropriate handler based on format
         if cls._config["format"] == "rich":
@@ -547,6 +644,9 @@ class LogFactory:
                 file_handler = WindowsSafeFileHandler(file_path, encoding='utf-8')
                 file_handler.setLevel(level)
                 
+                # Track this file handler for later cleanup
+                cls._file_handlers.append(file_handler)
+                
                 # Use a standard format for file logs unless JSON is specified
                 if config.get("file_format") == "json":
                     formatter = logging.Formatter("%(message)s")
@@ -590,6 +690,9 @@ class LogFactory:
                     fallback_handler.setLevel(level)
                     fallback_handler.setFormatter(formatter)
                     root_logger.addHandler(fallback_handler)
+                    
+                    # Track the fallback handler too
+                    cls._file_handlers.append(fallback_handler)
                     
                     print(f"✓ Using fallback log file: {fallback_path}")
                 except Exception as e2:

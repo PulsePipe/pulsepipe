@@ -30,6 +30,24 @@ import logging
 import atexit
 from pathlib import Path
 
+# Import Windows mock module only if on Windows
+if sys.platform == 'win32':
+    try:
+        from tests.windows_mock import enable_windows_mocks, disable_windows_mocks
+        
+        # Register function to disable mocks when tests finish
+        @atexit.register
+        def cleanup_windows_mocks_on_exit():
+            """Ensure Windows mocks are disabled on process exit."""
+            disable_windows_mocks()
+        
+        # Enable Windows mocks if running tests
+        if 'PYTEST_CURRENT_TEST' in os.environ:
+            enable_windows_mocks()
+    except ImportError:
+        # Fall back to standard path handling if mock module isn't available
+        print("Warning: Windows mock module not found, using standard path handling")
+
 from pulsepipe.utils.log_factory import LogFactory, WindowsSafeFileHandler
 
 # Register global cleanup to ensure file handlers are closed at exit
@@ -174,6 +192,10 @@ def cleanup_log_files_session():
     LogFactory._cleanup_file_handlers()
     WindowsSafeFileHandler.close_all()
     cleanup_root_logger_handlers()
+    
+    # Disable Windows mocks at the end of the session
+    if sys.platform == 'win32' and 'PYTEST_CURRENT_TEST' in os.environ:
+        disable_windows_mocks()
 
 @pytest.fixture(autouse=True)
 def cleanup_log_files_test():
@@ -211,7 +233,12 @@ def cleanup_log_files_test():
 
 @pytest.fixture(autouse=True)
 def setup_test_environment_vars():
-    """Set environment variables needed for specific tests."""
+    """
+    Set environment variables needed for specific tests.
+    
+    Note: Many of these environment variables are obsolete with the windows_mock
+    module, but they're kept for backward compatibility with existing test code.
+    """
     test_name = os.environ.get('PYTEST_CURRENT_TEST', '')
     
     # Add environment variables for specific tests that have Windows path issues
@@ -231,12 +258,11 @@ def setup_test_environment_vars():
         if 'test_get_shared_sqlite_connection_integration' in test_name:
             os.environ['test_get_shared_sqlite_connect'] = 'running'
         
-        # Disable file operations for ALL tests on Windows during pytest
-        # This is more aggressive but prevents most file handle issues
+        # Backward compatibility flags for code that checks these values
         os.environ['PULSEPIPE_TEST_NO_FILE_IO'] = '1'
         os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING'] = '1'
         
-        # Additional specific cases for tests that have shown file handle issues
+        # Flag for extreme cases with file handle issues
         problem_test_patterns = [
             'test_log_factory', 'test_operational_chunker', 'test_operational_content',
             'test_path_resolver', 'test_patient_models', 'test_persistence_factory',
@@ -270,168 +296,23 @@ def normalize_paths_for_tests():
     """
     On Windows, ensure path separators are normalized for cross-platform test consistency.
     This is essential to prevent "not a normalized and relative path" errors.
+    
+    Note: Most of this is now handled by the windows_mock module, which is loaded
+    at the start of the test session. This fixture remains for backward compatibility
+    and for setting specific test environment variables.
     """
-    # Only patch in testing environments on Windows or when forced by environment variable
+    # Only apply special handling when in test mode on Windows or when forced
     if ('PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32') or \
        ('PULSEPIPE_PATH_NORMALIZE' in os.environ):
         
-        original_join = os.path.join
-        original_abspath = os.path.abspath
-        original_normpath = os.path.normpath
-        original_isabs = os.path.isabs
-        original_dirname = os.path.dirname
-        original_basename = os.path.basename
-        original_exists = os.path.exists
-        original_relpath = os.path.relpath
-        original_split = os.path.split
-        original_splitext = os.path.splitext
-        
-        # Override functions to use forward slashes consistently
-        def normalized_join(*args):
-            """Wrapper to normalize path separators in test environments"""
-            # First convert all args to use forward slashes
-            normalized_args = tuple(a.replace('\\', '/') if isinstance(a, str) else a for a in args)
-            # Then join and normalize again
-            result = original_join(*normalized_args)
-            return result.replace('\\', '/')
-        
-        def normalized_abspath(path):
-            """Wrapper to normalize absolute paths in test environments"""
-            if not isinstance(path, str):
-                return original_abspath(path)
-            normalized_path = path.replace('\\', '/')
-            result = original_abspath(normalized_path)
-            return result.replace('\\', '/')
+        # Always make special paths work in the problematic tests
+        test_name = os.environ.get('PYTEST_CURRENT_TEST', '')
+        if 'test_find_profile_path_exists' in test_name:
+            os.environ['test_find_profile_path_exists'] = 'running'
             
-        def normalized_normpath(path):
-            """Wrapper to normalize path normalization in test environments"""
-            if not isinstance(path, str):
-                return original_normpath(path)
-            normalized_path = path.replace('\\', '/')
-            result = original_normpath(normalized_path)
-            return result.replace('\\', '/')
-            
-        def normalized_dirname(path):
-            """Wrapper to normalize directory names in test environments"""
-            if not isinstance(path, str):
-                return original_dirname(path)
-            normalized_path = path.replace('\\', '/')
-            result = original_dirname(normalized_path)
-            return result.replace('\\', '/')
-            
-        def normalized_basename(path):
-            """Wrapper to normalize base names in test environments"""
-            if not isinstance(path, str):
-                return original_basename(path)
-            normalized_path = path.replace('\\', '/')
-            return original_basename(normalized_path)
-            
-        def normalized_isabs(path):
-            """Wrapper to correctly check if a normalized path is absolute"""
-            if not isinstance(path, str):
-                return original_isabs(path)
-                
-            # First check the normalized path
-            normalized_path = path.replace('\\', '/')
-            # For Unix-style paths on Windows
-            if normalized_path.startswith('/'):
-                return True
-            return original_isabs(path)
-            
-        def normalized_exists(path):
-            """Wrapper to check existence for both normalized and original paths"""
-            if not isinstance(path, str):
-                return original_exists(path)
-                
-            # First try with the original path
-            if original_exists(path):
-                return True
-                
-            # Try with normalized path
-            normalized_path = path.replace('\\', '/')
-            if original_exists(normalized_path):
-                return True
-                
-            # Also try with Windows separators
-            windows_path = path.replace('/', '\\')
-            if original_exists(windows_path):
-                return True
-                
-            return False
-            
-        def normalized_relpath(path, start=None):
-            """Wrapper to normalize relative paths in test environments"""
-            if not isinstance(path, str):
-                return original_relpath(path, start)
-                
-            normalized_path = path.replace('\\', '/')
-            if start and isinstance(start, str):
-                normalized_start = start.replace('\\', '/')
-                result = original_relpath(normalized_path, normalized_start)
-            else:
-                result = original_relpath(normalized_path, start)
-                
-            return result.replace('\\', '/')
-            
-        def normalized_split(path):
-            """Wrapper to normalize path splitting in test environments"""
-            if not isinstance(path, str):
-                return original_split(path)
-                
-            normalized_path = path.replace('\\', '/')
-            head, tail = original_split(normalized_path)
-            return head.replace('\\', '/'), tail
-            
-        def normalized_splitext(path):
-            """Wrapper to normalize path extension splitting in test environments"""
-            if not isinstance(path, str):
-                return original_splitext(path)
-                
-            normalized_path = path.replace('\\', '/')
-            root, ext = original_splitext(normalized_path)
-            return root.replace('\\', '/'), ext
-        
-        with pytest.MonkeyPatch.context() as mp:
-            # Monkey patch all os.path functions related to paths
-            mp.setattr(os.path, "join", normalized_join)
-            mp.setattr(os.path, "abspath", normalized_abspath)
-            mp.setattr(os.path, "normpath", normalized_normpath)
-            mp.setattr(os.path, "dirname", normalized_dirname)
-            mp.setattr(os.path, "basename", normalized_basename)
-            mp.setattr(os.path, "isabs", normalized_isabs)
-            mp.setattr(os.path, "exists", normalized_exists)
-            mp.setattr(os.path, "relpath", normalized_relpath)
-            mp.setattr(os.path, "split", normalized_split)
-            mp.setattr(os.path, "splitext", normalized_splitext)
-            
-            # For pathlib Path objects, ensure they use forward slashes too
-            original_path_str = Path.__str__
-            
-            def normalized_path_str(self):
-                """Normalize Path string representation in Windows tests"""
-                result = original_path_str(self)
-                return result.replace('\\', '/')
-            
-            mp.setattr(Path, "__str__", normalized_path_str)
-            
-            # Monkeypatch Path objects further for better Windows compatibility
-            if hasattr(Path, 'as_posix'):
-                original_as_posix = Path.as_posix
-                def normalized_as_posix(self):
-                    """Ensure consistent posix paths"""
-                    result = original_as_posix(self)
-                    return result
-                mp.setattr(Path, "as_posix", normalized_as_posix)
-                
-            # Always make special paths work in the problematic tests
-            test_name = os.environ.get('PYTEST_CURRENT_TEST', '')
-            if 'test_find_profile_path_exists' in test_name:
-                os.environ['test_find_profile_path_exists'] = 'running'
-                
-            if 'test_file_watcher_adapter_enqueues_data' in test_name:
-                os.environ['test_file_watcher_adapter_enqu'] = 'running'
-                os.environ['test_file_watcher_adapter_enqueues_data'] = 'running'
-            
-            yield
-    else:
-        yield
+        if 'test_file_watcher_adapter_enqueues_data' in test_name:
+            os.environ['test_file_watcher_adapter_enqu'] = 'running'
+            os.environ['test_file_watcher_adapter_enqueues_data'] = 'running'
+    
+    # Run the test
+    yield

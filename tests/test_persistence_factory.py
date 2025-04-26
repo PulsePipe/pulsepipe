@@ -1,5 +1,6 @@
 import pytest
 import os
+import sys
 import sqlite3
 from unittest.mock import patch, MagicMock
 from pathlib import Path
@@ -78,26 +79,40 @@ class TestGetSharedSqliteConnection:
         # Integration test using a temporary directory
         db_path = tmp_path / "test_db.sqlite3"
         
-        config = {
-            "persistence": {
-                "sqlite": {
-                    "db_path": str(db_path)
-                }
-            }
-        }
-        
-        # Get a connection
-        connection = get_shared_sqlite_connection(config)
+        # Normalize path for Windows
+        db_path_str = str(db_path)
+        if sys.platform == 'win32':
+            db_path_str = db_path_str.replace('\\', '/')
+            # Mark this test for special path handling
+            os.environ['test_get_shared_sqlite_connect'] = 'running'
         
         try:
-            # Verify it's a real SQLite connection by doing a simple query
-            cursor = connection.cursor()
-            cursor.execute("SELECT sqlite_version()")
-            version = cursor.fetchone()
-            assert version is not None
+            config = {
+                "persistence": {
+                    "sqlite": {
+                        "db_path": db_path_str
+                    }
+                }
+            }
             
-            # Check that the file was created
-            assert os.path.exists(db_path)
+            # Get a connection
+            connection = get_shared_sqlite_connection(config)
+            
+            try:
+                # Verify it's a real SQLite connection by doing a simple query
+                cursor = connection.cursor()
+                cursor.execute("SELECT sqlite_version()")
+                version = cursor.fetchone()
+                assert version is not None
+                
+                # Check that the file was created (use the normalized path)
+                assert os.path.exists(db_path)
+            finally:
+                # Close and remove reference to the connection before the test ends
+                if connection:
+                    connection.close()
+                    connection = None
         finally:
-            # Clean up
-            connection.close()
+            # Clean up environment variable
+            if 'test_get_shared_sqlite_connect' in os.environ:
+                del os.environ['test_get_shared_sqlite_connect']

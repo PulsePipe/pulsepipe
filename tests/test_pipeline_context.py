@@ -160,7 +160,7 @@ class TestPipelineContext(unittest.TestCase):
         mock_makedirs.assert_called_once_with(os.path.dirname(os.path.abspath("/tmp/output_ingestion.json")), exist_ok=True)
         
         # Check file opened with correct path
-        mock_open.assert_called_once_with("/tmp/output_ingestion.json", "w")
+        mock_open.assert_called_once_with("/tmp/output_ingestion.json", "w", encoding='utf-8')
         
         # Test exporting Pydantic model
         from pulsepipe.models.patient import PatientInfo, PatientPreferences
@@ -201,7 +201,7 @@ class TestPipelineContext(unittest.TestCase):
         with patch('json.dump') as mock_json:
             self.context.export_results(clinical_content, "patient", "json")
             
-        mock_open.assert_called_once_with("/tmp/output_patient.json", "w")
+        mock_open.assert_called_once_with("/tmp/output_patient.json", "w", encoding='utf-8')
         
         # No output configured
         context_no_output = PipelineContext("test", self.config)

@@ -32,6 +32,10 @@ from pulsepipe.adapters.file_watcher import FileWatcherAdapter
 @pytest.mark.asyncio
 async def test_file_watcher_adapter_enqueues_data(tmp_path):
     """Test that the file watcher adapter correctly enqueues data from detected files."""
+    # Set environment variable early for Windows - this helps normalize_paths_for_tests fixture
+    if sys.platform == 'win32' and 'PYTEST_CURRENT_TEST' in os.environ:
+        os.environ['test_file_watcher_adapter_enqu'] = 'running'
+    
     # Setup the test directory
     ingest_path = tmp_path / "fixtures"
     ingest_path.mkdir(parents=True, exist_ok=True)
@@ -40,9 +44,6 @@ async def test_file_watcher_adapter_enqueues_data(tmp_path):
     ingest_path_str = str(ingest_path)
     if sys.platform == 'win32':
         ingest_path_str = ingest_path_str.replace('\\', '/')
-        # Store the test name in environment variable to help with path handling
-        if 'PYTEST_CURRENT_TEST' in os.environ:
-            os.environ['test_file_watcher_adapter_enqu'] = 'running'
 
     adapter_config = {
         "watch_path": ingest_path_str,

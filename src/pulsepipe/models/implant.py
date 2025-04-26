@@ -25,6 +25,14 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Implant(BaseModel):
+    """
+    Represents a medical device implanted in a patient's body.
+    
+    Tracks information about implantable medical devices such as pacemakers,
+    joint replacements, stents, artificial heart valves, or other devices
+    surgically placed inside a patient's body. This information is critical
+    for patient safety, follow-up care, and device recalls.
+    """
     implant_id: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]

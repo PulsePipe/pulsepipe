@@ -25,6 +25,18 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
 class MessageCache(BaseModel):
+    """
+    Temporary storage container for message processing state.
+    
+    This model is used during the ingestion process to maintain context and 
+    track relationships between different healthcare data elements as they're 
+    being processed. It helps associate resources with their primary identifiers
+    and maintains a resource index for efficient lookups.
+    
+    The cache helps resolve references between different parts of a message,
+    especially when processing complex documents like FHIR bundles or HL7 
+    messages with multiple segments.
+    """
     patient_id: Optional[str] = None
     encounter_id: Optional[str] = None
     order_id: Optional[str] = None

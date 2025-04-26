@@ -26,6 +26,12 @@ from pydantic import BaseModel
 from enum import Enum
 
 class LabType(str, Enum):
+    """
+    Enumeration of standard laboratory test categories.
+    
+    Used to classify laboratory reports by their medical specialty
+    or testing methodology.
+    """
     chemistry = "Chemistry"
     hematology = "Hematology"
     coagulation = "Coagulation"
@@ -48,6 +54,17 @@ class LabObservation(BaseModel):
     result_date: Optional[str]               # When result was observed
 
 class LabReport(BaseModel):
+    """
+    Represents a comprehensive laboratory report containing multiple observations.
+    
+    Laboratory reports typically include one or more individual test results (observations)
+    along with metadata about the specimen collection, ordering provider, and performing
+    laboratory. Reports may represent a single test or a panel of related tests (e.g.,
+    Complete Blood Count, Basic Metabolic Panel).
+    
+    This model captures both structured test results and any narrative interpretations
+    provided by laboratory professionals.
+    """
     report_id: Optional[str]
     lab_type: Optional[LabType]                     # Chemistry, Hematology, Pathology, etc.
     code: Optional[str]                             # LOINC or local code for the report or panel

@@ -25,10 +25,30 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 class ProcedureProvider(BaseModel):
+    """
+    Represents a healthcare provider involved in performing a procedure.
+    
+    Procedures often involve multiple healthcare providers in different roles,
+    such as the primary surgeon, assistant surgeon, anesthesiologist, or
+    other specialists. This model captures the identity and role of each
+    provider associated with a procedure.
+    """
     provider_id: Optional[str]
     role: Optional[str]
 
 class Procedure(BaseModel):
+    """
+    Represents a medical or surgical procedure performed on a patient.
+    
+    Procedures encompass a wide range of interventions, from minor
+    diagnostic procedures to major surgeries. They're typically coded
+    using CPT, HCPCS, or ICD-10-PCS code sets and documented both for
+    clinical care and billing purposes.
+    
+    This model captures the basic details of a procedure, including what
+    was done, when it was performed, who performed it, and the outcome
+    or status of the procedure.
+    """
     code: Optional[str]
     coding_method: Optional[str]
     description: Optional[str]

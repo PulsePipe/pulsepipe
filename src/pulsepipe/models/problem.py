@@ -25,6 +25,18 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Problem(BaseModel):
+    """
+    Represents an entry in a patient's problem list.
+    
+    The problem list is a central component of the medical record that 
+    documents a patient's ongoing or chronic medical conditions requiring
+    management over time. Unlike encounter-specific diagnoses, problem list
+    entries represent longer-term conditions that influence care decisions
+    across multiple encounters.
+    
+    Problem lists help providers maintain continuity of care and ensure
+    that all ongoing medical issues are considered in clinical decision-making.
+    """
     code: Optional[str] = None
     coding_method: Optional[str] = None
     description: Optional[str] = None

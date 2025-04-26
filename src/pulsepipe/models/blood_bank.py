@@ -42,7 +42,7 @@ class BloodBankReport(BaseModel):
     """
     Represents a structured blood bank report containing one or more findings.
     This may include blood type testing, antibody screening, and compatibility checks,
-    associated with a specific patient and encounter.""
+    associated with a specific patient and encounter.
     """
     report_id: Optional[str]
     collection_date: Optional[str]

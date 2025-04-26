@@ -25,6 +25,14 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Immunization(BaseModel):
+    """
+    Represents a vaccination or immunization administered to a patient.
+    
+    Captures information about vaccines administered to prevent disease,
+    including the type of vaccine, when it was given, and its current status.
+    This data is essential for tracking immunization compliance, public
+    health reporting, and preventive care management.
+    """
     vaccine_code: Optional[str]
     coding_method: Optional[str]
     description: Optional[str]

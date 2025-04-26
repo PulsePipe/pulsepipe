@@ -25,6 +25,20 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Payor(BaseModel):
+    """
+    Represents a health insurance plan or payer organization.
+    
+    This model captures information about the entity responsible for
+    paying for healthcare services, whether a commercial insurance company, 
+    government program (Medicare, Medicaid), or other third-party payer.
+    
+    It includes details about the insurance plan, membership information,
+    and eligibility status, all crucial for healthcare revenue cycle 
+    management and claims processing.
+    
+    Note that identifiable member IDs and group numbers are stored as 
+    hashed values to protect patient privacy.
+    """
     name: Optional[str]
     member_id_hash: Optional[str]
     group_number_hash: Optional[str]

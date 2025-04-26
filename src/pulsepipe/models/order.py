@@ -25,6 +25,17 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Order(BaseModel):
+    """
+    Represents a clinical order placed by a healthcare provider.
+    
+    Clinical orders are instructions from a healthcare provider requesting 
+    specific services, tests, medications, or procedures for a patient.
+    Orders drive much of the workflow in healthcare settings and create
+    a documented chain of clinical decision-making.
+    
+    Common order types include laboratory tests, diagnostic imaging,
+    medication administration, consultations, and procedures.
+    """
     order_id: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]

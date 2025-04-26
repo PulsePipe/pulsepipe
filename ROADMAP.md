@@ -4,7 +4,7 @@
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
 ---
-#### ✅ MVP Scope      [ 65% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
+#### ✅ MVP Scope      [ 70% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
 #### 🟠 Mid-Term Goals [  0% Complete ]                      🟠 Long-Term Goals  [  0% Complete ]
 
 ## ✅ MVP Scope
@@ -44,8 +44,8 @@ This document outlines the planned milestones and future direction of the PulseP
 - [x] 📖 Pipeline Concurrent Step Execution
     - [x] Add queues to relay messages between steps
 - [ ] 📖 CLI Model Description
-    - [ ] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
-    - [ ] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
+    - [x] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
+    - [x] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
 - [ ] Robust error handling in the ingestion pipeline to account for messy healthcare data
     - [ ] Keep track of data ingested vs un-ingested for later AI feedback
 - [ ] De-identification

@@ -25,6 +25,17 @@ from typing import Optional
 from pydantic import BaseModel
 
 class Note(BaseModel):
+    """
+    Represents a clinical note documenting patient care.
+    
+    Clinical notes are narrative text documents created by healthcare providers
+    to record observations, assessments, plans, and other aspects of patient care.
+    They may include admission notes, progress notes, consultation notes,
+    discharge summaries, procedure notes, or other documentation types.
+    
+    Notes provide crucial context and details that may not be captured in
+    structured data elements and often contain the rationale for clinical decisions.
+    """
     note_type_code: Optional[str] = None     # e.g., "DS" = Discharge Summary, "PN" = Progress Note
     text: Optional[str] = None               # The actual note content
     timestamp: Optional[str] = None          # ISO 8601 datetime (required)

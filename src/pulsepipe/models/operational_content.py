@@ -28,6 +28,24 @@ from .prior_authorization import PriorAuthorization
 
 
 class PulseOperationalContent(BaseModel):
+    """
+    Comprehensive container for administrative and financial healthcare data.
+    
+    This model serves as the core operational data structure in PulsePipe,
+    capturing administrative transactions related to healthcare billing, 
+    payment processing, claims submission, and prior authorizations.
+    
+    It standardizes data from various electronic data interchange (EDI) 
+    formats, particularly X12 transactions such as:
+    - 837 (Claims)
+    - 835 (Payment/Remittance)
+    - 278 (Prior Authorization)
+    - 270/271 (Eligibility)
+    - 276/277 (Claim Status)
+    
+    This structure supports analytics, revenue cycle management, and AI-driven
+    insights into the business operations of healthcare organizations.
+    """
     transaction_type: Optional[str]  # e.g., '837P', '835', '278'
     interchange_control_number: Optional[str]
     functional_group_control_number: Optional[str]

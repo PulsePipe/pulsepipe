@@ -25,6 +25,17 @@ from typing import Optional
 from pydantic import BaseModel
 
 class MAR(BaseModel):
+    """
+    Represents a Medication Administration Record entry.
+    
+    The Medication Administration Record (MAR) documents the actual 
+    administration of medications to a patient, as opposed to medication
+    orders or prescriptions. MAR entries provide a detailed log of what
+    medications were given, when, and by whom, serving as both a legal
+    record and clinical documentation of patient care.
+    
+    Each entry typically represents a single medication administration event.
+    """
     medication_code: Optional[str]
     coding_method: Optional[str]
     medication: Optional[str]

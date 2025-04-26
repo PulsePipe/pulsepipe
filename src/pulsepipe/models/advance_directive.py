@@ -25,6 +25,16 @@ from typing import Optional
 from pydantic import BaseModel
 
 class AdvanceDirective(BaseModel):
+    """
+    Represents a patient's advance directive document or instruction.
+    
+    Advance directives are legal documents that outline a person's wishes 
+    regarding medical treatments if they become unable to make decisions 
+    for themselves.
+    
+    Examples include "Do Not Resuscitate" (DNR) orders, living wills,
+    medical power of attorney, and other end-of-life care instructions.
+    """
     directive_type: Optional[str]             # e.g., "DNR", "Full Code", "Advance Directive on file"
     code: Optional[str]                       # Local or SNOMED code
     coding_method: Optional[str]

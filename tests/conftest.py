@@ -19,6 +19,8 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
+# tests/conftest.py
+
 """
 Test configuration and fixtures for PulsePipe.
 """
@@ -26,8 +28,10 @@ Test configuration and fixtures for PulsePipe.
 import pytest
 import os
 import sys
+import io
 import logging
 import atexit
+from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 
 from pulsepipe.utils.log_factory import LogFactory, WindowsSafeFileHandler
@@ -355,4 +359,32 @@ def normalize_paths_for_tests():
             
             yield
     else:
+        yield
+
+# Add new fixture specifically for LogFactory tests
+@pytest.fixture(autouse=True)
+def isolate_log_factory_tests():
+    """
+    Isolate LogFactory tests from I/O operations by redirecting stdout/stderr
+    and setting environment variables to disable file logging.
+    """
+    test_name = os.environ.get('PYTEST_CURRENT_TEST', '')
+    
+    # Only apply for test_log_factory.py tests
+    if 'test_log_factory.py' in test_name:
+        # Set environment variables to disable file logging
+        os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING'] = '1'
+        
+        # Redirect stdout and stderr to null streams
+        null_stdout = io.StringIO()
+        null_stderr = io.StringIO()
+        
+        with redirect_stdout(null_stdout), redirect_stderr(null_stderr):
+            yield
+            
+        # Clean up environment variables
+        if 'PULSEPIPE_TEST_NO_FILE_LOGGING' in os.environ:
+            del os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING']
+    else:
+        # For non-LogFactory tests, do nothing special
         yield

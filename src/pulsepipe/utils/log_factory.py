@@ -865,7 +865,7 @@ class LogFactory:
         # Override include_emoji to False on Windows unless explicitly set to True in config
         if sys.platform == "win32" and "include_emoji" not in config:
             cls._config["include_emoji"] = False
-            print("Windows detected: disabling emoji in logs by default")
+            #print("Windows detected: disabling emoji in logs by default")
         
         # Create rich console if using rich format
         if cls._config["format"] == "rich":

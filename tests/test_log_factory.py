@@ -43,47 +43,67 @@ class TestLogFactory:
     def reset_log_factory(self):
         """Reset LogFactory between tests"""
         # Store current values
-        old_config = LogFactory._config.copy()
-        old_context = LogFactory._context.copy()
-        old_console = LogFactory._console
-        old_root_logger = LogFactory._root_logger
-        old_logger_cache = LogFactory._logger_cache.copy()
+        old_config = LogFactory._config.copy() if hasattr(LogFactory, '_config') else {}
+        old_context = LogFactory._context.copy() if hasattr(LogFactory, '_context') else {}
+        old_console = LogFactory._console if hasattr(LogFactory, '_console') else None
+        old_root_logger = LogFactory._root_logger if hasattr(LogFactory, '_root_logger') else None
+        old_logger_cache = LogFactory._logger_cache.copy() if hasattr(LogFactory, '_logger_cache') else {}
         old_file_handlers = LogFactory._file_handlers.copy() if hasattr(LogFactory, '_file_handlers') else []
         
         # Clean up any existing file handlers first
-        LogFactory._cleanup_file_handlers()
-        WindowsSafeFileHandler.close_all()
+        try:
+            LogFactory._cleanup_file_handlers()
+        except Exception:
+            pass
+        
+        try:
+            WindowsSafeFileHandler.close_all()
+        except Exception:
+            pass
         
         # Close any handlers in the root logger
-        root_logger = logging.getLogger()
-        for handler in list(root_logger.handlers):
-            if isinstance(handler, logging.FileHandler):
-                try:
-                    root_logger.removeHandler(handler)
-                    handler.close()
-                    if hasattr(handler, 'stream'):
-                        handler.stream = None
-                except:
-                    pass
+        try:
+            root_logger = logging.getLogger()
+            for handler in list(root_logger.handlers):
+                if isinstance(handler, logging.FileHandler):
+                    try:
+                        root_logger.removeHandler(handler)
+                        handler.close()
+                        if hasattr(handler, 'stream') and handler.stream:
+                            handler.stream = None
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         
         # Reset after test
         yield
         
         # Clean up file handlers created during test
-        LogFactory._cleanup_file_handlers()
-        WindowsSafeFileHandler.close_all()
+        try:
+            LogFactory._cleanup_file_handlers()
+        except Exception:
+            pass
+        
+        try:
+            WindowsSafeFileHandler.close_all()
+        except Exception:
+            pass
         
         # Close any handlers in the root logger again
-        root_logger = logging.getLogger()
-        for handler in list(root_logger.handlers):
-            if isinstance(handler, logging.FileHandler):
-                try:
-                    root_logger.removeHandler(handler)
-                    handler.close()
-                    if hasattr(handler, 'stream'):
-                        handler.stream = None
-                except:
-                    pass
+        try:
+            root_logger = logging.getLogger()
+            for handler in list(root_logger.handlers):
+                if isinstance(handler, logging.FileHandler):
+                    try:
+                        root_logger.removeHandler(handler)
+                        handler.close()
+                        if hasattr(handler, 'stream') and handler.stream:
+                            handler.stream = None
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         
         # Restore values after test
         LogFactory._config = old_config
@@ -92,6 +112,29 @@ class TestLogFactory:
         LogFactory._root_logger = old_root_logger
         LogFactory._logger_cache = old_logger_cache
         LogFactory._file_handlers = old_file_handlers
+
+    @pytest.fixture
+    def patch_config_init(self, monkeypatch):
+        """Patch LogFactory.init_from_config to suppress print statements"""
+        original_init = LogFactory.init_from_config
+        
+        @classmethod
+        def silent_init_from_config(cls, config, context=None):
+            # Save original stdout
+            original_stdout = sys.stdout
+            try:
+                # Redirect stdout to devnull during initialization
+                with open(os.devnull, 'w') as f:
+                    sys.stdout = f
+                    return original_init(config, context)
+            finally:
+                # Restore stdout
+                sys.stdout = original_stdout
+        
+        monkeypatch.setattr(LogFactory, 'init_from_config', silent_init_from_config)
+        yield
+        monkeypatch.setattr(LogFactory, 'init_from_config', original_init)
+
 
     def test_add_emoji_to_log_message_with_emoji(self):
         """Test adding emoji to log messages when emoji is enabled."""
@@ -283,7 +326,7 @@ class TestLogFactory:
                     # Should have disabled emoji because we're on Windows
                     assert LogFactory._config["include_emoji"] == False
 
-    def test_log_factory_format_setting(self, reset_log_factory):
+    def test_log_factory_format_setting(self, reset_log_factory, patch_config_init):
         """Test that LogFactory properly sets format configuration."""
         # Test with rich format
         rich_config = {
@@ -330,7 +373,7 @@ class TestLogFactory:
                 # Should not call logging.getLogger again
                 mock_get_logger2.assert_not_called()
 
-    def test_log_factory_enhance_logger(self, reset_log_factory):
+    def test_log_factory_enhance_logger(self, reset_log_factory, patch_config_init):
         """Test enhancing a logger with domain-specific methods."""
         # Initialize with minimal config
         with patch('logging.getLogger') as mock_get_logger:
@@ -384,7 +427,7 @@ class TestLogFactory:
                     # Manual cleanup to ensure test resources are released
                     LogFactory._cleanup_file_handlers()
 
-    def test_enhanced_logger_methods_simple(self, reset_log_factory):
+    def test_enhanced_logger_methods_simple(self, reset_log_factory, patch_config_init):
         """Test the enhanced logger methods use appropriate formatter."""
         # Initialize with text format
         config = {

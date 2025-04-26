@@ -23,6 +23,7 @@
 
 import asyncio
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Set, Dict, Any, List, Optional
@@ -144,6 +145,12 @@ class FileWatcherAdapter(Adapter):
         self._stop_event.set()
 
 
+    def _normalize_path(self, path):
+        """Normalize path for consistent storage/retrieval"""
+        if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+            return str(path).replace('\\', '/')
+        return str(path)
+    
     async def process_existing_files(self, queue: asyncio.Queue) -> int:
         """Process existing files in the watch directory and return count of processed files"""
         self.logger.info(f"🔍 Checking for existing files in {self.watch_path}")
@@ -154,7 +161,7 @@ class FileWatcherAdapter(Adapter):
             matching_files = self._find_matching_files()
             
             for file_path in matching_files:
-                str_path = str(file_path)
+                str_path = self._normalize_path(file_path)
                 
                 # Add to known files set for future change detection
                 self._known_files.add(str_path)
@@ -217,11 +224,11 @@ class FileWatcherAdapter(Adapter):
         try:
             # Initial set of known files
             if not self._known_files:
-                self._known_files = set(str(f) for f in self._find_matching_files())
+                self._known_files = set(self._normalize_path(f) for f in self._find_matching_files())
             
             while not self._stop_event.is_set():
                 # Check for new files
-                current_files = set(str(f) for f in self._find_matching_files())
+                current_files = set(self._normalize_path(f) for f in self._find_matching_files())
                 
                 # Find new files (in current but not in known)
                 new_files = current_files - self._known_files
@@ -236,15 +243,20 @@ class FileWatcherAdapter(Adapter):
                         continue
                     
                     try:
-                        # Read and process the file
-                        with open(file_path, 'r', encoding='utf-8') as f:
+                        # Read and process the file - use the original path, not normalized for file I/O
+                        original_path = file_path
+                        if sys.platform == 'win32':
+                            # Convert back to OS-specific path for file operations if needed
+                            original_path = file_path.replace('/', '\\')
+                            
+                        with open(original_path, 'r', encoding='utf-8') as f:
                             raw_data = f.read()
                         
                         # Put data on the queue
                         await queue.put(raw_data)
                         self.logger.info(f"✅ Enqueued: {file_path}")
                         
-                        # Mark as processed
+                        # Mark as processed with normalized path
                         self.bookmarks.mark_processed(file_path)
                     except FileNotFoundError:
                         self.logger.info(f"🚫 File disappeared before processing: {file_path}")

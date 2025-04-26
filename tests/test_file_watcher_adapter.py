@@ -22,6 +22,7 @@
 # tests/test_file_watcher_adapter.py
 
 import asyncio
+import sys
 from pathlib import Path
 import pytest
 from pulsepipe.adapters.file_watcher import FileWatcherAdapter
@@ -32,9 +33,14 @@ async def test_file_watcher_adapter_enqueues_data(tmp_path):
     # Setup the test directory
     ingest_path = tmp_path / "fixtures"
     ingest_path.mkdir(parents=True, exist_ok=True)
+    
+    # Normalize path for Windows
+    ingest_path_str = str(ingest_path)
+    if sys.platform == 'win32':
+        ingest_path_str = ingest_path_str.replace('\\', '/')
 
     adapter_config = {
-        "watch_path": str(ingest_path),
+        "watch_path": ingest_path_str,
         "extensions": [".json"],
         "bookmark_file": ".bookmark.dat"
     }

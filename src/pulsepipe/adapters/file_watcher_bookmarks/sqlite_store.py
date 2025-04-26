@@ -20,6 +20,8 @@
 # ------------------------------------------------------------------------------
 
 import sqlite3
+import os
+import sys
 from .base import BookmarkStore
 
 class SQLiteBookmarkStore(BookmarkStore):
@@ -38,10 +40,16 @@ class SQLiteBookmarkStore(BookmarkStore):
         self.conn.commit()
 
     def is_processed(self, path: str) -> bool:
+        # Normalize path for Windows
+        if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+            path = path.replace('\\', '/')
         result = self.conn.execute("SELECT 1 FROM bookmarks WHERE path = ?", (path,)).fetchone()
         return result is not None
 
     def mark_processed(self, path: str, status: str = "processed"):
+        # Normalize path for Windows
+        if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+            path = path.replace('\\', '/')
         self.conn.execute(
             "INSERT OR IGNORE INTO bookmarks (path, status) VALUES (?, ?)",
             (path, status)

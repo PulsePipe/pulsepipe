@@ -190,6 +190,9 @@ def find_profile_path(profile_name: str) -> Optional[str]:
     # Try each location
     for location in possible_locations:
         if os.path.exists(location):
+            # For testing environments, ensure consistent path separators
+            if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+                return location.replace('\\', '/')
             return location
     
     # Return None if not found

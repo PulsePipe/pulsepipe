@@ -27,6 +27,7 @@ import pytest
 import os
 import sys
 import logging
+from pathlib import Path
 
 from pulsepipe.utils.log_factory import LogFactory, WindowsSafeFileHandler
 
@@ -60,8 +61,11 @@ def cleanup_log_files():
 def normalize_paths_for_tests():
     """
     On Windows, ensure path separators are normalized for cross-platform test consistency.
+    This is essential to prevent "not a normalized and relative path" errors.
     """
     original_join = os.path.join
+    original_abspath = os.path.abspath
+    original_normpath = os.path.normpath
     
     def normalized_join(*args):
         """Wrapper to normalize path separators in test environments"""
@@ -71,10 +75,38 @@ def normalize_paths_for_tests():
             result = result.replace('\\', '/')
         return result
     
+    def normalized_abspath(path):
+        """Wrapper to normalize absolute paths in test environments"""
+        result = original_abspath(path)
+        if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+            result = result.replace('\\', '/')
+        return result
+        
+    def normalized_normpath(path):
+        """Wrapper to normalize path normalization in test environments"""
+        result = original_normpath(path)
+        if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+            result = result.replace('\\', '/')
+        return result
+    
     # Only patch in testing environments
     if 'PYTEST_CURRENT_TEST' in os.environ:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(os.path, "join", normalized_join)
+            mp.setattr(os.path, "abspath", normalized_abspath)
+            mp.setattr(os.path, "normpath", normalized_normpath)
+            
+            # For pathlib Path objects, ensure they use forward slashes too
+            if sys.platform == 'win32':
+                original_path_str = Path.__str__
+                
+                def normalized_path_str(self):
+                    """Normalize Path string representation in Windows tests"""
+                    result = original_path_str(self)
+                    return result.replace('\\', '/')
+                
+                mp.setattr(Path, "__str__", normalized_path_str)
+            
             yield
     else:
         yield

@@ -22,6 +22,7 @@
 # tests/test_cli_run.py
 
 import os
+import sys
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from click.testing import CliRunner
@@ -73,12 +74,17 @@ class TestCliRun:
         profile_file = config_dir / "test_profile.yaml"
         profile_file.write_text("test content")
         
+        # Normalize profile file path for Windows
+        profile_path = str(profile_file)
+        if sys.platform == 'win32':
+            profile_path = profile_path.replace('\\', '/')
+        
         # Mock the function instead of trying to patch a class attribute
         with patch('os.path.exists', return_value=True):
-            with patch('pulsepipe.cli.command.run.find_profile_path', return_value=str(profile_file)):
+            with patch('pulsepipe.cli.command.run.find_profile_path', return_value=profile_path):
                 # Call the function directly
-                result = str(profile_file)
-                assert result == str(profile_file)
+                result = profile_path
+                assert result == profile_path
     
     def test_find_profile_path_not_exists(self):
         """Test finding a non-existent profile path."""

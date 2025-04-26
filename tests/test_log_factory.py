@@ -399,7 +399,7 @@ class TestLogFactory:
             assert logger.error != original_error
             assert logger.critical != original_critical
 
-    def test_log_factory_file_handler_creation(self, reset_log_factory):
+    def test_log_factory_file_handler_creation(self, reset_log_factory, patch_config_init):
         """Test creating a file handler when specifying file destination."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = os.path.join(temp_dir, "test.log")
@@ -411,21 +411,35 @@ class TestLogFactory:
                 "file_path": log_file
             }
             
-            with patch('logging.getLogger'):
-                # Mock WindowsSafeFileHandler to avoid actual file creation
-                with patch('pulsepipe.utils.log_factory.WindowsSafeFileHandler') as mock_file_handler:
-                    # Set up the mock file handler for proper cleanup
-                    mock_handler_instance = MagicMock()
-                    mock_handler_instance.close = MagicMock()
-                    mock_file_handler.return_value = mock_handler_instance
-                    
-                    LogFactory.init_from_config(config)
-                    
-                    # Should have created a file handler
-                    mock_file_handler.assert_called_once_with(log_file, encoding='utf-8')
-                    
-                    # Manual cleanup to ensure test resources are released
-                    LogFactory._cleanup_file_handlers()
+            # Temporarily remove the PULSEPIPE_TEST_NO_FILE_LOGGING environment variable
+            # so file logging isn't disabled during this test
+            had_no_file_logging = 'PULSEPIPE_TEST_NO_FILE_LOGGING' in os.environ
+            if had_no_file_logging:
+                del os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING']
+            
+            try:
+                with patch('logging.getLogger'):
+                    # Mock WindowsSafeFileHandler to avoid actual file creation
+                    with patch('pulsepipe.utils.log_factory.WindowsSafeFileHandler') as mock_file_handler:
+                        # Set up the mock file handler for proper cleanup
+                        mock_handler_instance = MagicMock()
+                        mock_handler_instance.close = MagicMock()
+                        mock_file_handler.return_value = mock_handler_instance
+                        
+                        # Remove the close_all method from patch so it doesn't interfere with our test
+                        del mock_file_handler.close_all
+                        
+                        LogFactory.init_from_config(config)
+                        
+                        # Should have created a file handler
+                        mock_file_handler.assert_called_once_with(log_file, encoding='utf-8')
+                        
+                        # Manual cleanup to ensure test resources are released
+                        LogFactory._cleanup_file_handlers()
+            finally:
+                # Restore the environment variable if it was set
+                if had_no_file_logging:
+                    os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING'] = '1'
 
     def test_enhanced_logger_methods_simple(self, reset_log_factory, patch_config_init):
         """Test the enhanced logger methods use appropriate formatter."""

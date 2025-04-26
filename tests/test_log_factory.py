@@ -274,10 +274,14 @@ class TestLogFactory:
         """Test that LogFactory detects Windows platform and disables emoji."""
         # Initialize with empty config
         with patch('logging.getLogger'):
-            LogFactory.init_from_config({})
-            
-            # Should have disabled emoji because we're on Windows
-            assert LogFactory._config["include_emoji"] == False
+            # Skip actual file handler creation which can cause I/O errors on closed files
+            with patch('pulsepipe.utils.log_factory.WindowsSafeFileHandler'):
+                # Skip actual cleanup to avoid closed file issues
+                with patch('pulsepipe.utils.log_factory.LogFactory._cleanup_file_handlers'):
+                    LogFactory.init_from_config({})
+                    
+                    # Should have disabled emoji because we're on Windows
+                    assert LogFactory._config["include_emoji"] == False
 
     def test_log_factory_format_setting(self, reset_log_factory):
         """Test that LogFactory properly sets format configuration."""

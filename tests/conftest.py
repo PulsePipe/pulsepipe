@@ -36,20 +36,114 @@ from pulsepipe.utils.log_factory import LogFactory, WindowsSafeFileHandler
 @atexit.register
 def cleanup_on_exit():
     """Ensure all log handlers are closed on interpreter exit."""
-    LogFactory._cleanup_file_handlers()
-    WindowsSafeFileHandler.close_all()
+    # Helper function to safely clean up logger handlers
+    def safe_cleanup_handler(handler):
+        try:
+            # First set stream to None to release file handle
+            if hasattr(handler, 'stream') and handler.stream is not None:
+                stream = handler.stream
+                handler.stream = None
+                
+                # Close the stream if possible
+                if hasattr(stream, 'close') and not getattr(stream, 'closed', False):
+                    try:
+                        stream.close()
+                    except:
+                        pass
+            
+            # Then close the handler
+            if hasattr(handler, 'close'):
+                handler.close()
+        except:
+            # Ignore any errors during shutdown
+            pass
     
-    # Close any remaining handlers in the root logger
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
-        if isinstance(handler, logging.FileHandler):
+    try:
+        # Clean up file handlers using our robust mechanisms
+        # The order matters here - first our class method, then any handlers
+        LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()
+        
+        # Close any remaining handlers in the root logger
+        root_logger = logging.getLogger()
+        handlers = list(root_logger.handlers)  # Copy to avoid modification during iteration
+        
+        # First remove all handlers from root logger
+        for handler in handlers:
             try:
                 root_logger.removeHandler(handler)
-                handler.close()
-                if hasattr(handler, 'stream'):
-                    handler.stream = None
             except:
                 pass
+                
+        # Then safely close each handler
+        for handler in handlers:
+            if isinstance(handler, logging.FileHandler):
+                safe_cleanup_handler(handler)
+        
+        # Also clean up any other loggers in the system
+        if hasattr(logging.root, 'manager') and hasattr(logging.root.manager, 'loggerDict'):
+            for logger_name in list(logging.root.manager.loggerDict.keys()):
+                try:
+                    logger = logging.getLogger(logger_name)
+                    if logger:
+                        # Copy to avoid modification during iteration
+                        handlers = list(logger.handlers)
+                        
+                        # First remove all handlers from logger
+                        for handler in handlers:
+                            try:
+                                logger.removeHandler(handler)
+                            except:
+                                pass
+                                
+                        # Then safely close each handler
+                        for handler in handlers:
+                            if isinstance(handler, logging.FileHandler):
+                                safe_cleanup_handler(handler)
+                except:
+                    # Ignore any errors during shutdown
+                    pass
+    except:
+        # Ignore any errors during shutdown
+        pass
+
+def cleanup_root_logger_handlers():
+    """Helper function to clean up root logger handlers safely."""
+    try:
+        # Get root logger
+        root_logger = logging.getLogger()
+        
+        # Save handlers to avoid modification during iteration
+        handlers = list(root_logger.handlers)
+        
+        # First remove all handlers from root logger to avoid modification during cleanup
+        for handler in handlers:
+            root_logger.removeHandler(handler)
+        
+        # Now clean up each handler
+        for handler in handlers:
+            if isinstance(handler, logging.FileHandler):
+                try:
+                    # First set stream to None to release file handle
+                    if hasattr(handler, 'stream') and handler.stream is not None:
+                        stream = handler.stream
+                        handler.stream = None
+                        
+                        # Close the stream if possible
+                        if hasattr(stream, 'close') and not getattr(stream, 'closed', False):
+                            try:
+                                stream.close()
+                            except:
+                                pass
+                    
+                    # Then close the handler
+                    if hasattr(handler, 'close'):
+                        handler.close()
+                except:
+                    pass
+    except:
+        # Ignore any errors - we're just trying to clean up
+        pass
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_log_files_session():
@@ -57,40 +151,29 @@ def cleanup_log_files_session():
     Cleanup any log files and handlers at the start and end of test session.
     This prevents "I/O operation on closed file" errors between tests.
     """
-    # Clean up at start of session
+    # First handle stdout/stderr to avoid pytest capture conflicts
+    try:
+        # Close any logging handlers using stdout/stderr
+        root_logger = logging.getLogger()
+        for handler in list(root_logger.handlers):
+            if isinstance(handler, logging.StreamHandler) and \
+               handler.stream in (sys.stdout, sys.stderr):
+                root_logger.removeHandler(handler)
+    except:
+        pass
+        
+    # Clean up file handlers using our robust mechanisms
     LogFactory._cleanup_file_handlers()
     WindowsSafeFileHandler.close_all()
-    
-    # Close any remaining handlers in the root logger
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
-        if isinstance(handler, logging.FileHandler):
-            try:
-                root_logger.removeHandler(handler)
-                handler.close()
-                if hasattr(handler, 'stream'):
-                    handler.stream = None
-            except:
-                pass
+    cleanup_root_logger_handlers()
     
     # Run tests
     yield
     
-    # Clean up at end of session
+    # Clean up again at end of session using the same mechanisms
     LogFactory._cleanup_file_handlers()
     WindowsSafeFileHandler.close_all()
-    
-    # Close any remaining handlers in the root logger again
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
-        if isinstance(handler, logging.FileHandler):
-            try:
-                root_logger.removeHandler(handler)
-                handler.close()
-                if hasattr(handler, 'stream'):
-                    handler.stream = None
-            except:
-                pass
+    cleanup_root_logger_handlers()
 
 @pytest.fixture(autouse=True)
 def cleanup_log_files_test():
@@ -98,40 +181,24 @@ def cleanup_log_files_test():
     Cleanup any log files and handlers before and after EACH test.
     This ensures file handlers don't leak between tests on Windows.
     """
-    # Clean up at start of each test
-    LogFactory._cleanup_file_handlers()
-    WindowsSafeFileHandler.close_all()
-    
-    # Close any remaining handlers in the root logger
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
-        if isinstance(handler, logging.FileHandler):
-            try:
-                root_logger.removeHandler(handler)
-                handler.close()
-                if hasattr(handler, 'stream'):
-                    handler.stream = None
-            except:
-                pass
-    
-    # Run test
-    yield
-    
-    # Clean up after each test
-    LogFactory._cleanup_file_handlers()
-    WindowsSafeFileHandler.close_all()
-    
-    # Close any remaining handlers in the root logger again
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
-        if isinstance(handler, logging.FileHandler):
-            try:
-                root_logger.removeHandler(handler)
-                handler.close()
-                if hasattr(handler, 'stream'):
-                    handler.stream = None
-            except:
-                pass
+    # Special handling for Windows platform
+    if sys.platform == "win32":
+        # On Windows, be extra cautious with file handles before each test
+        LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()
+        cleanup_root_logger_handlers()
+        
+        # Run the test
+        yield
+        
+        # On Windows, do extra cleanup after each test
+        LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()
+        cleanup_root_logger_handlers()
+    else:
+        # On non-Windows platforms, we can be more relaxed
+        # as they don't have the same file handle issues
+        yield
 
 @pytest.fixture(autouse=True)
 def normalize_paths_for_tests():

@@ -7,6 +7,8 @@ This document outlines the planned milestones and future direction of the PulseP
 #### ✅ MVP Scope      [ 70% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
 #### 🟠 Mid-Term Goals [  0% Complete ]                      🟠 Long-Term Goals  [  0% Complete ]
 
+#### 🧪 Unit Test Coverage: 70-75%
+
 ## ✅ MVP Scope
 
 - [x] Canonical Clinical Content Model (Pulse Canonical Clinical Model)

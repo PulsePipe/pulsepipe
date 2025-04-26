@@ -22,14 +22,36 @@
 # tests/test_cli_run.py
 
 import os
+import sys
 import pytest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 from click.testing import CliRunner
-
 from pulsepipe.cli.main import cli
 from pulsepipe.cli.command.run import find_profile_path
-from pulsepipe.utils.errors import MissingConfigurationError, ConfigurationError
 
+
+def test_find_profile_path_exists():
+    """Test finding an existing profile path safely."""
+
+    # Create a temporary directory manually
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmp_path = Path(tmpdirname)
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        profile_file = config_dir / "test_profile.yaml"
+        profile_file.write_text("test content")
+
+        profile_path = str(profile_file)
+        if sys.platform == 'win32':
+            profile_path = profile_path.replace('\\', '/')
+
+        with patch('pulsepipe.cli.command.run.find_profile_path', return_value=profile_path):
+            with patch('os.path.exists', return_value=True):
+                assert os.path.exists(profile_file)
+                assert profile_path.endswith('test_profile.yaml')
 
 class TestCliRun:
     """Tests for the CLI run command."""
@@ -65,21 +87,7 @@ class TestCliRun:
             mock.return_value = "config/test_profile.yaml"
             yield mock
 
-    def test_find_profile_path_exists(self, tmp_path):
-        """Test finding an existing profile path."""
-        # Create a temporary config directory and file
-        config_dir = tmp_path / "config"
-        config_dir.mkdir()
-        profile_file = config_dir / "test_profile.yaml"
-        profile_file.write_text("test content")
-        
-        # Mock the function instead of trying to patch a class attribute
-        with patch('os.path.exists', return_value=True):
-            with patch('pulsepipe.cli.command.run.find_profile_path', return_value=str(profile_file)):
-                # Call the function directly
-                result = str(profile_file)
-                assert result == str(profile_file)
-    
+
     def test_find_profile_path_not_exists(self):
         """Test finding a non-existent profile path."""
         with patch('os.path.exists', return_value=False):

@@ -315,7 +315,7 @@ class PipelineContext:
         try:
             # Normalize the path for Windows
             if sys.platform == 'win32':
-                output_path = str(Path(output_path))
+                output_path = str(Path(output_path)).replace('\\', '/')
                 
             # Ensure directory exists
             dir_path = os.path.dirname(os.path.abspath(output_path))
@@ -324,10 +324,11 @@ class PipelineContext:
             # Determine export format
             format = format or "json"
             
-            if format == "jsonl":
-                # Export as JSONL (one JSON object per line)
-                if isinstance(data, list):
-                    with open(output_path, 'w', encoding='utf-8') as f:
+            # Use a single context manager for all file operations to ensure proper closure
+            with open(output_path, 'w', encoding='utf-8') as f:
+                if format == "jsonl":
+                    # Export as JSONL (one JSON object per line)
+                    if isinstance(data, list):
                         for item in data:
                             if hasattr(item, 'model_dump'):
                                 # Pydantic model
@@ -338,21 +339,19 @@ class PipelineContext:
                             else:
                                 # Convert to string
                                 f.write(json.dumps(str(item)) + '\n')
-                else:
-                    logger.warning(f"{self.log_prefix} Data is not a list, but JSONL format was requested")
-                    # Create a single-line JSONL file
-                    with open(output_path, 'w', encoding='utf-8') as f:
+                    else:
+                        logger.warning(f"{self.log_prefix} Data is not a list, but JSONL format was requested")
+                        # Create a single-line JSONL file
                         if hasattr(data, 'model_dump'):
                             f.write(json.dumps(data.model_dump()) + '\n')
                         elif isinstance(data, dict):
                             f.write(json.dumps(data) + '\n')
                         else:
                             f.write(json.dumps(str(data)) + '\n')
-            
-            elif format == "json":
-                # Export as formatted JSON
-                indent = 2 if self.pretty else None
-                with open(output_path, 'w', encoding='utf-8') as f:
+                
+                elif format == "json":
+                    # Export as formatted JSON
+                    indent = 2 if self.pretty else None
                     if hasattr(data, 'model_dump_json'):
                         # Pydantic model with direct JSON serialization
                         f.write(data.model_dump_json(indent=indent))
@@ -362,10 +361,9 @@ class PipelineContext:
                     else:
                         # Try to JSON serialize the data
                         json.dump(data, f, indent=indent, default=str)
-            
-            else:
-                # Default to string representation
-                with open(output_path, 'w', encoding='utf-8') as f:
+                
+                else:
+                    # Default to string representation
                     f.write(str(data))
             
             logger.info(f"{self.log_prefix} Exported data to {output_path}")

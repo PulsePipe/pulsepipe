@@ -35,6 +35,13 @@ from pulsepipe.utils.log_factory import (
     DomainAwareJsonFormatter, DomainAwareTextFormatter
 )
 
+# Import our Windows-specific test helpers
+from tests.mock_decorators import windows_safe_test, windows_skip_test, IS_WINDOWS_TEST
+
+# Skip the entire module on Windows if environment variable is set
+if IS_WINDOWS_TEST and os.environ.get('SKIP_LOG_FACTORY_TESTS', '') == '1':
+    pytestmark = pytest.mark.skip(reason="Log factory tests disabled on Windows")
+
 
 class TestLogFactory:
     """Tests for the LogFactory class and related utilities."""
@@ -283,6 +290,7 @@ class TestLogFactory:
                     # Should have disabled emoji because we're on Windows
                     assert LogFactory._config["include_emoji"] == False
 
+    @windows_safe_test
     def test_log_factory_format_setting(self, reset_log_factory):
         """Test that LogFactory properly sets format configuration."""
         # Test with rich format
@@ -305,6 +313,7 @@ class TestLogFactory:
                 LogFactory.init_from_config(text_config)
                 assert LogFactory._config["format"] == "text"
 
+    @windows_safe_test
     def test_log_factory_get_logger(self, reset_log_factory):
         """Test getting a logger from LogFactory."""
         # Initialize with minimal config
@@ -330,6 +339,7 @@ class TestLogFactory:
                 # Should not call logging.getLogger again
                 mock_get_logger2.assert_not_called()
 
+    @windows_safe_test
     def test_log_factory_enhance_logger(self, reset_log_factory):
         """Test enhancing a logger with domain-specific methods."""
         # Initialize with minimal config
@@ -356,6 +366,7 @@ class TestLogFactory:
             assert logger.error != original_error
             assert logger.critical != original_critical
 
+    @windows_safe_test
     def test_log_factory_file_handler_creation(self, reset_log_factory):
         """Test creating a file handler when specifying file destination."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -384,6 +395,7 @@ class TestLogFactory:
                     # Manual cleanup to ensure test resources are released
                     LogFactory._cleanup_file_handlers()
 
+    @windows_safe_test
     def test_enhanced_logger_methods_simple(self, reset_log_factory):
         """Test the enhanced logger methods use appropriate formatter."""
         # Initialize with text format

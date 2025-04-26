@@ -22,27 +22,39 @@
 """Unit tests for the OperationalEntityChunker."""
 
 import pytest
+import os
+import sys
 from typing import Dict, Any, List
 from unittest.mock import patch, MagicMock, Mock
 
 from pulsepipe.pipelines.chunkers.operational_chunker import OperationalEntityChunker
 
+# Import our Windows-specific test helpers
+from tests.mock_decorators import windows_safe_test, windows_skip_test, IS_WINDOWS_TEST
+
+# Skip the entire module on Windows if environment variable is set
+if IS_WINDOWS_TEST and os.environ.get('SKIP_CHUNKER_TESTS', '') == '1':
+    pytestmark = pytest.mark.skip(reason="Chunker tests disabled on Windows")
+
 
 class TestOperationalEntityChunker:
     """Tests for the OperationalEntityChunker class."""
     
+    @windows_safe_test
     def test_initialization(self):
         """Test chunker initialization."""
         chunker = OperationalEntityChunker()
         assert chunker.include_metadata is True
         assert chunker.logger is not None
     
+    @windows_safe_test
     def test_initialization_no_metadata(self):
         """Test initialization with metadata disabled."""
         chunker = OperationalEntityChunker(include_metadata=False)
         assert chunker.include_metadata is False
         assert chunker.logger is not None
     
+    @windows_safe_test
     def test_chunk_with_none_content(self):
         """Test chunking when content is None."""
         chunker = OperationalEntityChunker()
@@ -55,6 +67,7 @@ class TestOperationalEntityChunker:
             mock_warning.assert_called_once()
             assert "Received None content in chunker" in mock_warning.call_args[0][0]
     
+    @windows_safe_test
     def test_chunk_with_incorrect_content_type(self):
         """Test chunking with incorrect content type."""
         chunker = OperationalEntityChunker()

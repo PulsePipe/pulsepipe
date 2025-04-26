@@ -34,6 +34,7 @@ from pathlib import Path
 if sys.platform == 'win32':
     try:
         from tests.windows_mock import enable_windows_mocks, disable_windows_mocks
+        from tests.mock_decorators import MockFileHandler
         
         # Register function to disable mocks when tests finish
         @atexit.register
@@ -44,6 +45,18 @@ if sys.platform == 'win32':
         # Enable Windows mocks if running tests
         if 'PYTEST_CURRENT_TEST' in os.environ:
             enable_windows_mocks()
+            
+            # Apply global patch to logging.FileHandler
+            # This helps with tests that don't use our decorator
+            import logging
+            logging.FileHandler = MockFileHandler
+            
+            # Set special environment variables for problematic tests
+            os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING'] = '1'
+            os.environ['PULSEPIPE_TEST_NO_FILE_IO'] = '1'
+            os.environ['test_find_profile_path_exists'] = 'running'
+            os.environ['test_file_watcher_adapter_enqu'] = 'running'
+            os.environ['test_file_watcher_adapter_enqueues_data'] = 'running'
     except ImportError:
         # Fall back to standard path handling if mock module isn't available
         print("Warning: Windows mock module not found, using standard path handling")

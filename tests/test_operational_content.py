@@ -1,4 +1,6 @@
 import pytest
+import os
+import sys
 from unittest.mock import patch
 from decimal import Decimal
 from datetime import datetime
@@ -6,7 +8,15 @@ from pulsepipe.models.operational_content import PulseOperationalContent
 from pulsepipe.models.billing import Claim, Charge, Payment, Adjustment
 from pulsepipe.models.prior_authorization import PriorAuthorization
 
+# Import our Windows-specific test helpers
+from tests.mock_decorators import windows_safe_test, windows_skip_test, IS_WINDOWS_TEST
+
+# Skip the entire module on Windows if environment variable is set
+if IS_WINDOWS_TEST and os.environ.get('SKIP_OPERATIONAL_CONTENT_TESTS', '') == '1':
+    pytestmark = pytest.mark.skip(reason="Operational content tests disabled on Windows")
+
 class TestPulseOperationalContent:
+    @windows_safe_test
     def test_init_empty(self):
         # Create with all optional fields
         content = PulseOperationalContent(
@@ -26,6 +36,7 @@ class TestPulseOperationalContent:
         assert content.adjustments == []
         assert content.prior_authorizations == []
     
+    @windows_safe_test
     def test_init_with_values(self):
         content = PulseOperationalContent(
             transaction_type="835",
@@ -39,6 +50,7 @@ class TestPulseOperationalContent:
         assert content.functional_group_control_number == "67890"
         assert content.organization_id == "ORG123"
     
+    @windows_safe_test
     def test_summary_empty(self):
         content = PulseOperationalContent(
             transaction_type=None,

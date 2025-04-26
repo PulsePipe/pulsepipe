@@ -1,73 +1,77 @@
-# Windows Testing Support
+# Windows Testing Guide for PulsePipe
 
-## Overview
+This document provides guidance for running tests on Windows platforms, as there are some platform-specific considerations.
 
-This directory contains special support for running tests on Windows environments, where file handling can be problematic due to file locking, path separators, and file descriptor leaks.
+## Known Windows Testing Issues
 
-## Windows Mock Module
+Windows has different file handling semantics than Unix-like systems, which can cause issues with:
+1. Path normalization (backslash vs forward slash)
+2. File locking
+3. File handle management, especially during test teardown
 
-The `windows_mock.py` module provides a comprehensive solution for Windows-specific file operation issues during tests:
+The most common error seen is: `ValueError: I/O operation on closed file`
 
-- Mocks file I/O operations to use a virtual in-memory file system
-- Normalizes path separators to always use forward slashes (Unix-style)
-- Prevents "I/O operation on closed file" errors by not writing to disk
-- Intercepts logging operations to prevent file handle issues
+## How We Handle Windows Tests
+
+### The Windows Mock Module
+
+We've implemented a Windows-specific mock module in `tests/windows_mock.py` that:
+1. Creates an in-memory virtual file system
+2. Normalizes all paths to use forward slashes
+3. Prevents I/O operations on closed files
+4. Handles special test cases
+
+This module is automatically loaded by `conftest.py` when tests are run on Windows.
+
+### Test Decorators
+
+For tests that have Windows-specific issues, we provide decorators in `tests/mock_decorators.py`:
+
+```python
+from tests.mock_decorators import windows_safe_test, windows_skip_test
+
+@windows_safe_test
+def test_that_has_file_handling():
+    # This test will be patched on Windows to use safe file operations
+    
+@windows_skip_test("Reason for skipping")
+def test_to_skip_on_windows():
+    # This test will be skipped on Windows
+```
+
+## Troubleshooting
+
+If you encounter `I/O operation on closed file` errors:
+
+1. Add the `@windows_safe_test` decorator to the failing test method
+
+2. If that doesn't resolve the issue, you may need to add mocks:
+   ```python
+   # In your test file:
+   from unittest.mock import patch
+   
+   # Mock file handlers
+   with patch('logging.FileHandler', MockFileHandler):
+       # Your test code here
+   ```
+
+3. For tests that can't be easily fixed, use `@windows_skip_test`
+
+## Adding New Tests
+
+When adding new tests that involve file operations:
+
+1. Use the `windows_safe_test` decorator on any method that does file I/O
+2. Use unittest mocks instead of actual file operations when possible
+3. Normalize paths with `os.path.join` and use forward slashes for paths in test fixtures
 
 ## How It Works
 
-The mock module replaces these key functions when running on Windows during tests:
+The Windows mock module patches:
+- `builtins.open`
+- File operations from `os.path`
+- `logging.FileHandler`
+- `tempfile` functions
+- `pathlib.Path` methods
 
-- `open()` - Uses an in-memory file representation
-- `os.path.*` - Path manipulation functions normalized to use forward slashes
-- `os.makedirs()`, `os.listdir()`, `os.remove()` - File system operations
-- `logging.FileHandler` - Prevents actual file writes for logs
-
-## Usage
-
-The module is automatically loaded by `conftest.py` when tests are run on Windows. You don't need to do anything special to use it - it activates automatically when:
-
-1. The platform is Windows (`sys.platform == 'win32'`)
-2. Tests are running (detected by checking for `PYTEST_CURRENT_TEST` environment variable)
-
-## Supported Test Patterns
-
-The mock handles these common Windows test issues:
-
-1. **Path Normalization**: Automatically converts backslashes to forward slashes
-2. **File Locking**: Prevents issues with files being locked between tests
-3. **Closed File Errors**: Prevents "I/O operation on closed file" errors
-4. **Directory Creation**: Safely "creates" directories without touching the disk
-
-## For Test Writers
-
-When writing tests that will run on Windows:
-
-- Test fixtures (files in the `/fixtures` directory) will still be read from disk normally
-- Other file operations will use the virtual file system
-- Path operations will be normalized automatically
-- Use forward slashes in path strings for consistency
-
-## Debugging
-
-If you encounter issues with Windows tests while using this module:
-
-1. Check your test doesn't rely on actual file system side effects
-2. Ensure you're not depending on raw file paths matching exactly between platforms
-3. Remember that log files won't actually be written to disk
-
-## When to Avoid
-
-For some rare cases, you might need to bypass the mock temporarily. You can use:
-
-```python
-from tests.windows_mock import disable_windows_mocks, enable_windows_mocks
-
-# Temporarily disable mocks
-disable_windows_mocks()
-try:
-    # Do operations that need the real file system
-    ...
-finally:
-    # Re-enable mocks
-    enable_windows_mocks()
-```
+These patches redirect file operations to an in-memory mock filesystem, which prevents the I/O errors common on Windows.

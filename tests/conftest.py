@@ -53,7 +53,10 @@ def cleanup_log_files():
     for handler in list(root_logger.handlers):
         if isinstance(handler, logging.FileHandler):
             try:
+                root_logger.removeHandler(handler)
                 handler.close()
+                if hasattr(handler, 'stream'):
+                    handler.stream = None
             except:
                 pass
 
@@ -89,6 +92,23 @@ def normalize_paths_for_tests():
             result = result.replace('\\', '/')
         return result
     
+    # Clean up file handlers before each test to prevent "I/O operation on closed file" errors
+    if sys.platform == 'win32':
+        LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()
+        
+        # Close any handlers in the root logger
+        root_logger = logging.getLogger()
+        for handler in list(root_logger.handlers):
+            if isinstance(handler, logging.FileHandler):
+                try:
+                    root_logger.removeHandler(handler)
+                    handler.close()
+                    if hasattr(handler, 'stream'):
+                        handler.stream = None
+                except:
+                    pass
+    
     # Only patch in testing environments
     if 'PYTEST_CURRENT_TEST' in os.environ:
         with pytest.MonkeyPatch.context() as mp:
@@ -110,3 +130,8 @@ def normalize_paths_for_tests():
             yield
     else:
         yield
+        
+    # Cleanup after each test on Windows
+    if sys.platform == 'win32':
+        LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()

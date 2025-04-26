@@ -431,6 +431,13 @@ class WindowsSafeFileHandler(logging.FileHandler):
                 handler.close()
             except:
                 pass
+                
+    def __del__(self):
+        """
+        Ensure handler is closed when object is garbage collected.
+        This is especially important for Windows to prevent 'I/O operation on closed file' errors.
+        """
+        self.close()
 
 
 class DomainAwareJsonFormatter:
@@ -551,6 +558,14 @@ class LogFactory:
         
         # Use global cleanup for all WindowsSafeFileHandler instances
         WindowsSafeFileHandler.close_all()
+        
+    @classmethod
+    def __del__(cls):
+        """
+        Ensure proper cleanup when class is being destroyed.
+        This helps prevent 'I/O operation on closed file' errors on Windows.
+        """
+        cls._cleanup_file_handlers()
     
     @classmethod
     def init_from_config(cls, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None):

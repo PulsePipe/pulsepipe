@@ -48,15 +48,42 @@ class TestLogFactory:
         old_console = LogFactory._console
         old_root_logger = LogFactory._root_logger
         old_logger_cache = LogFactory._logger_cache.copy()
+        old_file_handlers = LogFactory._file_handlers.copy() if hasattr(LogFactory, '_file_handlers') else []
         
         # Clean up any existing file handlers first
         LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()
+        
+        # Close any handlers in the root logger
+        root_logger = logging.getLogger()
+        for handler in list(root_logger.handlers):
+            if isinstance(handler, logging.FileHandler):
+                try:
+                    root_logger.removeHandler(handler)
+                    handler.close()
+                    if hasattr(handler, 'stream'):
+                        handler.stream = None
+                except:
+                    pass
         
         # Reset after test
         yield
         
         # Clean up file handlers created during test
         LogFactory._cleanup_file_handlers()
+        WindowsSafeFileHandler.close_all()
+        
+        # Close any handlers in the root logger again
+        root_logger = logging.getLogger()
+        for handler in list(root_logger.handlers):
+            if isinstance(handler, logging.FileHandler):
+                try:
+                    root_logger.removeHandler(handler)
+                    handler.close()
+                    if hasattr(handler, 'stream'):
+                        handler.stream = None
+                except:
+                    pass
         
         # Restore values after test
         LogFactory._config = old_config
@@ -64,6 +91,7 @@ class TestLogFactory:
         LogFactory._console = old_console
         LogFactory._root_logger = old_root_logger
         LogFactory._logger_cache = old_logger_cache
+        LogFactory._file_handlers = old_file_handlers
 
     def test_add_emoji_to_log_message_with_emoji(self):
         """Test adding emoji to log messages when emoji is enabled."""

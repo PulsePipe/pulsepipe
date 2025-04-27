@@ -31,6 +31,11 @@ from pulsepipe.cli.main import cli
 from pulsepipe.cli.command.run import find_profile_path
 from pulsepipe.utils.errors import MissingConfigurationError, ConfigurationError
 
+@pytest.fixture
+def safe_tmp_path(tmp_path_factory):
+    """Create a temporary directory with a safe name."""
+    # Use a simple, safe name instead of the test function name
+    return tmp_path_factory.mktemp("test_dir")
 
 class TestCliRun:
     """Tests for the CLI run command."""
@@ -69,7 +74,7 @@ class TestCliRun:
     def test_find_profile_path_exists(self, tmp_path):
         """Test finding an existing profile path."""
         # Create a temporary config directory and file
-        config_dir = tmp_path / "config"
+        config_dir = safe_tmp_path / "config"
         config_dir.mkdir()
         profile_file = config_dir / "test_profile.yaml"
         profile_file.write_text("test content")
@@ -84,8 +89,6 @@ class TestCliRun:
             if sys.platform == 'win32':
                 profile_path = profile_path.replace('\\', '/')
             
-            # Test directly without using find_profile_path
-            # This avoids the path normalization issues on Windows
             with patch('os.path.exists', return_value=True):
                 # Just verify that we can run the test successfully
                 assert os.path.exists(profile_file)

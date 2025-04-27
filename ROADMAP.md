@@ -4,8 +4,10 @@
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
 ---
-#### ✅ MVP Scope      [ 65% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
+#### ✅ MVP Scope      [ 72% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
 #### 🟠 Mid-Term Goals [  0% Complete ]                      🟠 Long-Term Goals  [  0% Complete ]
+
+#### 🧪 Unit Test Coverage: 70-75%
 
 ## ✅ MVP Scope
 

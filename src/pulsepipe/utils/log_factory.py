@@ -348,29 +348,26 @@ class WindowsSafeFileHandler(logging.FileHandler):
         self._encoding = encoding
         self._closed = False
         
-        # Initialize the parent class
-        if delay:
-            # If delay is True, we don't want to open the file immediately
-            try:
-                logging.FileHandler.__init__(self, filename, mode, encoding, delay)
-            except (OSError, ValueError):
-                # Handle the case where the file cannot be created
-                self.stream = None
-                self._closed = True
-        else:
-            try:
-                # First set stream to None to avoid reference to a previous stream
-                self.stream = None
+        try:
+            # First set stream to None to avoid reference to a previous stream
+            self.stream = None
+            
+            # Initialize the parent class - use delay=True to prevent immediate file open
+            # We'll manage file opening ourselves in a more controlled way
+            logging.FileHandler.__init__(self, filename, mode, encoding, True)
+            
+            # Only attempt to open the file if not in delay mode
+            if not delay:
+                self.stream = self._open()
                 
-                # Then initialize the parent class which will open the file
-                logging.FileHandler.__init__(self, filename, mode, encoding, delay)
-            except (OSError, ValueError):
-                # Handle the case where the file cannot be created
-                self.stream = None
-                self._closed = True
+        except (OSError, ValueError):
+            # Handle the case where the file cannot be created
+            self.stream = None
+            self._closed = True
         
         # Register this instance for global cleanup
-        WindowsSafeFileHandler._instances.append(self)
+        if self not in WindowsSafeFileHandler._instances:
+            WindowsSafeFileHandler._instances.append(self)
     
     def close(self):
         """
@@ -384,60 +381,23 @@ class WindowsSafeFileHandler(logging.FileHandler):
         # Set _closed before any other operations to prevent reentrancy issues
         self._closed = True
         
-        # Special handling for Windows test environment
-        if sys.platform == 'win32' and 'PYTEST_CURRENT_TEST' in os.environ:
-            # In Windows test environment, be more aggressive about freeing resources
+        # First save and clear the stream reference
+        old_stream = self.stream
+        self.stream = None
+        
+        # Close the old stream if it exists
+        if old_stream and hasattr(old_stream, "close") and not getattr(old_stream, "closed", False):
             try:
-                # First set stream to None and then call close on parent
-                old_stream = self.stream
-                self.stream = None
-                
-                # Now close the old stream if it exists
-                if old_stream and hasattr(old_stream, "close") and not getattr(old_stream, "closed", False):
-                    try:
-                        old_stream.close()
-                    except:
-                        pass
-            except:
-                # Ignore all errors during test cleanup
+                old_stream.flush()
+                old_stream.close()
+            except Exception:
                 pass
-                
-            # Remove from instances list
-            try:
-                if self in WindowsSafeFileHandler._instances:
-                    WindowsSafeFileHandler._instances.remove(self)
-            except:
-                pass
-                
-            return
-            
-        # Normal close operation for non-test environments
-        try:
-            # Make sure the stream is flushed before closing on Windows
-            if self.stream:
-                try:
-                    self.flush()
-                except (OSError, ValueError):
-                    # Ignore flush errors
-                    pass
-                
-                # Now close the stream if it's not already closed
-                try:
-                    if hasattr(self.stream, "close") and not getattr(self.stream, "closed", False):
-                        self.stream.close()
-                except (OSError, ValueError):
-                    # In case the file is already closed, just continue
-                    pass
-        finally:
-            # Always set stream to None to prevent further operations on closed file
-            self.stream = None
         
         # Remove from instances list
         try:
             if self in WindowsSafeFileHandler._instances:
                 WindowsSafeFileHandler._instances.remove(self)
-        except:
-            # Ignore errors during instance list cleanup
+        except Exception:
             pass
     
     def emit(self, record):
@@ -445,84 +405,30 @@ class WindowsSafeFileHandler(logging.FileHandler):
         Emit a record with extra error handling for Windows.
         This overrides the parent method to handle cases where the file might be closed.
         """
-        # In Windows test environments, be extra cautious
-        if sys.platform == 'win32' and "PYTEST_CURRENT_TEST" in os.environ:
-            # For tests on Windows, handle logging differently to avoid file handle issues
-            try:
-                # Format the record
-                msg = self.format(record)
-                # For testing, just continue without actual file operations
-                return
-            except Exception:
-                self.handleError(record)
-                return
-        
         # Skip emission if already closed
-        if self._closed:
+        if self._closed or self.stream is None:
             return
             
-        # If the test is ending (detected via stream=None), don't try to emit
-        if self.stream is None:
-            return
-        
         try:
-            # Check if stream is closed or None
-            if self.stream is None or getattr(self.stream, "closed", False):
+            # Check if stream is closed
+            if getattr(self.stream, "closed", False):
                 # Skip emit if we're closed
-                if self._closed:
-                    return
-                    
-                # Reopen the stream
-                if self.stream is not None:
-                    try:
-                        # First set to None to release any reference
-                        self.stream = None
-                        # Then properly close
-                        self.close()
-                    except (OSError, ValueError):
-                        pass
+                return
                 
-                # Only try to reopen if we're not marked as closed
-                if not self._closed:
-                    try:
-                        self.stream = self._open()  # Reopen
-                    except (OSError, ValueError):
-                        self.handleError(record)
-                        return
+            # Try to emit the record
+            msg = self.format(record)
+            stream = self.stream
             
-            # Only proceed if we have a valid stream
-            if self.stream and not self._closed:
-                try:
-                    super().emit(record)
-                except Exception:
-                    # If we get an error during emission, mark as closed
-                    if sys.platform == 'win32':
-                        self._closed = True
-                    self.handleError(record)
+            # Only attempt to write if we have a valid stream
+            if stream and not getattr(stream, "closed", False):
+                stream.write(msg + self.terminator)
+                self.flush()
                 
-        except (ValueError, OSError) as e:
-            # Special handling for closed file errors
-            if "closed file" in str(e) or "I/O operation on closed file" in str(e):
-                # If this happens during test teardown, just ignore it
-                if "PYTEST_CURRENT_TEST" in os.environ:
-                    # Just silently return during test teardown to avoid cascading errors
-                    self._closed = True
-                    return
-                
-                # For normal operation, try to reopen
-                try:
-                    self.close()  # Ensure it's properly closed
-                    if not self._closed:  # Only reopen if not marked closed
-                        self.stream = self._open()  # Reopen
-                        super().emit(record)  # Try again
-                except Exception:
-                    # If reopening fails, mark as closed
-                    self._closed = True
-                    # Just continue without error handling
-                    return
-            else:
-                # For other errors, use standard error handling
-                self.handleError(record)
+        except Exception:
+            # If we get any error, close the handler to prevent further issues
+            if sys.platform == 'win32':
+                self._closed = True
+            self.handleError(record)
     
     def _open(self):
         """
@@ -531,37 +437,28 @@ class WindowsSafeFileHandler(logging.FileHandler):
         This method adds extra safeguards for Windows systems.
         """
         try:
-            # Make sure we're not opening files during test teardown
-            if "PYTEST_CURRENT_TEST" in os.environ and "teardown" in os.environ.get("PYTEST_CURRENT_TEST", ""):
-                return None
-                
             # Check if we're already closed to prevent reopening
             if self._closed:
                 return None
                 
-            # On Windows in testing environments, be extra careful
-            if sys.platform == 'win32' and "PYTEST_CURRENT_TEST" in os.environ:
-                # First check if the directory exists
-                directory = os.path.dirname(self.baseFilename)
-                if directory and not os.path.exists(directory):
-                    try:
-                        os.makedirs(directory, exist_ok=True)
-                    except:
-                        self._closed = True
-                        return None
-                
-                # Use a more careful file opening approach
+            # First check if the directory exists
+            directory = os.path.dirname(self.baseFilename)
+            if directory and not os.path.exists(directory):
                 try:
-                    stream = open(self.baseFilename, self.mode, encoding=self.encoding)
-                    return stream
-                except:
+                    os.makedirs(directory, exist_ok=True)
+                except Exception:
                     self._closed = True
                     return None
-            else:
-                # The standard opening procedure
+            
+            # Use a consistent file opening approach
+            try:
                 stream = open(self.baseFilename, self.mode, encoding=self.encoding)
                 return stream
-        except (OSError, IOError, ValueError) as e:
+            except Exception:
+                self._closed = True
+                return None
+                
+        except Exception:
             # If we can't open, mark as closed to prevent further attempts
             self._closed = True
             return None
@@ -575,9 +472,6 @@ class WindowsSafeFileHandler(logging.FileHandler):
         # Clear the class list first to prevent reentrant cleanup
         cls._instances = []
         
-        # Special handling for Windows test environment
-        is_windows_test = sys.platform == 'win32' and 'PYTEST_CURRENT_TEST' in os.environ
-        
         for handler in handlers:
             try:
                 # Skip already closed handlers
@@ -585,43 +479,21 @@ class WindowsSafeFileHandler(logging.FileHandler):
                     # First set _closed to prevent reentrancy
                     handler._closed = True
                     
-                    # For Windows tests, be extremely aggressive about releasing resources
-                    if is_windows_test:
-                        # Save a reference to the stream
-                        old_stream = handler.stream if hasattr(handler, 'stream') else None
-                        
-                        # Immediately set stream to None to release the file handle
-                        if hasattr(handler, 'stream'):
-                            handler.stream = None
-                        
-                        # Then close the old stream directly if it exists
-                        if old_stream and hasattr(old_stream, 'close') and not getattr(old_stream, 'closed', False):
-                            try:
-                                old_stream.close()
-                            except:
-                                pass
-                    else:
-                        # Normal close procedure for non-Windows or non-test environments
-                        # First set stream to None to release file handle
-                        if hasattr(handler, 'stream') and handler.stream is not None:
-                            try:
-                                if hasattr(handler.stream, 'flush'):
-                                    handler.stream.flush()
-                            except:
-                                pass
-                            
-                            # Set to None before close to avoid race conditions
-                            handler.stream = None
-                        
-                        # Then do a proper close
-                        handler.close()
-            except:
+                    # Save reference to stream and set handler's stream to None
+                    old_stream = handler.stream if hasattr(handler, 'stream') else None
+                    if hasattr(handler, 'stream'):
+                        handler.stream = None
+                    
+                    # Then close the old stream directly if it exists
+                    if old_stream and hasattr(old_stream, 'close') and not getattr(old_stream, 'closed', False):
+                        try:
+                            old_stream.flush()
+                            old_stream.close()
+                        except Exception:
+                            pass
+            except Exception:
                 # Ignore any errors during shutdown
                 pass
-                
-        # For Windows tests, explicitly reset instances to an empty list
-        if is_windows_test:
-            cls._instances = []
                 
     def __del__(self):
         """
@@ -629,19 +501,20 @@ class WindowsSafeFileHandler(logging.FileHandler):
         This is especially important for Windows to prevent 'I/O operation on closed file' errors.
         """
         try:
-            # First set _closed to prevent reentrancy
+            # First mark as closed
             self._closed = True
             
-            # First set stream to None to release file handle
+            # Clear stream reference
             if hasattr(self, 'stream') and self.stream is not None:
                 self.stream = None
             
-            # Then do a proper close
-            self.close()
-        except:
+            # Remove from instances list if present
+            if self in self.__class__._instances:
+                self.__class__._instances.remove(self)
+                
+        except Exception:
             # Ignore any errors during finalization
             pass
-
 
 class DomainAwareJsonFormatter:
     """JSON formatter that adds domain-specific context to logs."""
@@ -1116,7 +989,7 @@ class LogFactory:
                         message=msg % args if args else msg,
                         context=combined_context if combined_context else None
                     )
-                    return method(formatted_msg, *([]) if args else None, **kwargs)
+                    return method(formatted_msg, *args, **kwargs)
             
             return wrapped
         
@@ -1128,3 +1001,42 @@ class LogFactory:
         logger.critical = wrap_log_method(original_critical, "CRITICAL")
         
         return logger
+
+    @classmethod
+    def reset(cls):
+        """Forcefully reset LogFactory internal state for clean re-initialization."""
+        try:
+            # First clean up any file handlers
+            cls._cleanup_file_handlers()
+            
+            # Shutdown Python's global logging system
+            logging.shutdown()
+            
+            # Remove all handlers from root logger
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers[:]:
+                try:
+                    root_logger.removeHandler(handler)
+                    if hasattr(handler, 'close'):
+                        handler.close()
+                except Exception:
+                    pass
+            
+            # Clear internal caches
+            cls._config = {
+                "level": "INFO",
+                "format": "rich",
+                "include_emoji": False,
+                "include_timestamp": True,
+                "log_file": None,
+                "console_width": 120,
+            }
+            cls._context = {}
+            cls._console = None
+            cls._root_logger = None
+            cls._logger_cache = {}
+            cls._file_handlers = []
+            
+        except Exception as e:
+            if "PYTEST_CURRENT_TEST" not in os.environ:
+                print(f"Warning: Error during LogFactory reset: {str(e)}")

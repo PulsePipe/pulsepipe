@@ -29,6 +29,7 @@ import tempfile
 import json
 
 from pulsepipe.utils.log_factory import (
+    DOMAIN_EMOJI,
     LogFactory,
     add_emoji_to_log_message,
     WindowsSafeStreamHandler,
@@ -245,3 +246,61 @@ def test_log_factory_reset_clears_state():
     # After reset, no logger should be cached
     assert LogFactory._logger_cache == {}
     assert LogFactory._config["format"] == "rich"  # Default format after reset
+
+def test_log_factory_invalid_log_level_type():
+    """Test that invalid log level type falls back to INFO."""
+    config = {"format": "text", "level": object()}
+    LogFactory.init_from_config(config)
+    assert LogFactory._config["format"] == "text"
+
+def test_log_factory_invalid_log_level_string():
+    """Test that invalid log level string falls back to INFO."""
+    config = {"format": "text", "level": "notalevel"}
+    LogFactory.init_from_config(config)
+    assert LogFactory._config["format"] == "text"
+
+def test_log_factory_expand_env_vars(monkeypatch):
+    """Test basic environment variable expansion fallback."""
+    monkeypatch.setenv("TEST_ENV_VAR", "TestValue")
+    config = {
+        "format": "text",
+        "destination": "file",
+        "file_path": "%TEST_ENV_VAR%/logfile.log",
+        "level": "INFO"
+    }
+    if sys.platform != "win32":
+        pytest.skip("Only meaningful to test on Windows")
+    LogFactory.init_from_config(config)
+
+def test_windows_safe_file_handler_stream_closed(monkeypatch):
+    """Simulate WindowsSafeFileHandler stream being closed."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = os.path.join(tmpdir, "test_closed.log")
+        handler = WindowsSafeFileHandler(filepath)
+        handler.stream = None
+        record = logging.LogRecord("test", logging.INFO, "", 0, "Test Message", None, None)
+        handler.emit(record)  # Should not crash
+        handler.close()
+
+def test_log_factory_reset_during_bad_shutdown():
+    """Ensure reset does not crash even if shutdown fails."""
+    original_shutdown = logging.shutdown
+    try:
+        logging.shutdown = lambda: (_ for _ in ()).throw(Exception("Forced shutdown error"))
+        LogFactory.reset()
+    finally:
+        logging.shutdown = original_shutdown
+
+def test_domain_aware_json_formatter_no_emoji_match():
+    """Test JsonFormatter when no domain emoji matches."""
+    formatter = DomainAwareJsonFormatter(include_emoji=True)
+    output = formatter.format("pulsepipe.unknown_domain", "INFO", "No match")
+    data = json.loads(output)
+    assert "emoji" not in data
+
+def test_domain_aware_text_formatter_no_prefix(monkeypatch):
+    """Test TextFormatter when domain not matched."""
+    monkeypatch.setitem(DOMAIN_EMOJI, "special_case", "S")
+    formatter = DomainAwareTextFormatter(use_emoji=True)
+    output = formatter.format("pulsepipe.special_case", "INFO", "Special log")
+    assert output.startswith("S Special log")

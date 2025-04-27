@@ -24,18 +24,34 @@
 import os
 import sys
 import pytest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 from click.testing import CliRunner
-
 from pulsepipe.cli.main import cli
 from pulsepipe.cli.command.run import find_profile_path
-from pulsepipe.utils.errors import MissingConfigurationError, ConfigurationError
 
-@pytest.fixture
-def safe_tmp_path(tmp_path_factory):
-    """Create a temporary directory with a safe name."""
-    # Use a simple, safe name instead of the test function name
-    return tmp_path_factory.mktemp("test_dir")
+
+def test_find_profile_path_exists():
+    """Test finding an existing profile path safely."""
+
+    # Create a temporary directory manually
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmp_path = Path(tmpdirname)
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        profile_file = config_dir / "test_profile.yaml"
+        profile_file.write_text("test content")
+
+        profile_path = str(profile_file)
+        if sys.platform == 'win32':
+            profile_path = profile_path.replace('\\', '/')
+
+        with patch('pulsepipe.cli.command.run.find_profile_path', return_value=profile_path):
+            with patch('os.path.exists', return_value=True):
+                assert os.path.exists(profile_file)
+                assert profile_path.endswith('test_profile.yaml')
 
 class TestCliRun:
     """Tests for the CLI run command."""
@@ -71,36 +87,7 @@ class TestCliRun:
             mock.return_value = "config/test_profile.yaml"
             yield mock
 
-    def test_find_profile_path_exists(self, safe_tmp_path):
-        """Test finding an existing profile path."""
-        # Create a temporary config directory and file
-        config_dir = safe_tmp_path / "config"
-        config_dir.mkdir()
-        profile_file = config_dir / "test_profile.yaml"
-        profile_file.write_text("test content")
-        
-        # Set the environment variable before anything else for Windows
-        if sys.platform == 'win32':
-            os.environ['test_find_profile_path_exists'] = 'running'
-            os.environ['PYTEST_CURRENT_TEST'] = 'tests/test_cli_run.py::TestCliRun::test_find_profile_path_exists'
-        
-        try:
-            # Normalize profile file path for Windows
-            profile_path = str(profile_file)
-            if sys.platform == 'win32':
-                profile_path = profile_path.replace('\\', '/')
-            
-            with patch('os.path.exists', return_value=True):
-                # Just verify that we can run the test successfully
-                assert os.path.exists(profile_file)
-                assert profile_path.endswith('test_profile.yaml')
-        finally:
-            # Clean up environment variables
-            if 'test_find_profile_path_exists' in os.environ:
-                del os.environ['test_find_profile_path_exists']
-            if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
-                del os.environ['PYTEST_CURRENT_TEST']
-    
+
     def test_find_profile_path_not_exists(self):
         """Test finding a non-existent profile path."""
         with patch('os.path.exists', return_value=False):

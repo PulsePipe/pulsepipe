@@ -183,6 +183,9 @@ poetry run isort src/ tests/
 # Coverage Report (Make sure to turn off stdout/stderr on Windows with -s)
 poetry run pytest --cov=pulsepipe tests/ -s
 
+# Coverage Report with missing items
+poetry run pytest --cov=src/pulsepipe --cov-report=term-missing tests/ -s
+
 # Coverage Report with missing items html report
 poetry run pytest --cov=src/pulsepipe --cov-report=term-missing --cov-report=html tests/ -s
 

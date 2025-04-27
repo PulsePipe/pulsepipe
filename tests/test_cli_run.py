@@ -71,7 +71,7 @@ class TestCliRun:
             mock.return_value = "config/test_profile.yaml"
             yield mock
 
-    def test_find_profile_path_exists(self, tmp_path):
+    def test_find_profile_path_exists(self, safe_tmp_path):
         """Test finding an existing profile path."""
         # Create a temporary config directory and file
         config_dir = safe_tmp_path / "config"
@@ -82,6 +82,7 @@ class TestCliRun:
         # Set the environment variable before anything else for Windows
         if sys.platform == 'win32':
             os.environ['test_find_profile_path_exists'] = 'running'
+            os.environ['PYTEST_CURRENT_TEST'] = 'tests/test_cli_run.py::TestCliRun::test_find_profile_path_exists'
         
         try:
             # Normalize profile file path for Windows
@@ -94,9 +95,11 @@ class TestCliRun:
                 assert os.path.exists(profile_file)
                 assert profile_path.endswith('test_profile.yaml')
         finally:
-            # Clean up environment variable
+            # Clean up environment variables
             if 'test_find_profile_path_exists' in os.environ:
                 del os.environ['test_find_profile_path_exists']
+            if 'PYTEST_CURRENT_TEST' in os.environ and sys.platform == 'win32':
+                del os.environ['PYTEST_CURRENT_TEST']
     
     def test_find_profile_path_not_exists(self):
         """Test finding a non-existent profile path."""

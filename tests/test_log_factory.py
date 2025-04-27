@@ -127,28 +127,64 @@ def test_log_factory_enhanced_logger_methods_work():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="File handler creation is disabled under pytest on Windows")
 def test_log_factory_file_handler_actual_write():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        logfile = os.path.join(tmpdir, "logfile.log")
-        config = {
-            "format": "text",
-            "destination": "file",
-            "file_path": logfile,
-            "level": "INFO"
-        }
-        LogFactory.init_from_config(config)
-
-        logger = LogFactory.get_logger("pulsepipe.filetest")
-        logger.info("Logging to file!")
-
-        # Manually flush handlers to ensure write
-        for handler in logger.handlers:
-            if hasattr(handler, "flush"):
-                handler.flush()
-
-        assert os.path.exists(logfile)
-        with open(logfile, 'r', encoding='utf-8') as f:
-            content = f.read()
-            assert "Logging to file" in content
+    # Set environment variables to force file logging
+    os.environ['PULSEPIPE_TEST_FILE_LOGGING_REQUIRED'] = '1'
+    if 'PULSEPIPE_TEST_NO_FILE_LOGGING' in os.environ:
+        del os.environ['PULSEPIPE_TEST_NO_FILE_LOGGING']
+        
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logfile = os.path.join(tmpdir, "logfile.log")
+            
+            # Create log directory structure to ensure it exists
+            os.makedirs(os.path.dirname(logfile), exist_ok=True)
+            
+            # Make sure the file doesn't exist yet
+            if os.path.exists(logfile):
+                os.unlink(logfile)
+                
+            # Create an empty file to ensure path exists
+            with open(logfile, 'w', encoding='utf-8') as f:
+                f.write('')
+                
+            assert os.path.exists(logfile), f"Log file creation failed at {logfile}"
+            
+            config = {
+                "format": "text", 
+                "destination": "file",
+                "file_path": logfile,
+                "level": "INFO"
+            }
+            
+            LogFactory.init_from_config(config)
+            logger = LogFactory.get_logger("pulsepipe.filetest")
+            
+            # Write to the log
+            logger.info("Logging to file!")
+            
+            # Manually flush handlers to ensure write
+            for handler in logger.handlers:
+                if hasattr(handler, "flush"):
+                    handler.flush()
+                    
+            # Force close the handlers
+            for handler in logger.handlers[:]:
+                if hasattr(handler, "close"):
+                    handler.close()
+                    
+            # Explicitly close and release all file handlers
+            LogFactory._cleanup_file_handlers()
+            
+            # Verify file exists and contents
+            assert os.path.exists(logfile), f"Log file doesn't exist at {logfile}"
+            with open(logfile, 'r', encoding='utf-8') as f:
+                content = f.read()
+                assert "Logging to file" in content
+                
+    finally:
+        # Clean up environment variables
+        if 'PULSEPIPE_TEST_FILE_LOGGING_REQUIRED' in os.environ:
+            del os.environ['PULSEPIPE_TEST_FILE_LOGGING_REQUIRED']
 
 def test_add_emoji_to_log_message_unknown_domain():
     """Test fallback when logger name has unknown domain."""

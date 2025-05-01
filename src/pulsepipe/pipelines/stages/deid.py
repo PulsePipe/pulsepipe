@@ -567,6 +567,7 @@ class DeidentificationStage(PipelineStage):
         
         - Keep only year or generalize dates to month/year based on config
         - Special handling for dates of individuals over 90
+        - Properly handles lists of dates (such as service_dates in PriorAuthorization)
         """
         keep_year = config.get("keep_year", True)
         over_90_handling = config.get("over_90_handling", "flag")
@@ -584,8 +585,49 @@ class DeidentificationStage(PipelineStage):
             if attr_name.startswith('_'):
                 continue
             
-            # Handle date objects
-            if isinstance(attr_value, (datetime, date)):
+            # Handle lists of dates (like service_dates in PriorAuthorization)
+            if isinstance(attr_value, list):
+                processed_list = []
+                list_modified = False
+                
+                for item in attr_value:
+                    if isinstance(item, (datetime, date)):
+                        list_modified = True
+                        # Apply Safe Harbor rules
+                        if is_over_90 and over_90_handling == "redact":
+                            # Skip this item (will be None)
+                            processed_list.append(None)
+                        elif keep_year:
+                            # Convert to year only
+                            try:
+                                year = item.year
+                                # For >90 patients, we might need to modify the year
+                                if is_over_90 and over_90_handling == "adjust":
+                                    year = max(year, datetime.now().year - 90)
+                                
+                                # Create a date with just the year (Jan 1)
+                                if isinstance(item, datetime):
+                                    new_date = datetime(year, 1, 1, 0, 0, 0)
+                                else:
+                                    new_date = date(year, 1, 1)
+                                
+                                processed_list.append(new_date)
+                            except Exception:
+                                # If date manipulation fails, set to None
+                                processed_list.append(None)
+                        else:
+                            # Completely remove the date
+                            processed_list.append(None)
+                    else:
+                        # Keep non-date items unchanged
+                        processed_list.append(item)
+                
+                # Only update the attribute if we actually modified date objects
+                if list_modified:
+                    setattr(obj, attr_name, processed_list)
+                
+            # Handle individual date objects
+            elif isinstance(attr_value, (datetime, date)):
                 # Apply Safe Harbor rules
                 if is_over_90 and over_90_handling == "redact":
                     # Completely redact dates for >90 patients

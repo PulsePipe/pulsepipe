@@ -20,56 +20,65 @@
 # ------------------------------------------------------------------------------
 
 # tests/test_file_watcher_adapter.py
-
 import asyncio
-from pathlib import Path
+import os
+import sys
 import pytest
+
 from pulsepipe.adapters.file_watcher import FileWatcherAdapter
 
 @pytest.mark.asyncio
-async def test_file_watcher_adapter_enqueues_data(tmp_path):
-    """Test that the file watcher adapter correctly enqueues data from detected files."""
-    # Setup the test directory
+async def test_filewatcher_enqueue(tmp_path, monkeypatch):
+    """Test FileWatcherAdapter with simple tmp_path."""
+
     ingest_path = tmp_path / "fixtures"
     ingest_path.mkdir(parents=True, exist_ok=True)
 
+
+    ingest_path_str = str(ingest_path)
+    if sys.platform == 'win32':
+        ingest_path_str = ingest_path_str.replace("\\", "/")
+
+    if sys.platform == 'win32':
+        monkeypatch.setenv("fwt", "running")
+
     adapter_config = {
-        "watch_path": str(ingest_path),
+        "watch_path": ingest_path_str,
         "extensions": [".json"],
-        "bookmark_file": ".bookmark.dat"
+        "bookmark_file": ".bookmark.dat",
+        "test_mode": True,
     }
 
-    # Create adapter and queue
     adapter = FileWatcherAdapter(adapter_config)
     queue = asyncio.Queue()
 
-    # Create a run task with proper cleanup
-    task = asyncio.create_task(adapter.run(queue))
-    
     try:
-        # Create and write the test file after a short delay to ensure adapter is running
-        test_content = '{"resourceType": "Patient", "id": "test-patient"}'
+        task = asyncio.create_task(adapter.run(queue))
+
+        # Simulate creating a file
         test_file = ingest_path / "test_patient.json"
-    
+        test_content = '{"resourceType": "Patient", "id": "test-patient"}'
+
         await asyncio.sleep(0.5)
-        test_file.write_text(test_content, encoding='utf-8')
-    
-        # Wait for the data to be processed and enqueued
+
+        with open(test_file, "w", encoding="utf-8") as f:
+            f.write(test_content)
+            f.flush()
+
         try:
-            raw_data = await asyncio.wait_for(queue.get(), timeout=3)
+            raw_data = await asyncio.wait_for(queue.get(), timeout=3.0)
         except asyncio.TimeoutError:
             pytest.fail("Adapter did not enqueue data in time.")
-    
-        # Verify the content matches
+
         assert raw_data == test_content
-        
+
     finally:
-        # Always cleanup the task properly
-        if not task.done():
+        if 'task' in locals() and not task.done():
             task.cancel()
             try:
-                # Use short timeout to avoid blocking test cleanup
                 await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
             except (asyncio.CancelledError, asyncio.TimeoutError):
-                # These are expected during cancellation
                 pass
+
+        if 'test_file_watcher_adapter_enqu' in os.environ:
+            del os.environ['test_file_watcher_adapter_enqu']

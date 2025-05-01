@@ -30,7 +30,9 @@ Manages state and configuration during pipeline execution.
 import uuid
 import json
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 
 from pulsepipe.utils.log_factory import LogFactory
@@ -287,82 +289,48 @@ class PipelineContext:
             return f"{base}_{stage_name}_{suffix}{ext}"
         return f"{base}_{stage_name}{ext}"
     
-    def export_results(self, data: Any, stage: str = None, format: str = None) -> None:
+    def export_results(self, data, output_type=None, format=None):
         """
-        Export data to a file.
+        Export pipeline results to the configured output path.
         
         Args:
-            data: Data to export
-            stage: Pipeline stage that generated the data
-            format: Output format (e.g., "json", "jsonl")
+            data: The data to export
+            output_type: Type of output (ingestion, chunking, etc.)
+            format: Output format (json, csv, etc.)
         """
         if not self.output_path:
-            logger.info(f"{self.log_prefix} No output path specified, skipping export")
             return
             
-        output_path = self.output_path
-        if stage:
-            base, ext = os.path.splitext(self.output_path)
-            output_path = f"{base}_{stage}{ext}"
+        # Import PlatformPath
+        from pulsepipe.utils.path_normalizer import PlatformPath
         
-        try:
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        # Determine output path
+        if output_type:
+            base_name = os.path.splitext(self.output_path)[0]
+            ext = f".{format}" if format else os.path.splitext(self.output_path)[1]
+            suffix = f"_{output_type}" if output_type else ""
+            output_path = f"{base_name}{suffix}{ext}"
+        else:
+            output_path = self.output_path
             
-            # Determine export format
-            format = format or "json"
-            
-            if format == "jsonl":
-                # Export as JSONL (one JSON object per line)
-                if isinstance(data, list):
-                    with open(output_path, 'w') as f:
-                        for item in data:
-                            if hasattr(item, 'model_dump'):
-                                # Pydantic model
-                                f.write(json.dumps(item.model_dump()) + '\n')
-                            elif isinstance(item, dict):
-                                # Dictionary
-                                f.write(json.dumps(item) + '\n')
-                            else:
-                                # Convert to string
-                                f.write(json.dumps(str(item)) + '\n')
-                else:
-                    logger.warning(f"{self.log_prefix} Data is not a list, but JSONL format was requested")
-                    # Create a single-line JSONL file
-                    with open(output_path, 'w') as f:
-                        if hasattr(data, 'model_dump'):
-                            f.write(json.dumps(data.model_dump()) + '\n')
-                        elif isinstance(data, dict):
-                            f.write(json.dumps(data) + '\n')
-                        else:
-                            f.write(json.dumps(str(data)) + '\n')
-            
-            elif format == "json":
-                # Export as formatted JSON
-                indent = 2 if self.pretty else None
-                with open(output_path, 'w') as f:
-                    if hasattr(data, 'model_dump_json'):
-                        # Pydantic model with direct JSON serialization
-                        f.write(data.model_dump_json(indent=indent))
-                    elif hasattr(data, 'model_dump'):
-                        # Pydantic model
-                        json.dump(data.model_dump(), f, indent=indent)
-                    else:
-                        # Try to JSON serialize the data
-                        json.dump(data, f, indent=indent, default=str)
-            
+        # Normalize path for the current platform
+        platform_path = PlatformPath()
+        normalized_path = platform_path.normalize_path(output_path)
+        
+        # Create directory if it doesn't exist
+        dir_path = os.path.dirname(os.path.abspath(normalized_path))
+        os.makedirs(dir_path, exist_ok=True)
+        
+        # Write data to file
+        with open(normalized_path, "w", encoding='utf-8') as f:
+            if hasattr(data, 'model_dump_json'):
+                # If it's a Pydantic model, use its JSON serialization
+                f.write(data.model_dump_json(indent=2))
             else:
-                # Default to string representation
-                with open(output_path, 'w') as f:
-                    f.write(str(data))
-            
-            logger.info(f"{self.log_prefix} Exported data to {output_path}")
-            
-        except Exception as e:
-            error_msg = f"Failed to export data to {output_path}: {str(e)}"
-            self.add_error("export", error_msg)
-            logger.error(f"{self.log_prefix} {error_msg}")
-    
+                # Otherwise use standard JSON serialization
+                json.dump(data, f, indent=2)
+
+
     def get_summary(self) -> Dict[str, Any]:
         """
         Generate a summary of the pipeline execution.

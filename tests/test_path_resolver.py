@@ -25,6 +25,7 @@
 
 import os
 import sys
+import pytest
 import shutil
 import tempfile
 import unittest
@@ -136,6 +137,7 @@ class TestPathResolver(unittest.TestCase):
         abs_path = os.path.join(self.temp_dir, 'absolute/path')
         self.assertEqual(abs_path, expand_path(abs_path))
     
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific path handling test")
     @patch('sys.platform', 'win32')
     @patch('os.makedirs')  # mock makedirs
     def test_get_app_data_dir_windows(self, mock_makedirs):  # Add mock_makedirs parameter
@@ -149,7 +151,8 @@ class TestPathResolver(unittest.TestCase):
             app_dir = get_app_data_dir()
             expected_dir = Path(r'C:\Users\Test\AppData\Roaming\PulsePipe')
             self.assertEqual(expected_dir, app_dir)
-    
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific path handling test")
     @patch('sys.platform', 'win32')
     @patch('os.makedirs')
     def test_get_app_data_dir_windows_fallback(self, mock_makedirs):
@@ -165,7 +168,8 @@ class TestPathResolver(unittest.TestCase):
                     self.assertEqual(expected_dir, app_dir)
     
     @patch('sys.platform', 'darwin')
-    def test_get_app_data_dir_macos(self):
+    @patch('os.makedirs') 
+    def test_get_app_data_dir_macos(self, mock_makedirs):  # Add mock_makedirs parameter
         """Test app data directory resolution on macOS."""
         with patch('os.path.expanduser', return_value='/Users/test'):
             app_dir = get_app_data_dir('TestApp')
@@ -173,7 +177,8 @@ class TestPathResolver(unittest.TestCase):
             self.assertEqual(expected_dir, app_dir)
     
     @patch('sys.platform', 'linux')
-    def test_get_app_data_dir_linux(self):
+    @patch('os.makedirs')
+    def test_get_app_data_dir_linux(self, mock_makedirs):  # Add mock_makedirs parameter
         """Test app data directory resolution on Linux."""
         with patch('os.path.expanduser', return_value='/home/test'):
             app_dir = get_app_data_dir('TestApp')

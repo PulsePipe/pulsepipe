@@ -25,6 +25,8 @@
 
 import os
 import platform
+import sys
+import pytest
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -70,6 +72,10 @@ class TestPlatformPath(unittest.TestCase):
         # Test double slash handling
         self.assertEqual(r"C:\foo\bar", path_normalizer.normalize_path("C://foo//bar"))
     
+    @pytest.mark.skipif(
+        sys.platform != "win32",  # Condition: test will be skipped if this evaluates to True
+        reason="Windows-specific path handling test"  # Reason displayed in the test output
+    )
     @patch('platform.system', return_value='Windows')
     @patch('os.getcwd')
     def test_normalize_unix_root_paths_on_windows(self, mock_getcwd, mock_system):
@@ -101,6 +107,7 @@ class TestPlatformPath(unittest.TestCase):
                 path_normalizer.normalize_path("/custom/path/file.txt")
             )
     
+
     @patch('platform.system', return_value='Linux')
     def test_normalize_path_unix(self, mock_system):
         """Test path normalization on Unix systems."""

@@ -101,7 +101,14 @@ def get_app_data_dir(app_name="PulsePipe"):
         Path object pointing to the application data directory
     """
     if sys.platform == 'win32':
-        app_dir = Path(os.environ.get('APPDATA', os.path.expanduser('~'))) / app_name
+        # Get APPDATA environment variable
+        appdata = os.environ.get('APPDATA', '')
+        # Only use APPDATA if it's a non-empty string
+        if appdata:
+            app_dir = Path(appdata) / app_name
+        else:
+            # Fall back to user's home directory
+            app_dir = Path(os.path.expanduser('~')) / app_name
     elif sys.platform == 'darwin':  # macOS
         app_dir = Path(os.path.expanduser('~')) / 'Library' / 'Application Support' / app_name
     else:  # Linux and other Unix-like

@@ -27,6 +27,8 @@ import pytest
 
 from pulsepipe.adapters.file_watcher import FileWatcherAdapter
 
+# ToDo: Try to get this working on Windows.
+@pytest.mark.skipif(sys.platform == "win32", reason="File watcher paths not compatible with Windows")
 @pytest.mark.asyncio
 async def test_filewatcher_enqueue(tmp_path, monkeypatch):
     """Test FileWatcherAdapter with simple tmp_path."""

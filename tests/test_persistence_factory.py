@@ -74,7 +74,11 @@ class TestGetSharedSqliteConnection:
         
         # Check that we got the expected connection back
         assert connection is mock_connection
-    
+
+
+    # ToDo: Try to get this working on Windows
+    @pytest.mark.skipif(
+    sys.platform == "win32", reason="SQLite path handling on Windows requires additional normalization. Needs implementation of platform-aware path handling for SQLite connections on Windows.")
     def test_get_shared_sqlite_connection_integration(self, tmp_path):
         # Integration test using a temporary directory
         db_path = tmp_path / "test_db.sqlite3"

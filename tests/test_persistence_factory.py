@@ -20,7 +20,7 @@ class TestGetSharedSqliteConnection:
         
         # Check that the default path was used
         expected_path = Path(".pulsepipe/state/ingestion.sqlite3")
-        mock_connect.assert_called_once_with(expected_path)
+        mock_connect.assert_called_once_with(str(expected_path))
         
         # Verify directory was created
         mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
@@ -47,7 +47,7 @@ class TestGetSharedSqliteConnection:
         
         # Check that the custom path was used
         expected_path = Path("/custom/path/db.sqlite3")
-        mock_connect.assert_called_once_with(expected_path)
+        mock_connect.assert_called_once_with(str(expected_path))
         
         # Verify directory was created
         mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
@@ -70,7 +70,7 @@ class TestGetSharedSqliteConnection:
         
         # Check that the default path was used
         expected_path = Path(".pulsepipe/state/ingestion.sqlite3")
-        mock_connect.assert_called_once_with(expected_path)
+        mock_connect.assert_called_once_with(str(expected_path))
         
         # Check that we got the expected connection back
         assert connection is mock_connection

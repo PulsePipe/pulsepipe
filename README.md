@@ -1,6 +1,6 @@
 # PulsePipe
 
-**PulsePipe** is a modular, AI-native healthcare data pipeline. It ingests clinical data (HL7 v2, FHIR, CDA/CCDA, plain text, and custom templates), de-identifies and normalizes it, prepares it for LLM-friendly text processing, and generates vector representations for AI/ML tasks.
+**PulsePipe** is a modular, AI-native healthcare data pipeline. It ingests clinical data (HL7 v2, FHIR, X12, CDA/CCDA, plain text, and custom templates), de-identifies and normalizes it, prepares it for LLM-friendly text processing, and generates vector representations for AI/ML tasks.
 
 PulsePipe transforms healthcare data into embedding-ready chunks annotated with rich metadata (patient hashes, timestamps, note types, etc.). It supports generating multiple vector formats via configurable embedding engines (ClinicalBERT, GPT-4, Llama v4, and others) for use in vector databases such as Pinecone, Weaviate, or FAISS.
 
@@ -41,6 +41,7 @@ PulsePipe is designed for AI-powered healthcare applications including:
 | FHIR | Supports FHIR `JSON` or `XML` resources |
 | HL7 | Supports HL7 v2.x message ingestion (ADT, ORU, ORM, etc.) |
 | CDA | Supports CDA/CCDA XML documents (e.g., Discharge Summaries, AVS) |
+| X12 | Supports X12 healthcare claim, authorization, and eligibility transactions (e.g., 837, 835, 270/271) with configurable parsing and segment-level access |
 | PlainText | Supports unstructured clinical notes |
 | Custom Template | Allows you to define and extend your own ingestion logic for proprietary or domain-specific formats |
 
@@ -49,7 +50,7 @@ PulsePipe is designed for AI-powered healthcare applications including:
 ## ✅ End-to-End Pipeline
 
 1. **Ingest**  
-   Accepts HL7, FHIR, CDA, PlainText, or custom template input.
+   Accepts HL7, FHIR, CDA, X12, PlainText, or custom template input.
 
 2. **Normalize**  
    Converts input into the Pulse Canonical Model — a standardized, AI/analytics-ready clinical representation.

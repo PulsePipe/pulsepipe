@@ -25,16 +25,21 @@ import sys
 from .base import BookmarkStore
 
 class SQLiteBookmarkStore(BookmarkStore):
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        
-        # Ensure the directory exists before creating the database
-        db_dir = os.path.dirname(db_path)
-        # Only try to create directory if there is a directory component
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir, exist_ok=True)
+    def __init__(self, db_connection_or_path):
+        # Accept either a connection object or a path to the database
+        if isinstance(db_connection_or_path, sqlite3.Connection):
+            self.conn = db_connection_or_path
+            self.db_path = None  # Not needed when connection is provided
+        else:
+            self.db_path = db_connection_or_path
+            # Ensure the directory exists before creating the database
+            db_dir = os.path.dirname(self.db_path)
+            # Only try to create directory if there is a directory component
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
             
-        self.conn = sqlite3.connect(db_path)
+            self.conn = sqlite3.connect(self.db_path)
+            
         self._ensure_schema()
 
     def _ensure_schema(self):

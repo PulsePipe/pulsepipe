@@ -37,7 +37,6 @@ from pathlib import Path
 from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
-from pulsepipe.persistence.factory import get_shared_sqlite_connection
 
 @click.group()
 @click.pass_context
@@ -329,8 +328,17 @@ def list_processed_files(config_path, profile):
     else:
         config = load_config(config_path)
 
-    sqlite_conn = get_shared_sqlite_connection(config)
-    store = SQLiteBookmarkStore(sqlite_conn)
+    db_path = config.get("persistence", {}).get("sqlite", {}).get(
+        "db_path", ".pulsepipe/state/ingestion.sqlite3"
+    )
+    
+    # Ensure the directory exists before opening the database
+    db_dir = os.path.dirname(db_path)
+    # Only try to create directory if there is a directory component
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    store = SQLiteBookmarkStore(db_path)
     bookmarks = store.get_all()
     if not bookmarks:
         click.echo("📭 No processed files found.")
@@ -351,8 +359,17 @@ def reset_bookmarks(config_path, profile):
     else:
         config = load_config(config_path)
 
-    sqlite_conn = get_shared_sqlite_connection(config)
-    store = SQLiteBookmarkStore(sqlite_conn)
+    db_path = config.get("persistence", {}).get("sqlite", {}).get(
+        "db_path", ".pulsepipe/state/ingestion.sqlite3"
+    )
+    
+    # Ensure the directory exists before opening the database
+    db_dir = os.path.dirname(db_path)
+    # Only try to create directory if there is a directory component
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    store = SQLiteBookmarkStore(db_path)
     count = store.clear_all()
     click.echo(f"✅ Cleared {count} bookmarks.")
 
@@ -369,8 +386,17 @@ def archive_files(config_path, profile, archive_dir):
     else:
         config = load_config(config_path)
 
-    sqlite_conn = get_shared_sqlite_connection(config)
-    store = SQLiteBookmarkStore(sqlite_conn)
+    db_path = config.get("persistence", {}).get("sqlite", {}).get(
+        "db_path", ".pulsepipe/state/ingestion.sqlite3"
+    )
+    
+    # Ensure the directory exists before opening the database
+    db_dir = os.path.dirname(db_path)
+    # Only try to create directory if there is a directory component
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    store = SQLiteBookmarkStore(db_path)
     bookmarks = store.get_all()
     os.makedirs(archive_dir, exist_ok=True)
     moved = 0
@@ -396,8 +422,17 @@ def delete_files(config_path, profile):
     else:
         config = load_config(config_path)
 
-    sqlite_conn = get_shared_sqlite_connection(config)
-    store = SQLiteBookmarkStore(sqlite_conn)
+    db_path = config.get("persistence", {}).get("sqlite", {}).get(
+        "db_path", ".pulsepipe/state/ingestion.sqlite3"
+    )
+    
+    # Ensure the directory exists before opening the database
+    db_dir = os.path.dirname(db_path)
+    # Only try to create directory if there is a directory component
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    store = SQLiteBookmarkStore(db_path)
     bookmarks = store.get_all()
     deleted = 0
     for path in bookmarks:

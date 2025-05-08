@@ -160,9 +160,8 @@ class TestCliConfig:
             with patch('pulsepipe.cli.command.config.load_config') as config_load:
                 config_load.return_value = {}
                 
-                with patch('pulsepipe.cli.command.config.get_shared_sqlite_connection'):
-                    # Mock SQLiteBookmarkStore.get_all to return test bookmarks
-                    with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.get_all') as mock_get_all:
+                # Mock SQLiteBookmarkStore.get_all to return test bookmarks
+                with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.get_all') as mock_get_all:
                         mock_get_all.return_value = [
                             "/path/to/file1.txt",
                             "/path/to/file2.txt"

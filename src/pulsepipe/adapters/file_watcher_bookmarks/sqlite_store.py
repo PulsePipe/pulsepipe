@@ -31,7 +31,7 @@ class SQLiteBookmarkStore(BookmarkStore):
             self.conn = db_connection_or_path
             self.db_path = None  # Not needed when connection is provided
         else:
-            self.db_path = db_connection_or_path
+            self.db_path = str(db_connection_or_path)  # Convert to string to handle Path objects
             # Ensure the directory exists before creating the database
             db_dir = os.path.dirname(self.db_path)
             # Only try to create directory if there is a directory component

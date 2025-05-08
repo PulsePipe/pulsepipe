@@ -30,4 +30,5 @@ def get_shared_sqlite_connection(config: dict) -> sqlite3.Connection:
     )
     db_file = Path(db_path)
     db_file.parent.mkdir(parents=True, exist_ok=True)
-    return sqlite3.connect(db_file)
+    # Convert Path to string to avoid "expected str, bytes or os.PathLike, not Connection" error on Windows
+    return sqlite3.connect(str(db_file))

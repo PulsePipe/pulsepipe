@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from .billing import Claim, Charge, Payment, Adjustment
 from .prior_authorization import PriorAuthorization
-
+from .drg import DRG
 
 class PulseOperationalContent(BaseModel):
     """
@@ -50,13 +50,13 @@ class PulseOperationalContent(BaseModel):
     interchange_control_number: Optional[str]
     functional_group_control_number: Optional[str]
     organization_id: Optional[str]
-
+    drgs: List[DRG] = []
     claims: List[Claim] = []
     charges: List[Charge] = []
     payments: List[Payment] = []
     adjustments: List[Adjustment] = []
     prior_authorizations: List[PriorAuthorization] = []
-
+    
     def summary(self) -> str:
         """
         Generate a human-friendly summary of the operational content.
@@ -101,6 +101,7 @@ class PulseOperationalContent(BaseModel):
         
         # Financial data summary
         entity_counts = {
+            "drgs": ("🏥", len(self.drgs)),
             "claims": ("💼", len(self.claims)),
             "charges": ("🧾", len(self.charges)),
             "payments": ("💵", len(self.payments)),
@@ -139,6 +140,17 @@ class PulseOperationalContent(BaseModel):
         
         if has_paid:
             totals.append(f"Paid: ${paid_amount:,.2f}")
+        
+        # Calculate DRG-based expected reimbursement if available
+        drg_based_amount = 0
+        has_drg_payment = False
+        for drg in self.drgs:
+            if hasattr(drg, "payment_amount") and drg.payment_amount is not None:
+                drg_based_amount += drg.payment_amount
+                has_drg_payment = True
+        
+        if has_drg_payment:
+            totals.append(f"DRG Expected: ${drg_based_amount:,.2f}")
         
         # Add totals if available
         if totals:

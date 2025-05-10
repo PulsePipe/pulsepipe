@@ -254,18 +254,17 @@ responded well to Treatment Y.
 #### Operational Chat Prompts
 
 ```
-# Resource Utilization
-What is the average length of stay for patients with diagnosis X 
-compared to similar institutions?
+# Billing and Denials
+Which procedures had the highest denial rates last quarter and what documentation issues contributed?
 
-# Workflow Optimization
-Identify bottlenecks in our current triage process based on patient flow data.
+# Workforce Efficiency
+Identify departments with the most overtime logged and does it align with patient acuity data?
 
-# Quality Metrics
-Show compliance trends for core measures across departments over the last quarter.
+# Service Line Profitability
+Which service lines generated the highest revenue per encounter last quarter, and how does that compare to staffing and supply costs?
 
-# Billing and Coding
-Identify potential documentation gaps that could affect coding accuracy for procedures X and Y.
+# Revenue Cycle Health
+What are the top reasons for delayed payments from insurers in the past 6 months?
 ```
 
 Configure these prompts in your application by using PulsePipe's embedding context:
@@ -320,6 +319,10 @@ For full details, see the [LICENSE](./LICENSE.md) and [LICENSE-EXCEPTIONS](./LIC
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
+
+## 🗺️ Roadmap
+
+PulsePipe is under active development! Check out our detailed [Roadmap](ROADMAP.md) to see our current progress, milestone completion status, and planned features for future releases.
 
 ## 📞 Support
 

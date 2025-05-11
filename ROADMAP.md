@@ -55,7 +55,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [X] Presidio
     - [ ] Clinical NER models
 - [ ] 🧪 Synthetic Test Dataset
-    - [ ] Integrate Synthia to generate high-fidelity synthetic FHIR data
+    - [x] Integrate Synthea to generate high-fidelity synthetic FHIR data
     - [ ] Generate a small, high-quality synthetic dataset (FHIR, HL7v2, X12)
     - [ ] Include edge cases (multiple patients, empty fields, varied formats)
     - [ ] Use for unit/integration tests of mappers and embedding steps

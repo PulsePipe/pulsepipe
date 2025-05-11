@@ -40,4 +40,13 @@ from . import (
     medication_mapper,
     diagnostic_report_mapper,
     problem_list_mapper,
+    claim_mapper,
+    device_mapper,
+    document_reference_mapper,
+    explanation_of_benefit_mapper,
+    imaging_study_mapper,
+    medication_administration_mapper,
+    medication_request_mapper,
+    procedure_mapper,
+    supply_delivery_mapper,
 )

@@ -31,5 +31,5 @@ logging:
   level: info                     # debug | info | warning | error
   destination: both               # stdout | file | both | syslog | cloud
   file_path: logs/pulse.log       # relative or absolute path to the log directory
-  show_banner: true               # shows the PulsePipe banner in the CLI
+  show_banner: false              # shows the PulsePipe banner in the CLI
   include_emoji: false            # disable emoji for Windows compatibility

@@ -27,6 +27,7 @@ PulsePipe is designed for AI-powered healthcare applications including:
 - **Multi-embedding generation**: Generate several embedding formats per chunk
 - **Metadata-first design** for context-rich, patient-safe vector chunks
 - **Flexible vector storage**: Pinecone, Weaviate, FAISS, or custom backends
+- **RAG (Retrieval-Augmented Generation)**: Combines generative models with local data retrieval to enhance AI-driven analysis. For detailed insights, refer to the whitepaper.
 - **Built on `pydantic`** for strict schema validation
 - **Modern Python toolchain** compatibility (Poetry, Pytest, Mypy)
 - **AI/NLP enhanced** ingestion pipelines

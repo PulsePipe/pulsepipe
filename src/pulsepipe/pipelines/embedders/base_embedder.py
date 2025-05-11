@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# PulsePipe — Ingest, Normalize, De-ID, Embed. Healthcare Data, AI-Ready.
+# PulsePipe — Ingest, Normalize, De-ID, Chunk, Embed. Healthcare Data, AI-Ready with RAG.
 # https://github.com/PulsePipe/pulsepipe
 #
 # Copyright (C) 2025 Amir Abrams

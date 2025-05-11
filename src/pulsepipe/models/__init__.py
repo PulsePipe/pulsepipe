@@ -52,3 +52,7 @@ from .billing import Charge, Payment, Adjustment, Claim
 from .operational_content import PulseOperationalContent
 from .prior_authorization import PriorAuthorization
 from .drg import DRG
+from .location import Location, LocationPosition
+from .organization import Organization, OrganizationContact
+from .practitioner import Practitioner, PractitionerQualification
+from .practitioner_role import PractitionerRole, AvailableTime, NotAvailable

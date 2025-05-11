@@ -23,6 +23,7 @@
 
 """
 PulsePipe — Medication Mapper
+Handles both Medication resources and MedicationStatement resources
 """
 
 from pulsepipe.models import Medication, PulseClinicalContent, MessageCache
@@ -30,7 +31,7 @@ from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference, extract_encounter_reference, get_code, get_system, get_display
 
 @fhir_mapper("MedicationStatement")
-class MedicationMapper(BaseFHIRMapper):
+class MedicationStatementMapper(BaseFHIRMapper):
     RESOURCE_TYPE = "MedicationStatement"
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
         content.medications.append(self.parse_medication(resource, cache))
@@ -42,7 +43,7 @@ class MedicationMapper(BaseFHIRMapper):
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
 
-        # We'll take the first dosage if present ?
+        # We'll take the first dosage if present
         dose = None
         route = None
         frequency = None
@@ -64,4 +65,98 @@ class MedicationMapper(BaseFHIRMapper):
             status=resource.get("status"),
             patient_id=patient_id,
             encounter_id=encounter_id,
+        )
+
+
+@fhir_mapper("Medication")
+class MedicationResourceMapper(BaseFHIRMapper):
+    RESOURCE_TYPE = "Medication"
+    
+    def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
+        """
+        For standalone Medication resources (as opposed to MedicationStatement or MedicationRequest),
+        we'll add a simplified entry to the medications list.
+        """
+        # Create a basic Medication object with available info
+        medication = self.parse_medication(resource)
+        
+        # Add to content's medications list
+        content.medications.append(medication)
+    
+    def parse_medication(self, resource: dict) -> Medication:
+        """
+        Parse a Medication resource into a simplified Medication model
+        """
+        # Extract code information
+        code = get_code(resource)
+        coding_method = get_system(resource)
+        
+        # Extract medication name
+        name = resource.get("code", {}).get("text")
+        if not name and resource.get("code", {}).get("coding"):
+            for coding in resource["code"]["coding"]:
+                if coding.get("display"):
+                    name = coding["display"]
+                    break
+        
+        # Get form information if available
+        form = None
+        if resource.get("form", {}).get("coding"):
+            for coding in resource["form"]["coding"]:
+                if coding.get("display"):
+                    form = coding["display"]
+                    break
+        
+        # Check status
+        status = resource.get("status")
+        
+        # Extract a description from ingredients if available
+        notes = None
+        ingredients = []
+        for ingredient in resource.get("ingredient", []):
+            ingredient_name = None
+            
+            # Check if it's a coded ingredient or a reference
+            if ingredient.get("itemCodeableConcept", {}).get("coding"):
+                for coding in ingredient["itemCodeableConcept"]["coding"]:
+                    if coding.get("display"):
+                        ingredient_name = coding["display"]
+                        break
+            
+            # Get strength if available
+            strength = None
+            if ingredient.get("strength", {}).get("numerator") and ingredient.get("strength", {}).get("denominator"):
+                num = ingredient["strength"]["numerator"]
+                denom = ingredient["strength"]["denominator"]
+                
+                num_value = num.get("value")
+                num_unit = num.get("unit", "")
+                denom_value = denom.get("value")
+                denom_unit = denom.get("unit", "")
+                
+                if num_value and denom_value:
+                    strength = f"{num_value} {num_unit}/{denom_value} {denom_unit}"
+                elif num_value:
+                    strength = f"{num_value} {num_unit}"
+            
+            if ingredient_name:
+                ingredients.append(f"{ingredient_name} {strength if strength else ''}")
+        
+        # Build additional information from ingredients
+        if ingredients:
+            notes = f"Ingredients: {'; '.join(ingredients)}"
+        
+        # Create Medication object
+        return Medication(
+            code=code,
+            coding_method=coding_method,
+            name=name,
+            dose=None,
+            route=form,
+            frequency=None,
+            start_date=None,
+            end_date=None,
+            status=status,
+            patient_id=None,
+            encounter_id=None,
         )

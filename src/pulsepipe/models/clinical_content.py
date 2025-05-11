@@ -48,6 +48,10 @@ from .advance_directive import AdvanceDirective
 from .functional_status import FunctionalStatus
 from .order import Order
 from .implant import Implant
+from .device import Device
+from .document_reference import DocumentReference
+from .supply_delivery import SupplyDelivery
+# Note: Claim and ExplanationOfBenefit are in the billing.py model file
 
 class PulseClinicalContent(BaseModel):
     """
@@ -85,6 +89,11 @@ class PulseClinicalContent(BaseModel):
     functional_status: List[FunctionalStatus] = []
     order: List[Order] = []
     implant: List[Implant] = []
+    # New model fields
+    devices: List[Device] = []
+    document_references: List[DocumentReference] = []
+    supply_deliveries: List[SupplyDelivery] = []
+    claims: List = []  # Type will be resolved at runtime
 
 
     """

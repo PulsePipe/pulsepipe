@@ -51,6 +51,13 @@ from .implant import Implant
 from .device import Device
 from .document_reference import DocumentReference
 from .supply_delivery import SupplyDelivery
+from .care_team import CareTeam
+from .care_plan import CarePlan
+from .provenance import Provenance
+from .location import Location
+from .organization import Organization
+from .practitioner import Practitioner
+from .practitioner_role import PractitionerRole
 # Note: Claim and ExplanationOfBenefit are in the billing.py model file
 
 class PulseClinicalContent(BaseModel):
@@ -93,6 +100,13 @@ class PulseClinicalContent(BaseModel):
     devices: List[Device] = []
     document_references: List[DocumentReference] = []
     supply_deliveries: List[SupplyDelivery] = []
+    care_teams: List[CareTeam] = []
+    care_plans: List[CarePlan] = []
+    provenances: List[Provenance] = []
+    locations: List[Location] = []
+    organizations: List[Organization] = []
+    practitioners: List[Practitioner] = []
+    practitioner_roles: List[PractitionerRole] = []
     claims: List = []  # Type will be resolved at runtime
 
 
@@ -141,6 +155,16 @@ class PulseClinicalContent(BaseModel):
             # Other
             "order": "✅",
             "implant": "🦿",
+            "devices": "🔌",
+            "document_references": "📄",
+            "supply_deliveries": "📦",
+            "care_teams": "👥",
+            "care_plans": "📋",
+            "provenances": "🔍",
+            "locations": "📍",
+            "organizations": "🏢",
+            "practitioners": "⚕️",
+            "practitioner_roles": "👨‍⚕️",
         }
 
         summary_parts = []

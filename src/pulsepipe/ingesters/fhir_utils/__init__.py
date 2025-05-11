@@ -49,4 +49,11 @@ from . import (
     medication_request_mapper,
     procedure_mapper,
     supply_delivery_mapper,
+    care_plan_mapper,
+    care_team_mapper,
+    provenance_mapper,
+    location_mapper,
+    organization_mapper,
+    practitioner_mapper,
+    practitioner_role_mapper,
 )

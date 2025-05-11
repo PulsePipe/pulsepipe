@@ -58,6 +58,7 @@ from .location import Location
 from .organization import Organization
 from .practitioner import Practitioner
 from .practitioner_role import PractitionerRole
+from .appointment import AppointmentInfo
 # Note: Claim and ExplanationOfBenefit are in the billing.py model file
 
 class PulseClinicalContent(BaseModel):
@@ -107,6 +108,7 @@ class PulseClinicalContent(BaseModel):
     organizations: List[Organization] = []
     practitioners: List[Practitioner] = []
     practitioner_roles: List[PractitionerRole] = []
+    appointments: List[AppointmentInfo] = []
     claims: List = []  # Type will be resolved at runtime
 
 
@@ -165,6 +167,7 @@ class PulseClinicalContent(BaseModel):
             "organizations": "🏢",
             "practitioners": "⚕️",
             "practitioner_roles": "👨‍⚕️",
+            "appointments": "📅",
         }
 
         summary_parts = []

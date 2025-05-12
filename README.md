@@ -236,20 +236,38 @@ PulsePipe's vector embeddings enable powerful question-answering capabilities ov
 #### Clinical Chat Prompts
 
 ```
-# Patient History Review
-Given the lab results and vital signs for Patient X over the past 6 months, 
-what trends should I be concerned about?
+# Medication Review (Patient)
+Are there any potential drug interactions or conflicts with the medications
+I am currently taking, including over-the-counter drugs?
 
-# Medication Review
-Show me potential medication interactions for this patient's current prescriptions.
+# Medication Adherence (Patient)
+How can I better manage my medication schedule and ensure I’m taking my medications
+as prescribed?
 
-# Clinical Decision Support
-Based on this patient's history of hypertension and recent lab values, 
-what treatment protocols align with current guidelines?
+# Medication Adherence (Guardian/Caretaker)
+Based on my loved one's medication record, are there any duplicate medications
+or overlapping ingredients that could lead to accidental overdosing or adverse effects?
 
-# Similar Case Finding
-Find cases similar to this patient with unexplained fever and joint pain who 
-responded well to Treatment Y.
+# Medication Monitoring (Guardian/Caretaker)
+What signs should I look for to detect potential side effects or reactions from
+the medications my loved one is taking?
+
+# Medication Reconciliation (Nurse/PA/APN)
+Does this patient's current medication list include prescriptions that were filled
+but are no longer in use or do not align with any current diagnoses (e.g., short-term
+medications like antibiotics or pain relievers)? Please highlight any discrepancies.
+
+# Patient Monitoring (Nurse/PA/APN)
+Based on the patient's current vital signs and medication list, which areas of
+concern should I monitor most closely in the next 24 hours?
+
+# Treatment Adjustments (Physician)
+Given this patient's current medication list and comorbidities, what treatment
+adjustments should be made to improve their overall health outcome?
+
+# Medication Optimization (Physician)
+Based on this patient’s diabetes and hypertension medications, which additional
+treatment options should we consider to prevent complications like CHF or CKD?
 ```
 
 #### Operational Chat Prompts

@@ -72,7 +72,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Vector DB connectivity and document serialization
     - [x] Integrate Pytests with Github Actions
     - [x] Add a Code Coverage Report
-    - [ ] Code Coverage >=85% (Current coverage at 70%)
+    - [ ] Code Coverage >=85% (Current coverage at 76%)
     - [ ] Review existing tests for superficial coverage (init-only tests without meaningful validation)
     - [ ] Add tests for error paths and boundary conditions (malformed data, connection failures, timeouts)
     - [ ] Expand coverage for complex logic branches in high-risk modules (parsers, config handlers, pipeline execution)

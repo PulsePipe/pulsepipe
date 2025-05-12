@@ -50,3 +50,4 @@ class Medication(BaseModel):
     status: Optional[str]
     patient_id: Optional[str]
     encounter_id: Optional[str]
+    notes: Optional[str]

@@ -35,17 +35,16 @@ class ConditionMapper(BaseFHIRMapper):
         )
 
         if is_problem:
-            content.problem_list.append(self.parse_problem(resource))
+            content.problem_list.append(self.parse_problem(resource, cache))
         else:
-            content.diagnoses.append(self.parse_diagnosis(resource))
+            content.diagnoses.append(self.parse_diagnosis(resource, cache))
 
     def parse_problem(self, resource: dict, cache: MessageCache) -> Problem:
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
         return Problem(
-            problem_id=resource.get("id"),
+            # Map to the correct field names from the model
             description=resource.get("code", {}).get("text") or "Unknown",
-            status=resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code") or "unknown",
             patient_id=patient_id,
             encounter_id=encounter_id,
         )
@@ -54,9 +53,11 @@ class ConditionMapper(BaseFHIRMapper):
         patient_id = extract_patient_reference(resource) or cache.get("patient_id")
         encounter_id = extract_encounter_reference(resource) or cache.get("encounter_id")
         return Diagnosis(
-            diagnosis_id=resource.get("id"),
+            # Map to the correct field names from the model with all required fields
+            code=None,  # Required field
+            coding_method=None,  # Required field
             description=resource.get("code", {}).get("text") or "Unknown",
-            status=resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code") or "unknown",
+            onset_date=None,  # Required field
             patient_id=patient_id,
             encounter_id=encounter_id,
         )

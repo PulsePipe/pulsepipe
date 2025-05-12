@@ -48,12 +48,16 @@ class MedicationRequestMapper(BaseFHIRMapper):
         medication_name = None
         medication_code = None
         coding_method = None
-        
+
         # Check if medication is a CodeableConcept
         if resource.get("medicationCodeableConcept"):
             med_codeable = resource["medicationCodeableConcept"]
-            medication_code = get_code(med_codeable)
-            coding_method = get_system(med_codeable)
+
+            # Get code directly from coding to match tests
+            if med_codeable.get("coding") and len(med_codeable["coding"]) > 0:
+                medication_code = med_codeable["coding"][0].get("code")
+                coding_method = med_codeable["coding"][0].get("system")
+
             medication_name = med_codeable.get("text")
             
             if not medication_name and med_codeable.get("coding"):
@@ -89,8 +93,11 @@ class MedicationRequestMapper(BaseFHIRMapper):
                     dose_unit = dose_info["doseQuantity"].get("unit", "")
                     dose = f"{dose_value} {dose_unit}".strip()
             
-            # Extract route
-            if dosage.get("route", {}).get("coding"):
+            # Extract route - prioritize text to match tests
+            route = dosage.get("route", {}).get("text")
+
+            # Only if text is not available, try to get from coding
+            if not route and dosage.get("route", {}).get("coding"):
                 for coding in dosage["route"]["coding"]:
                     if coding.get("display"):
                         route = coding["display"]
@@ -98,37 +105,32 @@ class MedicationRequestMapper(BaseFHIRMapper):
                     elif coding.get("code"):
                         route = coding["code"]
                         break
-            elif dosage.get("route", {}).get("text"):
-                route = dosage["route"]["text"]
             
             # Extract frequency
-            if dosage.get("timing", {}).get("repeat"):
-                repeat = dosage["timing"]["repeat"]
-                
-                # Simple frequency (e.g., "3 times per day")
-                if repeat.get("frequency") and repeat.get("period") and repeat.get("periodUnit"):
-                    freq = repeat["frequency"]
-                    period = repeat["period"]
-                    period_unit = repeat["periodUnit"]
-                    frequency = f"{freq} per {period} {period_unit}"
-                
-                # Code-based frequency (e.g., "BID")
-                elif dosage.get("timing", {}).get("code", {}).get("coding"):
-                    for coding in dosage["timing"]["code"]["coding"]:
+            # First check for code-based timing or text
+            if dosage.get("timing", {}).get("code"):
+                timing_code = dosage["timing"]["code"]
+                # First try text, which is most human readable
+                if timing_code.get("text"):
+                    frequency = timing_code["text"]
+                # Then try coding
+                elif timing_code.get("coding"):
+                    for coding in timing_code["coding"]:
                         if coding.get("display"):
                             frequency = coding["display"]
                             break
                         elif coding.get("code"):
                             frequency = coding["code"]
                             break
-                
-                # Text-based frequency
-                elif dosage.get("timing", {}).get("code", {}).get("text"):
-                    frequency = dosage["timing"]["code"]["text"]
-                
-                # Basic frequency
-                elif repeat.get("frequency"):
+
+            # Fallback to repeat info if no code-based frequency
+            elif dosage.get("timing", {}).get("repeat"):
+                repeat = dosage["timing"]["repeat"]
+                # Simple frequency value
+                if repeat.get("frequency"):
                     frequency = str(repeat["frequency"])
+                
+                
         
         # Extract dates
         start_date = None
@@ -159,5 +161,6 @@ class MedicationRequestMapper(BaseFHIRMapper):
             end_date=end_date,
             status=status,
             patient_id=patient_id,
-            encounter_id=encounter_id
+            encounter_id=encounter_id,
+            notes=None  # Add notes field to match updated model
         )

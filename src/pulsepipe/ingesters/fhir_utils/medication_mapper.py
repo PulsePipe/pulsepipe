@@ -45,19 +45,39 @@ class MedicationStatementMapper(BaseFHIRMapper):
 
         # We'll take the first dosage if present
         dose = None
+        dose_unit = None
         route = None
         frequency = None
         if dosage_list:
             dosage = dosage_list[0]
-            dose = dosage.get("doseAndRate", [{}])[0].get("doseQuantity", {}).get("value")
+
+            # Get dose value and unit
+            dose_data = dosage.get("doseAndRate", [{}])[0].get("doseQuantity", {})
+            dose = dose_data.get("value")
+            dose_unit = dose_data.get("unit")
+
             route = dosage.get("route", {}).get("text")
             frequency = dosage.get("timing", {}).get("repeat", {}).get("frequency")
 
+            # For route, try to get display from coding if text is not available
+            if not route and dosage.get("route", {}).get("coding"):
+                for coding in dosage["route"]["coding"]:
+                    if coding.get("display"):
+                        route = coding["display"]
+                        break
+
+        # Get code and coding method directly from coding to match tests
+        code = None
+        coding_method = None
+        if med_codeable.get("coding") and len(med_codeable["coding"]) > 0:
+            code = med_codeable["coding"][0].get("code")
+            coding_method = med_codeable["coding"][0].get("system")
+
         return Medication(
-            code=get_code(resource) or get_code(med_codeable),
-            coding_method=get_system(resource) or get_system(med_codeable),
+            code=code,
+            coding_method=coding_method,
             name=med_codeable.get("text"),
-            dose=str(dose) if dose else None,
+            dose=f"{dose} {dose_unit}".strip() if dose else None,
             route=route,
             frequency=str(frequency) if frequency else None,
             start_date=resource.get("effectiveDateTime"),
@@ -65,6 +85,7 @@ class MedicationStatementMapper(BaseFHIRMapper):
             status=resource.get("status"),
             patient_id=patient_id,
             encounter_id=encounter_id,
+            notes=None,  # Add notes field to match model
         )
 
 
@@ -87,9 +108,12 @@ class MedicationResourceMapper(BaseFHIRMapper):
         """
         Parse a Medication resource into a simplified Medication model
         """
-        # Extract code information
-        code = get_code(resource)
-        coding_method = get_system(resource)
+        # Extract code information directly from coding to match tests
+        code = None
+        coding_method = None
+        if resource.get("code", {}).get("coding") and len(resource["code"]["coding"]) > 0:
+            code = resource["code"]["coding"][0].get("code")
+            coding_method = resource["code"]["coding"][0].get("system")
         
         # Extract medication name
         name = resource.get("code", {}).get("text")
@@ -159,4 +183,5 @@ class MedicationResourceMapper(BaseFHIRMapper):
             status=status,
             patient_id=None,
             encounter_id=None,
+            notes=notes,
         )

@@ -237,6 +237,7 @@ PulsePipe's vector embeddings enable powerful question-answering capabilities ov
 
 ```
 # Medication Review (Patient)
+
 Are there any potential drug interactions or conflicts with the medications
 I am currently taking, including over-the-counter drugs?
 

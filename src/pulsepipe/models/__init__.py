@@ -28,7 +28,7 @@ from .allergy import Allergy
 from .immunization import Immunization
 from .diagnosis import Diagnosis
 from .problem import Problem
-from .procedure import Procedure
+from .procedure import Procedure, ProcedureProvider
 from .medication import Medication
 from .mar import MAR
 from .payor import Payor

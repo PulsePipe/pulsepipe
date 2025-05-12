@@ -237,28 +237,38 @@ PulsePipe's vector embeddings enable powerful question-answering capabilities ov
 
 ```
 # Medication Review (Patient)
-Are there any potential drug interactions or conflicts with the medications I am currently taking, including over-the-counter drugs?
+
+Are there any potential drug interactions or conflicts with the medications
+I am currently taking, including over-the-counter drugs?
 
 # Medication Adherence (Patient)
-How can I better manage my medication schedule and ensure I’m taking my medications as prescribed?
+How can I better manage my medication schedule and ensure I’m taking my medications
+as prescribed?
 
 # Medication Adherence (Guardian/Caretaker)
-Based on my loved one's medication record, are there any duplicate medications or overlapping ingredients that could lead to accidental overdosing or adverse effects?
+Based on my loved one's medication record, are there any duplicate medications
+or overlapping ingredients that could lead to accidental overdosing or adverse effects?
 
 # Medication Monitoring (Guardian/Caretaker)
-What signs should I look for to detect potential side effects or reactions from the medications my loved one is taking?
+What signs should I look for to detect potential side effects or reactions from
+the medications my loved one is taking?
 
 # Medication Reconciliation (Nurse/PA/APN)
-Does this patient's current medication list include prescriptions that were filled but are no longer in use or do not align with any current diagnoses (e.g., short-term medications like antibiotics or pain relievers)? Please highlight any discrepancies.
+Does this patient's current medication list include prescriptions that were filled
+but are no longer in use or do not align with any current diagnoses (e.g., short-term
+medications like antibiotics or pain relievers)? Please highlight any discrepancies.
 
 # Patient Monitoring (Nurse/PA/APN)
-Based on the patient's current vital signs and medication list, which areas of concern should I monitor most closely in the next 24 hours?
+Based on the patient's current vital signs and medication list, which areas of
+concern should I monitor most closely in the next 24 hours?
 
 # Treatment Adjustments (Physician)
-Given this patient's current medication list and comorbidities, what treatment adjustments should be made to improve their overall health outcome?
+Given this patient's current medication list and comorbidities, what treatment
+adjustments should be made to improve their overall health outcome?
 
 # Medication Optimization (Physician)
-Based on this patient’s diabetes and hypertension medications, which additional treatment options should we consider to prevent complications like CHF or CKD?
+Based on this patient’s diabetes and hypertension medications, which additional
+treatment options should we consider to prevent complications like CHF or CKD?
 ```
 
 #### Operational Chat Prompts

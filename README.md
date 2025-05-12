@@ -233,11 +233,15 @@ pulsepipe model schema pulsepipe.models.PulseClinicalContent
 
 PulsePipe's vector embeddings enable powerful question-answering capabilities over clinical data. Below are example prompts for common clinical and operational use cases.
 
+
+### 💬 Clinical and Operational Chat Prompts
+
+PulsePipe's vector embeddings enable powerful question-answering capabilities over clinical data. Below are example prompts for common clinical and operational use cases.
+
 #### Clinical Chat Prompts
 
 ```
 # Medication Review (Patient)
-
 Are there any potential drug interactions or conflicts with the medications
 I am currently taking, including over-the-counter drugs?
 
@@ -285,6 +289,12 @@ Which service lines generated the highest revenue per encounter last quarter, an
 
 # Revenue Cycle Health
 What are the top reasons for delayed payments from insurers in the past 6 months?
+
+# Clinical Outcome Risk Patterns
+Which clinical pathways show the highest variance between expected and actual outcomes, and what operational factors (delays in care, missed protocols, communication gaps) are driving poor quality metrics that could trigger CMS penalties?
+
+# Nursing-Sensitive Quality & Staffing Analysis
+What is the correlation between nursing staffing ratios and our nursing-sensitive quality indicators (falls, pressure injuries, CAUTI, CLABSI) across all units, and which departments are approaching unsafe thresholds that require immediate staffing intervention?
 ```
 
 Configure these prompts in your application by using PulsePipe's embedding context:

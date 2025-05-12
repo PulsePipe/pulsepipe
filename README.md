@@ -274,22 +274,30 @@ treatment options should we consider to prevent complications like CHF or CKD?
 
 ```
 # Billing and Denials
-Which procedures had the highest denial rates last quarter and what documentation issues contributed?
+Which procedures had the highest denial rates last quarter and what documentation 
+issues contributed?
 
 # Workforce Efficiency
-Identify departments with the most overtime logged and does it align with patient acuity data?
+Identify departments with the most overtime logged and does it align with patient 
+acuity data?
 
 # Service Line Profitability
-Which service lines generated the highest revenue per encounter last quarter, and how does that compare to staffing and supply costs?
+Which service lines generated the highest revenue per encounter last quarter, and
+how does that compare to staffing and supply costs?
 
 # Revenue Cycle Health
 What are the top reasons for delayed payments from insurers in the past 6 months?
 
 # Clinical Outcome Risk Patterns
-Which clinical pathways show the highest variance between expected and actual outcomes, and what operational factors (delays in care, missed protocols, communication gaps) are driving poor quality metrics that could trigger CMS penalties?
+Which clinical pathways show the highest variance between expected and actual outcomes, 
+and what operational factors (delays in care, missed protocols, communication gaps) are 
+driving poor quality metrics that could trigger CMS penalties?
 
 # Nursing-Sensitive Quality & Staffing Analysis
-What is the correlation between nursing staffing ratios and our nursing-sensitive quality indicators (falls, pressure injuries, CAUTI, CLABSI) across all units, and which departments are approaching unsafe thresholds that require immediate staffing intervention?
+What is the correlation between nursing staffing ratios and our nursing-sensitive
+quality indicators (falls, pressure injuries, CAUTI, CLABSI) across all units, and
+which departments are approaching unsafe thresholds that require immediate 
+staffing intervention?
 ```
 
 Configure these prompts in your application by using PulsePipe's embedding context:

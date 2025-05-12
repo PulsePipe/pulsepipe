@@ -233,11 +233,6 @@ pulsepipe model schema pulsepipe.models.PulseClinicalContent
 
 PulsePipe's vector embeddings enable powerful question-answering capabilities over clinical data. Below are example prompts for common clinical and operational use cases.
 
-
-### 💬 Clinical and Operational Chat Prompts
-
-PulsePipe's vector embeddings enable powerful question-answering capabilities over clinical data. Below are example prompts for common clinical and operational use cases.
-
 #### Clinical Chat Prompts
 
 ```

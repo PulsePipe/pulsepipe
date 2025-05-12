@@ -62,8 +62,11 @@ class MedicationAdministrationMapper(BaseFHIRMapper):
         # Check if medication is a reference or CodeableConcept
         if resource.get("medicationCodeableConcept"):
             med_codeable = resource["medicationCodeableConcept"]
-            medication_code = get_code(med_codeable)
-            coding_method = get_system(med_codeable)
+            # Get code directly from the first coding element to match tests
+            if med_codeable.get("coding") and len(med_codeable["coding"]) > 0:
+                medication_code = med_codeable["coding"][0].get("code")
+                coding_method = med_codeable["coding"][0].get("system")
+
             medication_name = med_codeable.get("text")
             
             if not medication_name and med_codeable.get("coding"):

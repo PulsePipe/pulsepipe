@@ -24,6 +24,7 @@
 
 from typing import Dict, Any
 from pulsepipe.utils.log_factory import LogFactory
+from pulsepipe.utils.narrative_decoder import decode_narrative
 from .message import Segment
 from .base_mapper import HL7v2Mapper, register_mapper
 from pulsepipe.models import VitalSign, LabObservation, LabReport
@@ -54,7 +55,9 @@ class OBXMapper(HL7v2Mapper):
             code_system = seg.get(3, 3)  # Coding system
             
             # OBX-5: Observation Value
-            value = seg.get(5)
+            raw_value = seg.get(5)
+            # Check if this might be encoded content
+            value = decode_narrative(raw_value) if raw_value else None
             
             # OBX-6: Units
             units = seg.get(6, 1)

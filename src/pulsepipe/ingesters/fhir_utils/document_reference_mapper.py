@@ -32,16 +32,33 @@ from pulsepipe.models.document_reference import DocumentReference, DocumentAutho
 from pulsepipe.models import PulseClinicalContent, MessageCache
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import extract_patient_reference, extract_encounter_reference
+from pulsepipe.utils.narrative_decoder import decode_narrative
 
 @fhir_mapper("DocumentReference")
 class DocumentReferenceMapper(BaseFHIRMapper):
     RESOURCE_TYPE = "DocumentReference"
-    
+
     def map(self, resource: dict, content: PulseClinicalContent, cache: MessageCache) -> None:
         if not hasattr(content, "document_references"):
             setattr(content, "document_references", [])
-            
+
         content.document_references.append(self.parse_document_reference(resource, cache))
+
+    def _decode_attachment_content(self, attachment: dict) -> str:
+        """
+        Helper method to decode attachment content that might be encoded
+
+        Args:
+            attachment: FHIR attachment object with potential encoded data
+
+        Returns:
+            str: Decoded content or None if not decodable
+        """
+        if not attachment.get("data"):
+            return None
+
+        # Use the narrative decoder utility
+        return decode_narrative(attachment["data"])
     
     def parse_document_reference(self, resource: dict, cache: MessageCache) -> DocumentReference:
         document_id = resource.get("id")
@@ -83,15 +100,10 @@ class DocumentReferenceMapper(BaseFHIRMapper):
                 attachment = content_entry.get("attachment", {})
                 content_type = attachment.get("contentType")
                 
-                # Handle inline content (base64 encoded)
+                # Handle inline content (base64 or hex encoded)
                 if attachment.get("data"):
-                    try:
-                        # Try to decode base64 content if available
-                        decoded_data = base64.b64decode(attachment["data"]).decode("utf-8")
-                        content_text = decoded_data
-                    except Exception:
-                        # If decoding fails, leave content_text as None
-                        pass
+                    # Use the helper method to decode attachment content
+                    content_text = self._decode_attachment_content(attachment)
                 
                 # Handle URL reference
                 if attachment.get("url"):

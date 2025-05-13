@@ -26,6 +26,7 @@ from pulsepipe.models import (
     VitalSign, LabReport, MicrobiologyReport, ImagingReport, PulseClinicalContent, MessageCache
 )
 from pulsepipe.utils.config_loader import load_mapping_config
+from pulsepipe.utils.narrative_decoder import decode_narrative
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .observation_helpers import map_simple_imaging, map_simple_lab_observation
 from .extractors import (
@@ -131,7 +132,7 @@ class ObservationMapper(BaseFHIRMapper):
             findings=[finding],
             ordering_provider_id = None,
             performing_facility = None,
-            narrative=resource.get("text", {}).get("div"),
+            narrative=decode_narrative(resource.get("text", {}).get("div")),
             patient_id=patient_id,
             encounter_id=encounter_id,
         )
@@ -153,7 +154,7 @@ class ObservationMapper(BaseFHIRMapper):
             report_type=None,
             collection_date=resource.get("effectiveDateTime"),
             observations=[map_simple_lab_observation(resource)],
-            note=resource.get("text", {}).get("div"),
+            note=decode_narrative(resource.get("text", {}).get("div")),
             patient_id=patient_id,
             encounter_id=encounter_id,
         )

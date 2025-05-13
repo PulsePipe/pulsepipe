@@ -27,6 +27,7 @@ from pulsepipe.models import (
     ImagingFinding, PathologyFinding, LabReport, LabObservation, BloodBankReport, BloodBankFinding, MessageCache
 )
 from pulsepipe.utils.log_factory import LogFactory
+from pulsepipe.utils.narrative_decoder import decode_narrative
 from .base_mapper import BaseFHIRMapper, fhir_mapper
 from .extractors import (
     extract_patient_reference,
@@ -207,7 +208,7 @@ class DiagnosticReportMapper(BaseFHIRMapper):
             findings=[finding],
             ordering_provider_id=None,
             performing_facility=None,
-            narrative=resource.get("text", {}).get("div"),
+            narrative=decode_narrative(resource.get("text", {}).get("div")),
             patient_id=patient_id,
             encounter_id=encounter_id,
         )
@@ -250,7 +251,7 @@ class DiagnosticReportMapper(BaseFHIRMapper):
             diagnosis=resource.get("conclusion"),
             staging=None,
             grade=None,
-            narrative=resource.get("text", {}).get("div"),
+            narrative=decode_narrative(resource.get("text", {}).get("div")),
             note=None,
         )
 

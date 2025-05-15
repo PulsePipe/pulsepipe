@@ -343,6 +343,15 @@ For full details, see the [LICENSE](./LICENSE.md) and [LICENSE-EXCEPTIONS](./LIC
 
 ---
 
+## 📄 Whitepaper
+
+PulsePipe is an open-source, AI-native pipeline that transforms healthcare data into secure, searchable formats for real-time clinical and operational intelligence. For a comprehensive overview, see our whitepapers:
+
+- [📄 View the PulsePipe Whitepaper](docs/whitepaper.md): For executives and decision-makers, covering operational benefits, use cases, and implementation roadmap.
+- [📄 View the Technical PulsePipe Whitepaper](docs/whitepaper_technical.md): For developers and IT professionals, detailing the AI-native pipeline, RAG applications, and technical architecture.
+
+---
+
 ## 📈 Architecture Diagram
 
 ![PulsePipe Architecture](docs/pulsepipe_architecture_layers.png)

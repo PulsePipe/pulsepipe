@@ -48,6 +48,7 @@ from pulsepipe.pipelines.deid.config import (
     DEFAULT_SALT, PATIENT_ID_HASH_LENGTH, MRN_HASH_LENGTH, 
     GENERAL_ID_HASH_LENGTH, ACCOUNT_HASH_LENGTH, REDACTION_MARKERS
 )
+from pulsepipe.pipelines.deid.healthcare_recognizers import create_healthcare_analyzer
 
 class DeidentificationStage(PipelineStage):
     """
@@ -64,17 +65,22 @@ class DeidentificationStage(PipelineStage):
     """
     
     def __init__(self):
-        """Initialize the de-identification stage."""
+        """Initialize the de-identification stage with healthcare NER capabilities."""
         super().__init__("deid")
 
-        nlp_engine = SpacyNlpEngine(models=[{"lang_code": "en", "model_name": "en_core_web_lg"}])
-        nlp_engine.load()
-
-        # Create a clean registry for just English
-        registry = RecognizerRegistry()
-        registry.load_predefined_recognizers()
-
-        self.analyzer = AnalyzerEngine(registry=registry, nlp_engine=nlp_engine, supported_languages=["en"])
+        # Create enhanced healthcare analyzer with biomedical NER
+        try:
+            self.analyzer = create_healthcare_analyzer()
+            self.logger.info("Initialized de-identification with healthcare NER capabilities")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize healthcare NER, falling back to standard: {e}")
+            # Fallback to standard analyzer
+            nlp_engine = SpacyNlpEngine(models=[{"lang_code": "en", "model_name": "en_core_web_lg"}])
+            nlp_engine.load()
+            registry = RecognizerRegistry()
+            registry.load_predefined_recognizers()
+            self.analyzer = AnalyzerEngine(registry=registry, nlp_engine=nlp_engine, supported_languages=["en"])
+        
         self.anonymizer = AnonymizerEngine()
         
         # These are the default PHI type handlers
@@ -119,25 +125,83 @@ class DeidentificationStage(PipelineStage):
         }
     
 
-    def _redact_phi_with_presidio(self, text: str) -> str:
+    def _redact_phi_with_presidio(self, text: str, config: Dict[str, Any] = None) -> str:
+        """
+        Redact PHI using Presidio with healthcare-specific NER.
+        
+        Args:
+            text: Text to redact
+            config: Configuration for redaction behavior
+            
+        Returns:
+            Redacted text
+        """
         if not text:
             return text
-        results = self.analyzer.analyze(text=text, language='en')
-        return self.anonymizer.anonymize(text=text, analyzer_results=results).text
+        
+        if config is None:
+            config = {}
+        
+        # Define healthcare-specific entities to detect
+        healthcare_entities = [
+            "PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", 
+            "CREDIT_CARD", "US_DRIVER_LICENSE", "DATE_TIME",
+            "MEDICAL_RECORD_NUMBER", "MEDICAL_LICENSE", "UK_NHS",
+            "MEDICATION", "MEDICAL_CONDITION", "MEDICAL_PROCEDURE",
+            "BODY_PART", "MEDICAL_DEVICE", "LAB_VALUE"
+        ]
+        
+        # Allow configuration to specify which entities to detect
+        entities_to_detect = config.get("presidio_entities", healthcare_entities)
+        
+        try:
+            # Analyze text for healthcare PHI
+            results = self.analyzer.analyze(
+                text=text, 
+                language='en',
+                entities=entities_to_detect
+            )
+            
+            # Log detected entities for debugging (if enabled)
+            if config.get("log_detected_entities", False) and results:
+                entity_summary = {}
+                for result in results:
+                    entity_type = result.entity_type
+                    entity_summary[entity_type] = entity_summary.get(entity_type, 0) + 1
+                self.logger.debug(f"Detected healthcare entities: {entity_summary}")
+            
+            # Anonymize the text
+            anonymized_result = self.anonymizer.anonymize(text=text, analyzer_results=results)
+            return anonymized_result.text
+            
+        except Exception as e:
+            self.logger.warning(f"Healthcare NER failed, using fallback: {str(e)}")
+            # Fallback to regex-based redaction
+            return self._redact_phi_from_text(text, config)
 
 
     def _redact_text(self, text: str, config: Dict[str, Any]) -> str:
         """
-        Combined redaction: Presidio first (if enabled), fallback to regex.
+        Combined redaction: Presidio healthcare NER first (if enabled), fallback to regex.
         """
         if not text:
             return text
+        
+        # Use Presidio healthcare NER by default, unless explicitly disabled
+        use_presidio = config.get("use_presidio_for_text", True)
+        
         try:
-            if config.get("use_presidio_for_text", False):
-                text = self._redact_phi_with_presidio(text)
+            if use_presidio:
+                # Use healthcare-enhanced Presidio
+                text = self._redact_phi_with_presidio(text, config)
+            else:
+                # Use regex-only approach
+                text = self._redact_phi_from_text(text, config)
         except Exception as e:
-            self.logger.warning(f"Presidio redaction failed, using regex fallback: {str(e)}")
-        return self._redact_phi_from_text(text, config)
+            self.logger.warning(f"Healthcare NER redaction failed, using regex fallback: {str(e)}")
+            text = self._redact_phi_from_text(text, config)
+        
+        return text
 
 
 

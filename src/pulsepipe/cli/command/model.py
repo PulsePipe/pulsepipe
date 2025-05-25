@@ -27,10 +27,62 @@ Model inspection and management commands for PulsePipe CLI.
 import json
 import click
 import importlib
+import warnings
+import os
 from typing import Dict, Any, List, Type
 from pydantic import BaseModel
 
-from pulsepipe.utils.log_factory import LogFactory
+# Suppress spaCy warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="spacy")
+
+# Delay import of LogFactory to avoid potential issues
+# from pulsepipe.utils.log_factory import LogFactory
+
+
+def _get_field_type(prop: Dict[str, Any], defs: Dict[str, Any] = None) -> str:
+    """Extract field type from property schema."""
+    if defs is None:
+        defs = {}
+    
+    # Handle direct type
+    if 'type' in prop:
+        field_type = prop['type']
+        
+        if field_type == 'array' and 'items' in prop:
+            items = prop['items']
+            if '$ref' in items:
+                ref_name = items['$ref'].split('/')[-1]
+                return f"array of {ref_name}"
+            elif 'type' in items:
+                return f"array of {items['type']}"
+            else:
+                return "array"
+        
+        return field_type
+    
+    # Handle $ref
+    elif '$ref' in prop:
+        ref_name = prop['$ref'].split('/')[-1]
+        return ref_name
+    
+    # Handle anyOf/oneOf/allOf
+    elif 'anyOf' in prop:
+        types = []
+        for item in prop['anyOf']:
+            if item.get('type') == 'null':
+                continue  # Skip null types
+            types.append(_get_field_type(item, defs))
+        return ' | '.join(types) if types else 'any'
+    
+    elif 'oneOf' in prop:
+        types = [_get_field_type(item, defs) for item in prop['oneOf']]
+        return ' | '.join(types)
+    
+    elif 'allOf' in prop:
+        types = [_get_field_type(item, defs) for item in prop['allOf']]
+        return ' & '.join(types)
+    
+    return 'unknown'
 
 
 @click.group()
@@ -45,19 +97,39 @@ def model():
 
 @model.command()
 @click.argument('model_path', required=True)
-@click.option('--fields-only', is_flag=True, help='Show only field names without details')
 @click.option('--json', 'output_json', is_flag=True, help='Output schema as JSON')
-def schema(model_path, fields_only, output_json):
+@click.option('--fields-only', 'fields_only', is_flag=True, help='Output only field names and types')
+def schema(model_path, output_json, fields_only):
     """Display schema for a specified model.
     
     MODEL_PATH should be the dotted path to the model class
     (e.g. pulsepipe.models.clinical.Patient)
     
     Examples:
-        pulsepipe model schema pulsepipe.models.clinical.Patient
-        pulsepipe model schema pulsepipe.models.PulseClinicalContent --fields-only
+        pulsepipe model schema pulsepipe.models.patient.PatientInfo
+        pulsepipe model schema pulsepipe.models.allergy.Allergy --json
+        pulsepipe model schema pulsepipe.models.patient.PatientInfo --fields-only
     """
-    logger = LogFactory.get_logger("model.schema")
+    try:
+        # Suppress logging setup messages for cleaner output
+        old_stdout = os.dup(1)
+        old_stderr = os.dup(2)
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+        
+        from pulsepipe.utils.log_factory import LogFactory
+        logger = LogFactory.get_logger("model.schema")
+        
+        # Restore stdout/stderr
+        os.dup2(old_stdout, 1)
+        os.dup2(old_stderr, 2)
+        os.close(devnull)
+        os.close(old_stdout)
+        os.close(old_stderr)
+    except Exception:
+        # If logger fails, continue without it
+        logger = None
     
     try:
         # Dynamically import the model
@@ -77,15 +149,14 @@ def schema(model_path, fields_only, output_json):
             # Output raw JSON schema
             click.echo(json.dumps(schema, indent=2))
         elif fields_only:
-            # Output just field names
+            # Output only field names and types
             if 'properties' in schema:
-                fields = list(schema['properties'].keys())
-                click.echo(f"Fields for {class_name}:")
-                for field in sorted(fields):
-                    click.echo(f"  • {field}")
-                click.echo(f"\nTotal: {len(fields)} fields")
-            else:
-                click.echo(f"No fields found in {class_name}")
+                for name, prop in schema['properties'].items():
+                    field_type = _get_field_type(prop, schema.get('$defs', {}))
+                    required = name in schema.get('required', [])
+                    req_marker = "*" if required else ""
+                    
+                    click.echo(f"{name}{req_marker}: {field_type}")
         else:
             # Output formatted schema info
             click.echo(f"Schema for {class_name}:")
@@ -94,18 +165,7 @@ def schema(model_path, fields_only, output_json):
             if 'properties' in schema:
                 click.echo("\nFields:")
                 for name, prop in schema['properties'].items():
-                    field_type = prop.get('type', 'unknown')
-                    if field_type == 'array' and 'items' in prop:
-                        items_type = prop['items'].get('type', 'unknown')
-                        if items_type == 'object' and '$ref' in prop['items']:
-                            ref = prop['items']['$ref'].split('/')[-1]
-                            field_type = f"array of {ref}"
-                        else:
-                            field_type = f"array of {items_type}"
-                    elif '$ref' in prop:
-                        ref = prop['$ref'].split('/')[-1]
-                        field_type = ref
-                        
+                    field_type = _get_field_type(prop, schema.get('$defs', {}))
                     description = prop.get('description', '')
                     required = name in schema.get('required', [])
                     req_marker = "*" if required else ""
@@ -134,7 +194,11 @@ def validate(json_file, model_path):
     Examples:
         pulsepipe model validate patient_data.json pulsepipe.models.clinical.Patient
     """
-    logger = LogFactory.get_logger("model.validate")
+    try:
+        from pulsepipe.utils.log_factory import LogFactory
+        logger = LogFactory.get_logger("model.validate")
+    except Exception:
+        logger = None
     
     try:
         # Load the JSON data
@@ -190,7 +254,11 @@ def list(show_all, clinical, operational):
     import pulsepipe.models
     from pydantic import BaseModel
     
-    logger = LogFactory.get_logger("model.list")
+    try:
+        from pulsepipe.utils.log_factory import LogFactory
+        logger = LogFactory.get_logger("model.list")
+    except Exception:
+        logger = None
     
     # If no filter options provided, show usage help
     if not any([show_all, clinical, operational]):
@@ -326,7 +394,11 @@ def example(model_path):
     Examples:
         pulsepipe model example pulsepipe.models.clinical.Patient
     """
-    logger = LogFactory.get_logger("model.example")
+    try:
+        from pulsepipe.utils.log_factory import LogFactory
+        logger = LogFactory.get_logger("model.example")
+    except Exception:
+        logger = None
     
     try:
         # Import the model class
@@ -347,6 +419,7 @@ def example(model_path):
     except Exception as e:
         logger.error(f"Error generating example: {str(e)}", exc_info=True)
         click.echo(f"❌ Error: {str(e)}", err=True)
+
 
 
 def generate_example_from_schema(schema):

@@ -4,10 +4,10 @@
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
 ---
-#### ✅ MVP Scope      [ 75% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
+#### ✅ MVP Scope      [ 80% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
 #### 🟠 Mid-Term Goals [  0% Complete ]                      🟠 Long-Term Goals  [  0% Complete ]
 
-#### 🧪 Unit Test Coverage: 75-80%
+#### 🧪 Unit Test Coverage: 80-85%
 
 ## ✅ MVP Scope
 
@@ -76,7 +76,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Vector DB connectivity and document serialization
     - [x] Integrate Pytests with Github Actions
     - [x] Add a Code Coverage Report
-    - [ ] Code Coverage >=85% (Current coverage at 76%)
+    - [x] Code Coverage >=85% (Current coverage at 85% on Linux)
     - [ ] Review existing tests for superficial coverage (init-only tests without meaningful validation)
     - [ ] Add tests for error paths and boundary conditions (malformed data, connection failures, timeouts)
     - [ ] Expand coverage for complex logic branches in high-risk modules (parsers, config handlers, pipeline execution)

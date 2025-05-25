@@ -46,10 +46,10 @@ class PulseOperationalContent(BaseModel):
     This structure supports analytics, revenue cycle management, and AI-driven
     insights into the business operations of healthcare organizations.
     """
-    transaction_type: Optional[str]  # e.g., '837P', '835', '278'
-    interchange_control_number: Optional[str]
-    functional_group_control_number: Optional[str]
-    organization_id: Optional[str]
+    transaction_type: Optional[str] = None  # e.g., '837P', '835', '278'
+    interchange_control_number: Optional[str] = None
+    functional_group_control_number: Optional[str] = None
+    organization_id: Optional[str] = None
     drgs: List[DRG] = []
     claims: List[Claim] = []
     charges: List[Charge] = []

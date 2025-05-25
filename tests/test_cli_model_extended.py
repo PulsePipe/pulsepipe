@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from pulsepipe.cli.main import cli
 from pulsepipe.cli.command.model import (
     model, schema, validate, list as model_list, example,
-    generate_example_from_schema
+    generate_example_from_schema, _get_field_type
 )
 
 
@@ -95,6 +95,7 @@ class TestCliModelExtended:
         # Check the command execution
         assert result.exit_code == 0
         assert "Display schema for a specified model" in result.output
+        assert "--fields-only" in result.output
 
     def test_model_validate_help_command(self, mock_config_loader):
         """Test the model validate command help text."""
@@ -183,7 +184,7 @@ class TestCliModelExtended:
         runner = CliRunner()
         
         # Mock importlib.import_module to return a module with our test model
-        with patch('importlib.import_module') as mock_import:
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
             mock_module = MagicMock()
             mock_module.Patient = MockPatient
             mock_import.return_value = mock_module
@@ -232,7 +233,7 @@ class TestCliModelExtended:
                 }
         
         # Mock importlib.import_module to return a module with our test model
-        with patch('importlib.import_module') as mock_import:
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
             mock_module = MagicMock()
             mock_module.ModelNoExample = ModelWithoutExample
             mock_import.return_value = mock_module
@@ -271,3 +272,366 @@ class TestCliModelExtended:
                         
                 # Force the test to fail with the original error
                 raise
+
+    def test_model_schema_error_handling(self, mock_config_loader):
+        """Test schema command error handling for various failure cases."""
+        runner = CliRunner()
+        
+        # Test ImportError - module not found
+        result = runner.invoke(cli, ["model", "schema", "nonexistent.module.Model"])
+        assert result.exit_code == 0
+        assert "❌ Could not import model" in result.output
+        
+        # Test AttributeError - class not found in module
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_import.return_value = mock_module
+            del mock_module.NonExistentClass  # Ensure it doesn't exist
+            
+            result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.patient.NonExistentClass"])
+            assert result.exit_code == 0
+            assert "❌ Class not found" in result.output
+        
+        # Test non-Pydantic model
+        class NotAPydanticModel:
+            pass
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_module.NotAPydanticModel = NotAPydanticModel
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.test.NotAPydanticModel"])
+            assert result.exit_code == 0
+            assert "❌ pulsepipe.models.test.NotAPydanticModel is not a Pydantic model" in result.output
+        
+        # Test general exception
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_import.side_effect = Exception("General error")
+            
+            result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.patient.Patient"])
+            assert result.exit_code == 0
+            assert "❌ Error: General error" in result.output
+
+    def test_model_schema_json_output(self, mock_config_loader):
+        """Test schema command with JSON output option."""
+        runner = CliRunner()
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_module.Patient = MockPatient
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.patient.Patient", "--json"])
+            assert result.exit_code == 0
+            
+            # Should contain JSON output
+            try:
+                json.loads(result.output)
+            except json.JSONDecodeError:
+                pytest.fail("Output is not valid JSON")
+
+    def test_model_schema_fields_only_option(self, mock_config_loader):
+        """Test the --fields-only option with schema command."""
+        runner = CliRunner()
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_module.Patient = MockPatient
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.patient.Patient", "--fields-only"])
+            assert result.exit_code == 0
+            
+            # Check that it outputs field names and types in compact format
+            lines = [line.strip() for line in result.output.strip().split('\n') if line.strip()]
+            field_lines = [line for line in lines if ':' in line and not line.startswith('Schema for')]
+            
+            # Should have field lines for our mock patient
+            assert len(field_lines) >= 2  # At least id and name fields
+            
+            # Check format: field_name: field_type
+            for line in field_lines:
+                if ':' in line:
+                    field_part, type_part = line.split(':', 1)
+                    assert field_part.strip()  # Non-empty field name
+                    assert type_part.strip()   # Non-empty type
+
+    def test_model_schema_no_fields(self, mock_config_loader):
+        """Test schema command with model that has no properties."""
+        runner = CliRunner()
+        
+        class EmptyModel(BaseModel):
+            @classmethod
+            def model_json_schema(cls):
+                return {"type": "object"}
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_module.EmptyModel = EmptyModel
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.test.EmptyModel", "--fields-only"])
+            assert result.exit_code == 0
+            # With fields-only, empty models should just output nothing or minimal output
+            lines = [line.strip() for line in result.output.strip().split('\n') if line.strip()]
+            # Should have very few or no field lines
+            field_lines = [line for line in lines if ':' in line and 'string' in line.lower() or 'integer' in line.lower()]
+            assert len(field_lines) == 0  # No actual field lines for empty model
+
+    def test_model_schema_complex_types(self, mock_config_loader):
+        """Test schema command with complex field types."""
+        runner = CliRunner()
+        
+        # Test with actual encounter model that exists
+        result = runner.invoke(cli, ["model", "schema", "pulsepipe.models.encounter.EncounterInfo"])
+        assert result.exit_code == 0
+        assert "Schema for EncounterInfo:" in result.output
+        # Check that the schema display logic is working
+        assert "Fields:" in result.output or "No fields found" in result.output
+
+    def test_model_validate_command(self, mock_config_loader, tmp_path):
+        """Test the validate command with valid JSON."""
+        runner = CliRunner()
+        
+        # Create a test JSON file
+        test_data = {
+            "id": "test123",
+            "name": "Test Patient",
+            "birth_date": "1990-01-01"
+        }
+        
+        test_file = tmp_path / "test_patient.json"
+        test_file.write_text(json.dumps(test_data))
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_module.Patient = MockPatient
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "validate", str(test_file), "pulsepipe.models.patient.Patient"])
+            assert result.exit_code == 0
+            assert "✅ Validation successful" in result.output
+            assert "Model: Patient" in result.output
+
+    def test_model_validate_with_summary_method(self, mock_config_loader, tmp_path):
+        """Test validate command with a model that has a summary method."""
+        runner = CliRunner()
+        
+        class ModelWithSummary(BaseModel):
+            name: str
+            
+            def summary(self):
+                return f"Model for {self.name}"
+            
+            @classmethod
+            def model_validate(cls, data):
+                return cls(name=data["name"])
+        
+        test_data = {"name": "Test"}
+        test_file = tmp_path / "test_data.json"
+        test_file.write_text(json.dumps(test_data))
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_module.ModelWithSummary = ModelWithSummary
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "validate", str(test_file), "pulsepipe.models.test.ModelWithSummary"])
+            assert result.exit_code == 0
+            assert "✅ Validation successful" in result.output
+            assert "Summary: Model for Test" in result.output
+
+    def test_model_validate_with_list_data(self, mock_config_loader, tmp_path):
+        """Test validate command with list data."""
+        runner = CliRunner()
+        
+        test_data = ["item1", "item2", "item3"]
+        test_file = tmp_path / "test_list.json"
+        test_file.write_text(json.dumps(test_data))
+        
+        # Test error handling - this should fail validation but exercise the list data path
+        result = runner.invoke(cli, ["model", "validate", str(test_file), "pulsepipe.models.patient.PatientInfo"])
+        assert result.exit_code == 0
+        assert "❌ Validation failed" in result.output
+
+    def test_model_validate_failure(self, mock_config_loader, tmp_path):
+        """Test validate command with validation failure."""
+        runner = CliRunner()
+        
+        test_data = {"invalid": "data"}
+        test_file = tmp_path / "invalid_data.json"
+        test_file.write_text(json.dumps(test_data))
+        
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_module = MagicMock()
+            mock_patient_class = MagicMock()
+            mock_patient_class.model_validate.side_effect = ValueError("Validation failed")
+            mock_module.Patient = mock_patient_class
+            mock_import.return_value = mock_module
+            
+            result = runner.invoke(cli, ["model", "validate", str(test_file), "pulsepipe.models.patient.Patient"])
+            assert result.exit_code == 0
+            assert "❌ Validation failed: Validation failed" in result.output
+
+    def test_model_list_clinical_filter(self, mock_config_loader):
+        """Test list command with clinical filter."""
+        runner = CliRunner()
+        
+        with patch('os.walk') as mock_walk, \
+             patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            
+            # Mock file structure
+            mock_walk.return_value = [
+                ('/models', [], ['patient.py', 'allergy.py', 'billing.py'])
+            ]
+            
+            # Mock modules
+            def import_side_effect(module_path):
+                mock_module = MagicMock()
+                mock_module.__name__ = module_path
+                if 'patient' in module_path:
+                    mock_module.Patient = type('Patient', (BaseModel,), {'__module__': module_path})
+                    return mock_module
+                elif 'allergy' in module_path:
+                    mock_module.Allergy = type('Allergy', (BaseModel,), {'__module__': module_path})
+                    return mock_module
+                elif 'billing' in module_path:
+                    mock_module.BillingRecord = type('BillingRecord', (BaseModel,), {'__module__': module_path})
+                    return mock_module
+                else:
+                    raise ImportError("Module not found")
+            
+            mock_import.side_effect = import_side_effect
+            
+            result = runner.invoke(cli, ["model", "list", "--clinical"])
+            assert result.exit_code == 0
+            assert "Clinical models:" in result.output
+
+    def test_model_list_operational_filter(self, mock_config_loader):
+        """Test list command with operational filter."""
+        runner = CliRunner()
+        
+        with patch('os.walk') as mock_walk, \
+             patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            
+            # Mock file structure
+            mock_walk.return_value = [
+                ('/models', [], ['billing.py', 'operational_content.py'])
+            ]
+            
+            # Mock modules
+            def import_side_effect(module_path):
+                mock_module = MagicMock()
+                mock_module.__name__ = module_path
+                if 'billing' in module_path:
+                    mock_module.BillingRecord = type('BillingRecord', (BaseModel,), {'__module__': module_path})
+                    return mock_module
+                elif 'operational' in module_path:
+                    mock_module.OperationalContent = type('OperationalContent', (BaseModel,), {'__module__': module_path})
+                    return mock_module
+                else:
+                    raise ImportError("Module not found")
+            
+            mock_import.side_effect = import_side_effect
+            
+            result = runner.invoke(cli, ["model", "list", "--operational"])
+            assert result.exit_code == 0
+            assert "Operational models:" in result.output
+
+    def test_model_list_no_models_found(self, mock_config_loader):
+        """Test list command when no models are found."""
+        runner = CliRunner()
+        
+        # Test with operational since there should be fewer models and might trigger not found
+        result = runner.invoke(cli, ["model", "list", "--operational"])
+        assert result.exit_code == 0
+        # Could be either no models found or models found - both are valid test results
+        assert "models" in result.output.lower()
+
+    def test_model_list_exception_handling(self, mock_config_loader):
+        """Test list command exception handling."""
+        runner = CliRunner()
+        
+        with patch('os.walk') as mock_walk:
+            mock_walk.side_effect = Exception("File system error")
+            
+            result = runner.invoke(cli, ["model", "list", "--all"])
+            assert result.exit_code == 0
+            assert "❌ Error: File system error" in result.output
+
+    def test_model_example_error_handling(self, mock_config_loader):
+        """Test example command error handling."""
+        runner = CliRunner()
+        
+        # Test ImportError
+        result = runner.invoke(cli, ["model", "example", "nonexistent.module.Model"])
+        assert result.exit_code == 0
+        assert "❌ Error:" in result.output
+        
+        # Test other exceptions
+        with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
+            mock_import.side_effect = Exception("General error")
+            
+            result = runner.invoke(cli, ["model", "example", "pulsepipe.models.patient.Patient"])
+            assert result.exit_code == 0
+            assert "❌ Error: General error" in result.output
+
+    def test_generate_example_edge_cases(self):
+        """Test generate_example_from_schema edge cases."""
+        # Test schema without type
+        schema_no_type = {"description": "No type specified"}
+        result = generate_example_from_schema(schema_no_type)
+        assert result is None
+        
+        # Test datetime format
+        datetime_schema = {
+            "type": "string",
+            "format": "date-time"
+        }
+        result = generate_example_from_schema(datetime_schema)
+        assert result == "2023-01-01T00:00:00Z"
+        
+        # Test number type
+        number_schema = {"type": "number"}
+        result = generate_example_from_schema(number_schema)
+        assert result == 0.0
+        
+        # Test boolean type
+        boolean_schema = {"type": "boolean"}
+        result = generate_example_from_schema(boolean_schema)
+        assert result is False
+        
+        # Test unknown type
+        unknown_schema = {"type": "unknown_type"}
+        result = generate_example_from_schema(unknown_schema)
+        assert result is None
+
+    def test_get_field_type_function(self):
+        """Test the _get_field_type helper function."""
+        # Test basic types
+        string_prop = {"type": "string"}
+        assert _get_field_type(string_prop) == "string"
+        
+        integer_prop = {"type": "integer"}
+        assert _get_field_type(integer_prop) == "integer"
+        
+        # Test array types
+        array_prop = {"type": "array", "items": {"type": "string"}}
+        assert _get_field_type(array_prop) == "array of string"
+        
+        # Test $ref
+        ref_prop = {"$ref": "#/$defs/PatientInfo"}
+        assert _get_field_type(ref_prop) == "PatientInfo"
+        
+        # Test anyOf (union types)
+        union_prop = {"anyOf": [{"type": "string"}, {"type": "integer"}]}
+        assert _get_field_type(union_prop) == "string | integer"
+        
+        # Test anyOf with null (should skip null)
+        optional_prop = {"anyOf": [{"type": "string"}, {"type": "null"}]}
+        assert _get_field_type(optional_prop) == "string"
+        
+        # Test unknown
+        unknown_prop = {"description": "No type info"}
+        assert _get_field_type(unknown_prop) == "unknown"

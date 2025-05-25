@@ -39,12 +39,12 @@ class PriorAuthorization(BaseModel):
     Prior authorizations are typically handled via X12 278 transactions in
     healthcare EDI systems.
     """
-    auth_id: Optional[str]
-    patient_id: Optional[str]
-    provider_id: Optional[str]
-    requested_procedure: Optional[str]
-    auth_type: Optional[str]
-    review_status: Optional[str]
-    service_dates: Optional[List[datetime]]
-    diagnosis_codes: Optional[List[str]]
-    organization_id: Optional[str]
+    auth_id: Optional[str] = None
+    patient_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    requested_procedure: Optional[str] = None
+    auth_type: Optional[str] = None
+    review_status: Optional[str] = None
+    service_dates: Optional[List[datetime]] = None
+    diagnosis_codes: Optional[List[str]] = None
+    organization_id: Optional[str] = None

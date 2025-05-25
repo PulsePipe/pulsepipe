@@ -36,20 +36,20 @@ class Charge(BaseModel):
     monetary amount.
     """
     charge_id: str
-    encounter_id: Optional[str]
-    patient_id: Optional[str]
-    service_date: Optional[datetime]
+    encounter_id: Optional[str] = None
+    patient_id: Optional[str] = None
+    service_date: Optional[datetime] = None
     charge_code: str
-    charge_description: Optional[str]
+    charge_description: Optional[str] = None
     charge_amount: Decimal = Field(..., ge=0)
     quantity: Optional[int] = Field(None, ge=0)
-    performing_provider_id: Optional[str]
-    ordering_provider_id: Optional[str]
-    revenue_code: Optional[str]
-    cpt_hcpcs_code: Optional[str]
-    diagnosis_pointers: Optional[List[str]]
-    charge_status: Optional[Literal['posted', 'adjusted', 'voided']]  # safer than free text
-    organization_id: Optional[str]
+    performing_provider_id: Optional[str] = None
+    ordering_provider_id: Optional[str] = None
+    revenue_code: Optional[str] = None
+    cpt_hcpcs_code: Optional[str] = None
+    diagnosis_pointers: Optional[List[str]] = None
+    charge_status: Optional[Literal['posted', 'adjusted', 'voided']] = None  # safer than free text
+    organization_id: Optional[str] = None
 
 
 class Payment(BaseModel):
@@ -62,17 +62,17 @@ class Payment(BaseModel):
     information that explains how the payment should be applied.
     """
     payment_id: str
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
-    charge_id: Optional[str]
-    payer_id: Optional[str]
-    payment_date: Optional[datetime]
+    patient_id: Optional[str] = None
+    encounter_id: Optional[str] = None
+    charge_id: Optional[str] = None
+    payer_id: Optional[str] = None
+    payment_date: Optional[datetime] = None
     payment_amount: Decimal = Field(..., ge=0)
-    payment_type: Optional[Literal['insurance', 'patient', 'adjustment', 'refund']]
-    check_number: Optional[str]
-    remit_advice_code: Optional[str]
-    remit_advice_description: Optional[str]
-    organization_id: Optional[str]
+    payment_type: Optional[Literal['insurance', 'patient', 'adjustment', 'refund']] = None
+    check_number: Optional[str] = None
+    remit_advice_code: Optional[str] = None
+    remit_advice_description: Optional[str] = None
+    organization_id: Optional[str] = None
 
 
 class Adjustment(BaseModel):
@@ -85,14 +85,14 @@ class Adjustment(BaseModel):
     or corrections to billing errors.
     """
     adjustment_id: str
-    charge_id: Optional[str] 
-    payment_id: Optional[str]
-    adjustment_date: Optional[datetime]
-    adjustment_reason_code: Optional[str]
-    adjustment_reason_description: Optional[str]
+    charge_id: Optional[str] = None
+    payment_id: Optional[str] = None
+    adjustment_date: Optional[datetime] = None
+    adjustment_reason_code: Optional[str] = None
+    adjustment_reason_description: Optional[str] = None
     adjustment_amount: Decimal
-    adjustment_type: Optional[str]
-    organization_id: Optional[str]
+    adjustment_type: Optional[str] = None
+    organization_id: Optional[str] = None
 
 
 class Claim(BaseModel):
@@ -108,17 +108,17 @@ class Claim(BaseModel):
     (from hospitals/facilities), or dental.
     """
     claim_id: str
-    patient_id: Optional[str]
-    encounter_id: Optional[str]
-    claim_date: Optional[datetime]
-    payer_id: Optional[str]
+    patient_id: Optional[str] = None
+    encounter_id: Optional[str] = None
+    claim_date: Optional[datetime] = None
+    payer_id: Optional[str] = None
     total_charge_amount: Decimal = Field(..., ge=0)
     total_payment_amount: Optional[Decimal] = Field(0, ge=0)
-    claim_status: Optional[Literal['submitted', 'accepted', 'denied', 'adjusted', 'paid']]
-    claim_type: Optional[Literal['professional', 'institutional', 'dental']]
-    service_start_date: Optional[datetime]
-    service_end_date: Optional[datetime]
-    charges: Optional[List[Charge]]
-    payments: Optional[List[Payment]]
-    adjustments: Optional[List[Adjustment]]
-    organization_id: Optional[str]
+    claim_status: Optional[Literal['submitted', 'accepted', 'denied', 'adjusted', 'paid']] = None
+    claim_type: Optional[Literal['professional', 'institutional', 'dental']] = None
+    service_start_date: Optional[datetime] = None
+    service_end_date: Optional[datetime] = None
+    charges: Optional[List[Charge]] = None
+    payments: Optional[List[Payment]] = None
+    adjustments: Optional[List[Adjustment]] = None
+    organization_id: Optional[str] = None

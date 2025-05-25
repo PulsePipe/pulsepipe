@@ -27,7 +27,12 @@ PulsePipe CLI - Healthcare data pipeline tool
 
 import os
 import sys
+import warnings
 import rich_click as click
+
+# Suppress common warnings for cleaner CLI output
+warnings.filterwarnings("ignore", category=FutureWarning, module="spacy")
+warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
 from pulsepipe.cli.banner import get_banner

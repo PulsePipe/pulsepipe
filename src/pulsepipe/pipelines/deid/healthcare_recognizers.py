@@ -31,10 +31,20 @@ This module provides enhanced NER capabilities for healthcare data using:
 """
 
 import re
-import spacy
 from typing import List, Optional, Dict, Any
 from presidio_analyzer import EntityRecognizer, RecognizerResult
 from presidio_analyzer.nlp_engine import SpacyNlpEngine
+
+# Lazy import spacy to avoid CLI argument pollution
+spacy = None
+
+def _get_spacy():
+    """Lazy import spacy to avoid CLI argument pollution."""
+    global spacy
+    if spacy is None:
+        import spacy as _spacy
+        spacy = _spacy
+    return spacy
 
 
 class HealthcareNerRecognizer(EntityRecognizer):
@@ -64,11 +74,11 @@ class HealthcareNerRecognizer(EntityRecognizer):
         # Try to load biomedical model, fallback to general model
         self.nlp = None
         try:
-            self.nlp = spacy.load("en_core_sci_sm")
+            self.nlp = _get_spacy().load("en_core_sci_sm")
             self.model_name = "en_core_sci_sm"
         except OSError:
             try:
-                self.nlp = spacy.load("en_core_web_lg") 
+                self.nlp = _get_spacy().load("en_core_web_lg") 
                 self.model_name = "en_core_web_lg"
             except OSError:
                 raise RuntimeError("No suitable spaCy model found for healthcare NER")

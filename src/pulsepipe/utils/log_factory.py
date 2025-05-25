@@ -901,14 +901,14 @@ class LogFactory:
                     try:
                         if log_dir:
                             os.makedirs(log_dir, exist_ok=True)
-                            print(f"Created log directory: {log_dir}")
+                            # print(f"Created log directory: {log_dir}")
                     except Exception as e:
                         print(f"Warning: Could not create log directory {log_dir}: {str(e)}")
                         print("Will try to log to the specified file anyway")
                         
                     try:
                         # Try to create a file handler with UTF-8 encoding
-                        print(f"Attempting to create log file at: {file_path}")
+                        # print(f"Attempting to create log file at: {file_path}")
                         file_handler = WindowsSafeFileHandler(file_path, encoding='utf-8')
                         file_handler.setLevel(level)
                         
@@ -941,7 +941,7 @@ class LogFactory:
                         root_logger.addHandler(file_handler)
                         
                         # Log successful creation of log file
-                        print(f"✓ Log file created at: {os.path.abspath(file_path)}")
+                        # print(f"✓ Log file created at: {os.path.abspath(file_path)}")
                         
                     except Exception as e:
                         print(f"Error setting up file logging to {file_path}: {str(e)}")

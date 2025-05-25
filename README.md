@@ -19,7 +19,7 @@ PulsePipe is designed for AI-powered healthcare applications including:
 
 ## ✨ Features
 
-- **Modular multi-format ingestion**: FHIR, HL7 v2.x, CDA/CCDA, Plain Text
+- **Modular multi-format ingestion**: FHIR, HL7 v2.x, X12, CDA/CCDA, Plain Text
 - **Canonical Clinical Data Model** (Pulse Clinical Content)
 - **De-identification Module** using Presidio + Clinical NER models (optional)
 - **Embedding-ready Pipeline**: Produces vector-ready chunks for AI/ML tasks

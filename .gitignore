@@ -35,6 +35,8 @@ test/*
 bookmarks.db
 custom_bookmarks.db
 synthea/*
+test_data/*
+src/pulsepilot/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

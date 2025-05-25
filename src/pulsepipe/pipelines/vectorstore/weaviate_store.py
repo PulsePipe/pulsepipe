@@ -49,10 +49,11 @@ def connect_to_local_weaviate(host: str = "localhost", port: int = 8080):
 
 def connect_to_wcs_weaviate(cluster_url: str, auth_api_key: str):
     import weaviate
+    from weaviate.auth import AuthApiKey
     try:
         return weaviate.connect_to_wcs(
             cluster_url=cluster_url,
-            auth_credentials=weaviate.AuthApiKey(auth_api_key)
+            auth_credentials=AuthApiKey(auth_api_key)
         )
     except Exception as e:
         raise VectorStoreConnectionError("Weaviate", cluster_url, 443) from e

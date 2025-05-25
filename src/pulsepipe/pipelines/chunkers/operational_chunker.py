@@ -48,11 +48,20 @@ class OperationalEntityChunker:
         transaction_type = content.transaction_type or "unknown"
         org_id = content.organization_id or "unknown"
 
-        for field_name, value in content.__dict__.items():
+        # Handle both real Pydantic models and Mock objects for testing
+        if hasattr(content, 'model_fields'):
+            # Real Pydantic model
+            field_names = content.model_fields.keys()
+        else:
+            # Mock object - use __dict__ keys
+            field_names = content.__dict__.keys()
+            
+        for field_name in field_names:
+            value = getattr(content, field_name, None)
             if isinstance(value, list) and value:
                 chunk = {
                     "type": field_name,
-                    "content": [v.model_dump() for v in value]
+                    "content": [v.model_dump() if hasattr(v, 'model_dump') else v for v in value]
                 }
                 if self.include_metadata:
                     chunk["metadata"] = {

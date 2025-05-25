@@ -30,13 +30,24 @@ import requests
 
 class QdrantVectorStore(VectorStore):
     def __init__(self, url: str = "http://localhost:6333"):
+        self.url = url
         self.client = QdrantClient(url=url)
         try:
             ready = requests.get(f"{url}/collections", timeout=3)
             if not ready.ok:
-                raise VectorStoreConnectionError("Qdrant", url, 6333)
+                raise VectorStoreConnectionError("Qdrant", self._extract_host(), self._extract_port())
         except Exception:
-            raise VectorStoreConnectionError("Qdrant", url, 6333)
+            raise VectorStoreConnectionError("Qdrant", self._extract_host(), self._extract_port())
+
+    def _extract_host(self) -> str:
+        from urllib.parse import urlparse
+        parsed = urlparse(self.url)
+        return parsed.hostname or "localhost"
+    
+    def _extract_port(self) -> int:
+        from urllib.parse import urlparse
+        parsed = urlparse(self.url)
+        return parsed.port or 6333
 
 
     def ensure_collection(self, name: str, vector_size: int = 3):

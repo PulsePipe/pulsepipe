@@ -4,7 +4,7 @@
 This document outlines the planned milestones and future direction of the PulsePipe project.
 
 ---
-#### ✅ MVP Scope      [ 73% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
+#### ✅ MVP Scope      [ 75% Complete ]                      🟣 Short-Term Goals [  0% Complete ]
 #### 🟠 Mid-Term Goals [  0% Complete ]                      🟠 Long-Term Goals  [  0% Complete ]
 
 #### 🧪 Unit Test Coverage: 75-80%
@@ -28,6 +28,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Mypy
 - [x] HL7 v2.x ingestion
     - [x] Custom HL7 parser that casts a wide net (parses everything in segments of interest)
+- [x] HL7 CDA/CCDA (XML) document ingestion
 - [ ] 🧬 Composable Chunking + Embedding Framework
     - [x] `Chunker` base class interfaces
     - [x] `Embedder` base class interfaces
@@ -59,6 +60,9 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Generate a small, high-quality synthetic dataset (FHIR, HL7v2, X12)
     - [ ] Include edge cases (multiple patients, empty fields, varied formats)
     - [ ] Use for unit/integration tests of mappers and embedding steps
+- [ ] Review Canonical Content Models (CDM) by Medical Informatics SME
+    - [ ] SME 1
+    - [ ] SME 2
 - [ ] Complete Unit Tests:
     - [x] Banner Display
     - [x] Filewatcher Adapter
@@ -91,7 +95,6 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] `Llama4Embedder`: calls custom, self hosted Llama v4 model in the cloud for embeddings
         - [ ] Llama 4 Maverick: https://www.llama.com/
 - [ ] Optional SNOMED CT and ICD code extraction for terminology enrichment (PulsePilot Exclusive)
-- [ ] CDA / CCDA document ingestion
 - [ ] Custom template ingestion (extensible ingestor system) (PulsePilot Exclusive)
 - [ ] Full X12 ingester
 - [ ] Plain text ingestion

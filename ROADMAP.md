@@ -54,7 +54,7 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] De-identification
     - [x] HIPAA's 18 Identifiers -- Safe harbor
     - [X] Presidio
-    - [ ] Clinical NER models
+    - [X] Clinical NER models
 - [ ] 🧪 Synthetic Test Dataset
     - [x] Integrate Synthea to generate high-fidelity synthetic FHIR data
     - [ ] Generate a small, high-quality synthetic dataset (FHIR, HL7v2, X12)

@@ -20,17 +20,39 @@
 # ------------------------------------------------------------------------------
 
 deid:
+  # HIPAA Safe Harbor method with healthcare NER enhancements
   method: safe_harbor
   keep_year: true
   geographic_precision: state
   over_90_handling: redact
   patient_id_strategy: hash
   id_salt: changeme1234
+  
+  # Healthcare NER with Microsoft Presidio
   use_presidio_for_text: true
-  # without MS Presidio
-  # method: safe_harbor
-  # keep_year: true
-  # geographic_precision: state
-  # over_90_handling: flag
-  # patient_id_strategy: hash
+  log_detected_entities: false  # Set to true for debugging
+  
+  # Healthcare-specific entity detection
+  presidio_entities:
+    # Standard PHI entities
+    - "PERSON"
+    - "EMAIL_ADDRESS" 
+    - "PHONE_NUMBER"
+    - "US_SSN"
+    - "CREDIT_CARD"
+    - "US_DRIVER_LICENSE"
+    - "DATE_TIME"
+    
+    # Healthcare-specific entities (enhanced with biomedical NER)
+    - "MEDICAL_RECORD_NUMBER"
+    - "MEDICAL_LICENSE"
+    - "UK_NHS"
+    - "MEDICATION"
+    - "MEDICAL_CONDITION"
+    - "MEDICAL_PROCEDURE"
+    - "BODY_PART"
+    - "MEDICAL_DEVICE"
+    - "LAB_VALUE"
+  
+  # Legacy configuration (regex-only, no healthcare NER)
   # use_presidio_for_text: false

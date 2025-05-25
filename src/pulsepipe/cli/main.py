@@ -30,6 +30,267 @@ import sys
 import warnings
 import rich_click as click
 
+# Fast path for model commands - detect early and use minimal CLI
+if len(sys.argv) > 1 and sys.argv[1] == 'model':
+    # Import minimal dependencies for model commands
+    import importlib
+    import json
+    from typing import Dict, Any
+    from pydantic import BaseModel
+    
+    def get_field_type(prop: Dict[str, Any], defs: Dict[str, Any] = None) -> str:
+        """Extract field type from property schema."""
+        if defs is None:
+            defs = {}
+        
+        # Handle direct type
+        if 'type' in prop:
+            field_type = prop['type']
+            
+            if field_type == 'array' and 'items' in prop:
+                items = prop['items']
+                if '$ref' in items:
+                    ref_name = items['$ref'].split('/')[-1]
+                    return f"array of {ref_name}"
+                elif 'type' in items:
+                    return f"array of {items['type']}"
+                else:
+                    return "array"
+            
+            return field_type
+        
+        # Handle $ref
+        elif '$ref' in prop:
+            ref_name = prop['$ref'].split('/')[-1]
+            return ref_name
+        
+        # Handle anyOf/oneOf/allOf
+        elif 'anyOf' in prop:
+            types = []
+            for item in prop['anyOf']:
+                if item.get('type') == 'null':
+                    continue  # Skip null types
+                types.append(get_field_type(item, defs))
+            return ' | '.join(types) if types else 'any'
+        
+        elif 'oneOf' in prop:
+            types = [get_field_type(item, defs) for item in prop['oneOf']]
+            return ' | '.join(types)
+        
+        elif 'allOf' in prop:
+            types = [get_field_type(item, defs) for item in prop['allOf']]
+            return ' & '.join(types)
+        
+        return 'unknown'
+    
+    @click.command()
+    @click.argument('model_path', required=True)
+    @click.option('--json', 'output_json', is_flag=True, help='Output schema as JSON')
+    @click.option('--fields-only', 'fields_only', is_flag=True, help='Output only field names and types')
+    def schema(model_path, output_json, fields_only):
+        """Display schema for a specified model."""
+        try:
+            # Dynamically import the model
+            module_path, class_name = model_path.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            model_class = getattr(module, class_name)
+            
+            # Ensure it's a Pydantic model
+            if not issubclass(model_class, BaseModel):
+                click.echo(f"❌ {model_path} is not a Pydantic model", err=True)
+                return
+            
+            # Get schema
+            schema_data = model_class.model_json_schema()
+            
+            if output_json:
+                # Output raw JSON schema
+                click.echo(json.dumps(schema_data, indent=2))
+            elif fields_only:
+                # Output only field names and types
+                if 'properties' in schema_data:
+                    for name, prop in schema_data['properties'].items():
+                        field_type = get_field_type(prop, schema_data.get('$defs', {}))
+                        required = name in schema_data.get('required', [])
+                        req_marker = "*" if required else ""
+                        
+                        click.echo(f"{name}{req_marker}: {field_type}")
+            else:
+                # Output formatted schema info
+                click.echo(f"Schema for {class_name}:")
+                click.echo(f"  Description: {schema_data.get('description', 'No description')}")
+                
+                if 'properties' in schema_data:
+                    click.echo("\nFields:")
+                    for name, prop in schema_data['properties'].items():
+                        field_type = get_field_type(prop, schema_data.get('$defs', {}))
+                        description = prop.get('description', '')
+                        required = name in schema_data.get('required', [])
+                        req_marker = "*" if required else ""
+                        
+                        click.echo(f"  • {name}{req_marker}: {field_type}")
+                        if description:
+                            click.echo(f"    {description}")
+                
+                if 'required' in schema_data:
+                    click.echo(f"\n* Required fields")
+                    
+        except ImportError:
+            click.echo(f"❌ Could not import model: {model_path}", err=True)
+        except AttributeError:
+            click.echo(f"❌ Class not found: {class_name} in {module_path}", err=True)
+        except Exception as e:
+            click.echo(f"❌ Error: {str(e)}", err=True)
+    
+    @click.command()
+    @click.option('-a', '--all', 'show_all', is_flag=True, help='Show all available models')
+    @click.option('-c', '--clinical', is_flag=True, help='Show clinical models')
+    @click.option('-o', '--operational', is_flag=True, help='Show operational models')
+    def list_models(show_all, clinical, operational):
+        """List available models in the pulsepipe package."""
+        import os
+        import inspect
+        
+        # If no filter options provided, show usage help
+        if not any([show_all, clinical, operational]):
+            click.echo("Please specify one of the following options:")
+            click.echo("  --all            Show all available models")
+            click.echo("  --clinical       Show clinical data models")
+            click.echo("  --operational    Show operational data models")
+            click.echo("\nExample:")
+            click.echo("  pulsepipe model list --clinical")
+            click.echo("\nOr to see details of a specific model:")
+            click.echo("  pulsepipe model schema pulsepipe.models.clinical_content.PulseClinicalContent")
+            return
+        
+        # Define model categories
+        clinical_prefixes = [
+            "advance_directive", "allergy", "blood_bank", "clinical_content",
+            "diagnosis", "diagnostic_test", "encounter", "family_history",
+            "functional_status", "imaging", "immunization", "implant", "lab",
+            "mar", "medication", "microbiology", "note", "order", "pathology",
+            "patient", "payor", "prior_authorization", "problem", "procedure",
+            "social_history", "vital_sign"
+        ]
+        operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment"]
+        
+        # Find all models
+        try:
+            import pulsepipe.models  # Import only when actually needed
+            all_models = []
+            models_dir = os.path.dirname(pulsepipe.models.__file__)
+            
+            # Manual scan of Python files in models directory
+            for root, dirs, files in os.walk(models_dir):
+                for file in files:
+                    if file.endswith('.py') and not file.startswith('__'):
+                        # Get relative path to make import path
+                        rel_path = os.path.relpath(os.path.join(root, file), os.path.dirname(models_dir))
+                        module_path = f"pulsepipe.{os.path.splitext(rel_path)[0].replace(os.sep, '.')}"
+                        
+                        try:
+                            module = importlib.import_module(module_path)
+                            # Find all Pydantic models in this module
+                            for name, obj in inspect.getmembers(module):
+                                if (inspect.isclass(obj) and 
+                                    issubclass(obj, BaseModel) and 
+                                    obj.__module__ == module.__name__ and
+                                    obj != BaseModel):
+                                    
+                                    full_name = f"{module.__name__}.{name}"
+                                    all_models.append((full_name, obj))
+                        except (ImportError, AttributeError):
+                            # Skip modules that can't be imported
+                            continue
+            
+            # Filter models based on options
+            filtered_models = []
+            
+            if show_all:
+                filtered_models = all_models
+            else:
+                for model_path, model_class in all_models:
+                    model_lower = model_path.lower()
+                    
+                    if clinical and any(prefix in model_lower for prefix in clinical_prefixes):
+                        filtered_models.append((model_path, model_class))
+                    elif operational and any(prefix in model_lower for prefix in operational_prefixes):
+                        filtered_models.append((model_path, model_class))
+            
+            # Sort models by name
+            filtered_models.sort(key=lambda x: x[0])
+            
+            # Handle special cases for known models
+            if clinical and not any("clinicalcontent" in model_path.lower() for model_path, _ in filtered_models):
+                try:
+                    from pulsepipe.models.clinical_content import PulseClinicalContent
+                    filtered_models.append(("pulsepipe.models.clinical_content.PulseClinicalContent", PulseClinicalContent))
+                except ImportError:
+                    pass
+                    
+            if operational and not any("operationalcontent" in model_path.lower() for model_path, _ in filtered_models):
+                try:
+                    # Try to import operational content model if it exists
+                    from pulsepipe.models.operational_content import PulseOperationalContent
+                    filtered_models.append(("pulsepipe.models.operational_content.PulseOperationalContent", PulseOperationalContent))
+                except ImportError:
+                    pass
+            
+            if filtered_models:
+                # Determine what we're showing
+                if show_all:
+                    title = "All models"
+                elif clinical and operational:
+                    title = "Clinical and operational models"
+                elif clinical:
+                    title = "Clinical models"
+                elif operational:
+                    title = "Operational models"
+                else:
+                    title = "Models"
+                    
+                click.echo(f"{title}:")
+                for model_path, model_class in filtered_models:
+                    # Get a basic description if available
+                    description = getattr(model_class, '__doc__', '')
+                    if description:
+                        description = description.split('\n')[0].strip()
+                    else:
+                        description = ''
+                    
+                    click.echo(f"  • {model_path}")
+                    if description:
+                        click.echo(f"    {description}")
+                
+                click.echo(f"\nTotal: {len(filtered_models)} models")
+                click.echo("\nTo view details for a specific model:")
+                click.echo("  pulsepipe model schema <model_path>")
+            else:
+                if clinical:
+                    click.echo("No clinical models found.")
+                elif operational:
+                    click.echo("No operational models found.")
+                else:
+                    click.echo("No models found.")
+        
+        except Exception as e:
+            click.echo(f"❌ Error: {str(e)}", err=True)
+
+    # If we're here, handle model commands directly
+    if len(sys.argv) >= 3:
+        if sys.argv[2] == 'schema':
+            # Remove 'model' and 'schema' from argv, keeping the rest
+            sys.argv = [sys.argv[0]] + sys.argv[3:]
+            schema()
+            sys.exit(0)
+        elif sys.argv[2] == 'list':
+            # Remove 'model' and 'list' from argv, keeping the rest
+            sys.argv = [sys.argv[0]] + sys.argv[3:]
+            list_models()
+            sys.exit(0)
+    
+    # For other model commands or help, fall through to normal CLI
+
 # Suppress common warnings for cleaner CLI output
 warnings.filterwarnings("ignore", category=FutureWarning, module="spacy")
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
@@ -94,14 +355,6 @@ class PipelineContext:
 
 # Import CLI options
 from pulsepipe.cli.options import common_options, logging_options
-
-# Import commands - do this after LogFactory is initialized
-def import_commands():
-    from pulsepipe.cli.command.run import run
-    from pulsepipe.cli.command.config import config
-    from pulsepipe.cli.command.model import model
-    return run, config, model
-
 
 @click.group(invoke_without_command=True)
 @click.version_option(package_name="pulsepipe")
@@ -168,13 +421,43 @@ def cli(ctx, config_path, profile, pipeline_id, log_level, json_logs, quiet):
     )
 
 
-# Dynamically import commands after LogFactory has been initialized
-run, config, model = import_commands()
+# Import and add the run command directly
+from pulsepipe.cli.command.run import run as run_command
+cli.add_command(run_command, 'run')
 
-# Register commands
-cli.add_command(run)
-cli.add_command(config)
-cli.add_command(model)
+@cli.group()
+def config():
+    """Configuration management commands."""
+    pass
+
+@cli.group()
+def model():
+    """Model inspection and management commands."""
+    pass
+
+# Store original invoke methods
+_config_invoke = config.invoke
+_model_invoke = model.invoke
+
+def lazy_config_invoke(ctx):
+    """Lazy load config commands only when needed."""
+    if not config.commands:
+        from pulsepipe.cli.command.config import config as config_impl
+        for name, command in config_impl.commands.items():
+            config.add_command(command, name)
+    return _config_invoke(ctx)
+
+def lazy_model_invoke(ctx):
+    """Lazy load model commands only when needed."""
+    if not model.commands:
+        from pulsepipe.cli.command.model import model as model_impl
+        for name, command in model_impl.commands.items():
+            model.add_command(command, name)
+    return _model_invoke(ctx)
+
+# Replace invoke methods with lazy versions
+config.invoke = lazy_config_invoke
+model.invoke = lazy_model_invoke
 
 if __name__ == "__main__":
     cli()

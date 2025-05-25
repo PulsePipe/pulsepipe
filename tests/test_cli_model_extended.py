@@ -83,7 +83,7 @@ class TestCliModelExtended:
         
         # Check the command execution
         assert result.exit_code == 0
-        assert "Manage and explore data models" in result.output
+        assert "Model inspection and management commands" in result.output
 
     def test_model_schema_help_command(self, mock_config_loader):
         """Test the model schema command help text."""

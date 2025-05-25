@@ -66,7 +66,7 @@ class TestCliConfig:
             
             # Check the command execution
             assert result.exit_code == 0
-            assert "Manage PulsePipe configuration" in result.output
+            assert "Configuration management commands" in result.output
     
     def test_config_validate_help(self):
         """Test the config validate command shows help text."""
@@ -163,7 +163,7 @@ class TestCliConfig:
             result = runner.invoke(cli, ["config", "--help"])
             
             assert result.exit_code == 0
-            assert "Manage PulsePipe configuration" in result.output
+            assert "Configuration management commands" in result.output
     
     def test_validate_all_profiles_success(self, mock_config_loader):
         """Test validate command with --all flag for successful validation."""

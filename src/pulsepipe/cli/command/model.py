@@ -110,26 +110,8 @@ def schema(model_path, output_json, fields_only):
         pulsepipe model schema pulsepipe.models.allergy.Allergy --json
         pulsepipe model schema pulsepipe.models.patient.PatientInfo --fields-only
     """
-    try:
-        # Suppress logging setup messages for cleaner output
-        old_stdout = os.dup(1)
-        old_stderr = os.dup(2)
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, 1)
-        os.dup2(devnull, 2)
-        
-        from pulsepipe.utils.log_factory import LogFactory
-        logger = LogFactory.get_logger("model.schema")
-        
-        # Restore stdout/stderr
-        os.dup2(old_stdout, 1)
-        os.dup2(old_stderr, 2)
-        os.close(devnull)
-        os.close(old_stdout)
-        os.close(old_stderr)
-    except Exception:
-        # If logger fails, continue without it
-        logger = None
+    # Skip logger setup entirely for performance - model commands don't need complex logging
+    logger = None
     
     try:
         # Dynamically import the model

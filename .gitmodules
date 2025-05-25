@@ -1,0 +1,8 @@
+[submodule "test_data/sample_ccdas"]
+	path = test_data/sample_ccdas
+	url = https://github.com/jmandel/sample_ccdas
+	branch = main
+[submodule "test_data/synthea"]
+	path = test_data/synthea
+	url = https://github.com/synthetichealth/synthea
+	branch = main

@@ -260,16 +260,15 @@ def list(show_all, clinical, operational):
                         "diagnosis", "diagnostic_test", "encounter", "family_history",
                         "functional_status", "imaging", "immunization", "implant", "lab",
                         "mar", "medication", "microbiology", "note", "order", "pathology",
-                        "patient", "payor", "prior_authorization", "problem", "procedure",
+                        "patient", "payor", "problem", "procedure",
                         "social_history", "vital_sign"
                         ]
-    operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment"]
+    operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment", "drg", "prior_authorization"]
     
     # Find all models
     try:
         all_models = []
         models_dir = os.path.dirname(pulsepipe.models.__file__)
-        
         # Manual scan of Python files in models directory
         for root, dirs, files in os.walk(models_dir):
             for file in files:
@@ -290,7 +289,8 @@ def list(show_all, clinical, operational):
                                 full_name = f"{module.__name__}.{name}"
                                 all_models.append((full_name, obj))
                     except (ImportError, AttributeError) as e:
-                        logger.debug(f"Couldn't import {module_path}: {str(e)}")
+                        if logger:
+                            logger.debug(f"Couldn't import {module_path}: {str(e)}")
                         continue
         
         # Filter models based on options
@@ -364,7 +364,8 @@ def list(show_all, clinical, operational):
                 click.echo("No models found.")
     
     except Exception as e:
-        logger.error(f"Error listing models: {str(e)}", exc_info=True)
+        if logger:
+            logger.error(f"Error listing models: {str(e)}", exc_info=True)
         click.echo(f"❌ Error: {str(e)}", err=True)
 
 

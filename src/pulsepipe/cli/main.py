@@ -172,7 +172,7 @@ if len(sys.argv) > 1 and sys.argv[1] == 'model':
             "patient", "payor", "prior_authorization", "problem", "procedure",
             "social_history", "vital_sign"
         ]
-        operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment"]
+        operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment", "drg", "prior_authorization"]
         
         # Find all models
         try:

@@ -25,6 +25,7 @@ import os
 import yaml
 from pathlib import Path
 import sys
+from typing import Optional
 from pulsepipe.utils.log_factory import LogFactory
 
 logger = LogFactory.get_logger(__name__)
@@ -144,3 +145,22 @@ def load_config(path: str = "pulsepipe.yaml") -> dict:
         raise FileNotFoundError(f"❌ Could not read config file with any encoding: {path}")
     except Exception as e:
         raise FileNotFoundError(f"❌ Error loading config file {path}: {str(e)}")
+
+
+def load_data_intelligence_config(config_dict: Optional[dict] = None) -> 'DataIntelligenceConfig':
+    """
+    Load and validate data intelligence configuration.
+    
+    Args:
+        config_dict: Optional config dictionary. If None, loads from pulsepipe.yaml
+        
+    Returns:
+        Validated DataIntelligenceConfig instance
+    """
+    if config_dict is None:
+        config_dict = load_config("pulsepipe.yaml")
+    
+    # Import here to avoid circular imports
+    from pulsepipe.config.data_intelligence_config import load_data_intelligence_config as _load_di_config
+    
+    return _load_di_config(config_dict)

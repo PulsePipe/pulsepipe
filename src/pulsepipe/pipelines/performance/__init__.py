@@ -19,22 +19,36 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/persistence/__init__.py
+# src/pulsepipe/pipelines/performance/__init__.py
 
-from .factory import (
-    get_shared_sqlite_connection, 
-    get_tracking_repository, 
-    get_data_intelligence_schema
+"""
+Performance tracking module for PulsePipe.
+
+Provides timing decorators, metrics collection, and bottleneck identification.
+"""
+
+from .tracker import (
+    PerformanceTracker,
+    StepMetrics,
+    PipelineMetrics,
+    BottleneckAnalysis
 )
-from .models import (
-    DataIntelligenceSchema,
-    ProcessingStatus,
-    ErrorCategory,
-    init_data_intelligence_db
+from .decorators import (
+    track_performance,
+    track_async_performance,
+    track_stage_performance
 )
-from .tracking_repository import (
-    TrackingRepository,
-    PipelineRunSummary,
-    IngestionStat,
-    QualityMetric
-)
+from .collector import MetricsCollector
+from .analyzer import PerformanceAnalyzer
+
+__all__ = [
+    'PerformanceTracker',
+    'StepMetrics', 
+    'PipelineMetrics',
+    'BottleneckAnalysis',
+    'track_performance',
+    'track_async_performance', 
+    'track_stage_performance',
+    'MetricsCollector',
+    'PerformanceAnalyzer'
+]

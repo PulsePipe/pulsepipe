@@ -64,8 +64,79 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] Review Canonical Content Models (CDM) by Medical Informatics SME
     - [ ] Medical Informatics SME 1
     - [ ] Medical Informatics SME 2
-- [ ] Robust error handling in the ingestion pipeline to account for messy healthcare data
-    - [ ] Keep track of data ingested vs un-ingested for later AI feedback
+- [ ] 🏥 Healthcare Data Intelligence & Quality Assurance
+    - [x] YAML Configuration Framework for Data Intelligence Features
+        - [x] Add `data_intelligence` section to pipeline.yaml with granular on/off controls
+        - [x] Implement performance mode settings (fast/standard/comprehensive)
+        - [x] Add sampling configuration for high-volume processing
+        - [x] Create feature-specific enable/disable flags
+    - [x] Ingestion Success/Failure Tracking System
+        - [x] Add `ingestion_stats` table to persistence layer
+        - [x] Track per-file/per-record success/failure counts with error categorization
+        - [x] Store failed records with error messages for AI training feedback loop
+        - [x] Export ingestion metrics to JSON/CSV for analysis
+        - [x] Add YAML config: `tracking.enabled`, `tracking.store_failed_records`
+    - [x] Detailed Audit Trail Infrastructure
+        - [x] Extend logging to capture record-level processing status (parsed/failed/skipped)
+        - [x] Add structured error classification (schema_error, validation_error, parse_error, etc.)
+        - [x] Create audit report generator that outputs processing statistics by data source
+        - [ ] Add CLI command: `pulsepipe audit --summary` and `pulsepipe audit --failures`
+        - [ ] Add YAML config: `audit_trail.enabled`, `audit_trail.detail_level`
+    - [ ] Data Quality Scoring Engine
+        - [ ] Implement completeness scoring (% of required fields populated)
+        - [ ] Add data consistency checks (date ranges, code format validation)
+        - [ ] Create outlier detection for numeric values (vital signs, lab values)
+        - [ ] Generate quality score per record and aggregate scores per batch
+        - [ ] Add YAML config: `quality_scoring.enabled`, `quality_scoring.sampling_rate`
+    - [ ] Clinical Content Analysis Module
+        - [ ] Add text analysis to detect missing structured data in clinical notes using ClinicalBERT
+        - [ ] Implement regex patterns to identify potential PHI leakage post-de-identification
+        - [ ] Create medication/diagnosis extraction from free text for completeness checking
+        - [ ] Add data standardization gap detection (non-standard date formats, naming conventions)
+        - [ ] Add YAML config: `content_analysis.enabled`, `content_analysis.phi_detection_only`
+    - [ ] Healthcare Terminology Validation Framework
+        - [ ] Create code validation functions for ICD-10, SNOMED CT, RxNorm, LOINC
+        - [ ] Add terminology coverage reporting (% of codes mapped to standard vocabularies)
+        - [ ] Implement "unmapped terms" collector for manual review
+        - [ ] Generate terminology compliance reports with remediation suggestions
+        - [ ] Add YAML config: `terminology_validation.enabled`, `terminology_validation.code_systems`
+- [ ] 🚀 Performance Metrics & Infrastructure Intelligence
+    - [x] Step-Level Performance Tracking
+        - [x] Add timing decorators to each pipeline step with records/second metrics
+        - [x] Track configuration impact on performance (AI features vs speed trade-offs)
+        - [x] Identify bottlenecks with detailed step breakdown analysis
+        - [x] Generate optimization recommendations based on workload patterns
+    - [ ] Environmental System Metrics
+        - [ ] Capture CPU type, core count, RAM, and storage type during pipeline execution
+        - [ ] Track peak resource utilization (CPU %, memory usage, disk I/O) per step
+        - [ ] Detect GPU availability and utilization for future acceleration features
+        - [ ] Add infrastructure sizing recommendations for different workload scales
+    - [ ] Performance CLI Integration
+        - [ ] Add `--performance-report` flag to generate detailed performance summaries
+        - [ ] Create `pulsepipe benchmark` command for infrastructure testing
+        - [ ] Include system environment in audit logs for deployment optimization
+        - [ ] Generate cloud instance sizing recommendations (AWS, Azure, GCP)
+    - [ ] Performance Summary Display
+        ```
+        🚀 Performance Summary
+        ├── Total Pipeline Time: 4m 23s
+        ├── Records Processed: 1,247 patients
+        ├── Overall Rate: 4.8 records/sec
+        └── Bottleneck: Clinical Analysis (15.9 rec/sec)
+
+        ⚡ Step Breakdown:
+        ├── Ingestion     │ ████████████████████ │  12s │ 101.4/sec
+        ├── Normalization │ ████████████████████ │  46s │  27.3/sec  
+        ├── De-ID         │ ██████████           │  89s │  14.0/sec │ 🔍 NER enabled
+        ├── Chunking      │ ████████████████████ │  23s │  54.0/sec
+        ├── Embedding     │ ████████             │ 157s │  21.8/sec │ 🧠 ClinicalBERT
+        └── Analysis      │ ██████               │  78s │  15.9/sec │ 🔬 AI insights
+
+        💡 Optimization Tips:
+        • Set clinical_analysis.sampling_rate=0.1 → ~3x faster
+        • Increase embedding.batch_size=64 → ~15% faster  
+        • For production loads, consider disabling AI features
+        ```
 - [ ] Complete Unit Tests:
     - [x] Banner Display
     - [x] Filewatcher Adapter
@@ -83,6 +154,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Review existing tests for superficial coverage (init-only tests without meaningful validation)
     - [ ] Add tests for error paths and boundary conditions (malformed data, connection failures, timeouts)
     - [ ] Expand coverage for complex logic branches in high-risk modules (parsers, config handlers, pipeline execution)
+    - [ ] Manual testing with realistic but messy data
 
 ---
 

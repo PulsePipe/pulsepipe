@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pulsepipe"
-version = "25.04.05"
-description = "Ingestion and Clinical Normalization Framework for Healthcare Data"
+version = "25.05.26"
+description = "Ingest, Normalize, De-ID, Chunk, Embed. Healthcare Data, AI-Ready with RAG."
 authors = ["Amir Abrams amirabrams@mail.com"]
 license = "AGPL-3.0"
 readme = "README.md"

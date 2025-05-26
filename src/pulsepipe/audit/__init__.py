@@ -19,22 +19,21 @@
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/persistence/__init__.py
+# src/pulsepipe/audit/__init__.py
 
-from .factory import (
-    get_shared_sqlite_connection, 
-    get_tracking_repository, 
-    get_data_intelligence_schema
+from .audit_logger import (
+    AuditLogger,
+    AuditEvent,
+    AuditLevel,
+    EventType
 )
-from .models import (
-    DataIntelligenceSchema,
-    ProcessingStatus,
-    ErrorCategory,
-    init_data_intelligence_db
+from .error_classifier import (
+    ErrorClassifier,
+    ErrorAnalysis,
+    ClassifiedError
 )
-from .tracking_repository import (
-    TrackingRepository,
-    PipelineRunSummary,
-    IngestionStat,
-    QualityMetric
+from .audit_reporter import (
+    AuditReporter,
+    AuditReport,
+    ProcessingSummary
 )

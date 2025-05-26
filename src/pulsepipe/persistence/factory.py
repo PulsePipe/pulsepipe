@@ -23,6 +23,10 @@
 
 import sqlite3
 from pathlib import Path
+from typing import Optional
+
+from .models import init_data_intelligence_db, DataIntelligenceSchema
+from .tracking_repository import TrackingRepository
 
 def get_shared_sqlite_connection(config: dict) -> sqlite3.Connection:
     db_path = config.get("persistence", {}).get("sqlite", {}).get(
@@ -32,3 +36,40 @@ def get_shared_sqlite_connection(config: dict) -> sqlite3.Connection:
     db_file.parent.mkdir(parents=True, exist_ok=True)
     # Convert Path to string to avoid "expected str, bytes or os.PathLike, not Connection" error on Windows
     return sqlite3.connect(str(db_file))
+
+
+def get_tracking_repository(config: dict, connection: Optional[sqlite3.Connection] = None) -> TrackingRepository:
+    """
+    Get a tracking repository instance with initialized schema.
+    
+    Args:
+        config: Configuration dictionary
+        connection: Optional existing connection, creates new one if None
+        
+    Returns:
+        TrackingRepository instance ready for use
+    """
+    if connection is None:
+        connection = get_shared_sqlite_connection(config)
+    
+    # Initialize the data intelligence schema
+    init_data_intelligence_db(connection)
+    
+    return TrackingRepository(connection)
+
+
+def get_data_intelligence_schema(config: dict, connection: Optional[sqlite3.Connection] = None) -> DataIntelligenceSchema:
+    """
+    Get a data intelligence schema manager.
+    
+    Args:
+        config: Configuration dictionary
+        connection: Optional existing connection, creates new one if None
+        
+    Returns:
+        DataIntelligenceSchema instance
+    """
+    if connection is None:
+        connection = get_shared_sqlite_connection(config)
+    
+    return init_data_intelligence_db(connection)

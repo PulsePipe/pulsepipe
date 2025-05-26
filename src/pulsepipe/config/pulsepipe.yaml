@@ -32,3 +32,76 @@ logging:
   destination: stdout             # stdout | file | both | syslog | cloud
   file_path: logs/pulsepipe.log   # only used if destination includes 'file'
   show_banner: true               # if true, it shows the big PulsePipe banner
+
+# Data Intelligence & Quality Assurance Framework
+data_intelligence:
+  # Master enable/disable for all intelligence features
+  enabled: true
+  
+  # Performance modes control the trade-off between insights and speed
+  performance_mode: standard      # fast | standard | comprehensive
+  
+  # Sampling configuration for high-volume processing
+  sampling:
+    enabled: false               # Enable sampling for performance
+    rate: 0.1                   # Sample 10% of records (0.0-1.0)
+    minimum_batch_size: 100     # Apply sampling only above this threshold
+  
+  # Granular feature controls
+  features:
+    # Core tracking and auditing
+    ingestion_tracking:
+      enabled: true
+      store_failed_records: true
+      export_metrics: true
+      export_formats: ["json", "csv"]
+    
+    # Audit trail and reporting
+    audit_trail:
+      enabled: true
+      detail_level: standard    # minimal | standard | comprehensive
+      record_level_tracking: true
+      structured_errors: true
+    
+    # Data quality assessment
+    quality_scoring:
+      enabled: true
+      sampling_rate: 1.0        # Quality check sampling (0.0-1.0)
+      completeness_scoring: true
+      consistency_checks: true
+      outlier_detection: true
+      aggregate_scoring: true
+    
+    # Clinical content analysis (AI-powered)
+    content_analysis:
+      enabled: false            # Disabled by default due to compute cost
+      phi_detection_only: false # If true, only run PHI detection
+      clinical_bert_analysis: true
+      medication_extraction: true
+      diagnosis_extraction: true
+      standardization_gaps: true
+    
+    # Healthcare terminology validation
+    terminology_validation:
+      enabled: true
+      code_systems: ["icd10", "snomed", "rxnorm", "loinc"]
+      coverage_reporting: true
+      unmapped_terms_collection: true
+      compliance_reports: true
+    
+    # Performance and system metrics
+    performance_tracking:
+      enabled: true
+      step_timing: true
+      resource_monitoring: true
+      bottleneck_analysis: true
+      optimization_recommendations: true
+    
+    # Environmental system metrics
+    system_metrics:
+      enabled: true
+      hardware_detection: true
+      resource_utilization: true
+      gpu_detection: true
+      os_detection: true
+      infrastructure_recommendations: true

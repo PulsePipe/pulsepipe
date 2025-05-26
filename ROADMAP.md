@@ -31,33 +31,31 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Mypy
 - [x] HL7 v2.x ingestion
     - [x] Custom HL7 parser that casts a wide net (parses everything in segments of interest)
-- [x] HL7 CDA/CCDA (XML) document ingestion
-- [ ] 🧬 Composable Chunking + Embedding Framework
-    - [x] `Chunker` base class interfaces
-    - [x] `Embedder` base class interfaces
-    - [x] YAML configuration for chunkers and embedders in `pipeline.yaml`
-    - [ ] `NarrativeChunker`: extracts and truncates text narrative fields
-    - [ ] `FhirBundleSplitterChunker`: splits on `entry.resource`
-    - [x] `ClinicalEmbedder`: calls local ClinicalBERT for embedding clinical canonical data model
-    - [x] `OperationalEmbedder`: calls local MiniLM-L6-v2 for embedding operational canonical data model
-    - [ ] CLI options to test chunking/embedding flows
-    - [ ] Output of chunks and embeddings in vector-friendly format (e.g., JSONL)
-    - [x] Embedding pipeline supporting ClinicalBERT
-    - [x] Embedding pipeline supporting MiniLM-L6-v2
-- [ ] Vector database integration:
+- [x] Vector database integration:
     - [x] Weaviate
     - [x] Qdrant
 - [x] 📖 Pipeline Concurrent Step Execution
     - [x] Add queues to relay messages between steps
-- [ ] 📖 CLI Model Description
+- [x] 📖 CLI Model Description
     - [x] Write concise descriptions of each `PulseClinicalContent` and `PulseOperationalContent` models (now exposed in the CLI)
     - [x] Ensure descriptions show up clearly in `pulsepipe model --help` and related views
-- [ ] Robust error handling in the ingestion pipeline to account for messy healthcare data
-    - [ ] Keep track of data ingested vs un-ingested for later AI feedback
-- [ ] De-identification
+- [x] HL7 CDA/CCDA (XML) document ingestion
+- [x] De-identification
     - [x] HIPAA's 18 Identifiers -- Safe harbor
     - [X] Presidio
     - [X] Clinical NER models
+- [ ] 🧬 Composable Chunking + Embedding Framework
+    - [x] `Chunker` base class interfaces
+    - [x] `Embedder` base class interfaces
+    - [x] YAML configuration for chunkers and embedders in `pipeline.yaml`
+    - [x] `ClinicalEmbedder`: calls local ClinicalBERT for embedding clinical canonical data model
+    - [x] `OperationalEmbedder`: calls local MiniLM-L6-v2 for embedding operational canonical data model
+    - [x] Embedding pipeline supporting ClinicalBERT
+    - [x] Embedding pipeline supporting MiniLM-L6-v2
+    - [ ] `NarrativeChunker`: extracts and truncates text narrative fields
+    - [ ] `FhirBundleSplitterChunker`: splits on `entry.resource`
+    - [ ] CLI options to test chunking/embedding flows
+    - [ ] Output of chunks and embeddings in vector-friendly format (e.g., JSONL)
 - [ ] 🧪 Synthetic Test Dataset
     - [x] Integrate Synthea to generate high-fidelity synthetic FHIR data
     - [ ] Generate a small, high-quality synthetic dataset (FHIR, HL7v2, X12)
@@ -66,10 +64,12 @@ This document outlines the planned milestones and future direction of the PulseP
 - [ ] Review Canonical Content Models (CDM) by Medical Informatics SME
     - [ ] Medical Informatics SME 1
     - [ ] Medical Informatics SME 2
+- [ ] Robust error handling in the ingestion pipeline to account for messy healthcare data
+    - [ ] Keep track of data ingested vs un-ingested for later AI feedback
 - [ ] Complete Unit Tests:
     - [x] Banner Display
     - [x] Filewatcher Adapter
-    - [x] Ingestors (FHIR, HL7v2, X12)
+    - [x] Ingestors (FHIR, HL7v2, X12, CDA)
     - [x] CLI command parsing and context propagation
     - [x] Canonical Models and Pydantic schemas
     - [x] YAML configuration loading and validation
@@ -79,7 +79,7 @@ This document outlines the planned milestones and future direction of the PulseP
     - [x] Vector DB connectivity and document serialization
     - [x] Integrate Pytests with Github Actions
     - [x] Add a Code Coverage Report
-    - [x] Code Coverage >=85% (Current coverage at 85% on Linux)
+    - [x] Code Coverage >=85% (Current coverage at 86% on Ubuntu, 83% on Windows, 83% on AWS Linux Cloud b/c it skips all the vector dbs unit tests)
     - [ ] Review existing tests for superficial coverage (init-only tests without meaningful validation)
     - [ ] Add tests for error paths and boundary conditions (malformed data, connection failures, timeouts)
     - [ ] Expand coverage for complex logic branches in high-risk modules (parsers, config handlers, pipeline execution)

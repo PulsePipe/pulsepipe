@@ -143,6 +143,106 @@ if len(sys.argv) > 1 and sys.argv[1] == 'model':
             click.echo(f"❌ Error: {str(e)}", err=True)
     
     @click.command()
+    @click.argument('json_file', type=click.Path(exists=True))
+    @click.argument('model_path', required=True)
+    def validate_model(json_file, model_path):
+        """Validate JSON data against a model schema."""
+        try:
+            # Load the JSON data
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            
+            # Import the model class
+            module_path, class_name = model_path.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            model_class = getattr(module, class_name)
+            
+            # Validate
+            model_instance = model_class.model_validate(data)
+            
+            click.echo(f"✅ Validation successful for {json_file}")
+            click.echo(f"Model: {class_name}")
+            
+            # Print basic info about validated instance
+            if hasattr(model_instance, 'summary'):
+                click.echo(f"\nSummary: {model_instance.summary()}")
+            else:
+                # Create a simple summary
+                if isinstance(data, dict):
+                    fields = len(data)
+                    click.echo(f"\nFields: {fields}")
+                elif isinstance(data, list):
+                    items = len(data)
+                    click.echo(f"\nItems: {items}")
+            
+        except Exception as e:
+            click.echo(f"❌ Validation failed: {str(e)}", err=True)
+
+    def generate_example_from_schema(schema):
+        """Generate a minimal example instance from a JSON schema."""
+        if 'type' not in schema:
+            return None
+        
+        if schema['type'] == 'object':
+            result = {}
+            properties = schema.get('properties', {})
+            required = schema.get('required', [])
+            
+            for prop_name, prop_schema in properties.items():
+                if prop_name in required:
+                    result[prop_name] = generate_example_from_schema(prop_schema)
+            
+            return result
+        
+        elif schema['type'] == 'array':
+            items_schema = schema.get('items', {})
+            return [generate_example_from_schema(items_schema)]
+        
+        elif schema['type'] == 'string':
+            if 'enum' in schema:
+                return schema['enum'][0]
+            elif schema.get('format') == 'date-time':
+                return "2023-01-01T00:00:00Z"
+            elif schema.get('format') == 'date':
+                return "2023-01-01"
+            else:
+                return "example"
+        
+        elif schema['type'] == 'integer':
+            return 0
+        
+        elif schema['type'] == 'number':
+            return 0.0
+        
+        elif schema['type'] == 'boolean':
+            return False
+        
+        return None
+
+    @click.command()
+    @click.argument('model_path', required=True)
+    def example_model(model_path):
+        """Generate example JSON for a model."""
+        try:
+            # Import the model class
+            module_path, class_name = model_path.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            model_class = getattr(module, class_name)
+            
+            # Check if the model has an example method
+            if hasattr(model_class, 'get_example'):
+                example_data = model_class.get_example()
+                click.echo(json.dumps(example_data, indent=2))
+            else:
+                # Create a minimal example from schema
+                schema = model_class.model_json_schema()
+                example_data = generate_example_from_schema(schema)
+                click.echo(json.dumps(example_data, indent=2))
+                
+        except Exception as e:
+            click.echo(f"❌ Error: {str(e)}", err=True)
+
+    @click.command()
     @click.option('-a', '--all', 'show_all', is_flag=True, help='Show all available models')
     @click.option('-c', '--clinical', is_flag=True, help='Show clinical models')
     @click.option('-o', '--operational', is_flag=True, help='Show operational models')
@@ -288,6 +388,65 @@ if len(sys.argv) > 1 and sys.argv[1] == 'model':
             sys.argv = [sys.argv[0]] + sys.argv[3:]
             list_models()
             sys.exit(0)
+        elif sys.argv[2] == 'validate':
+            # Remove 'model' and 'validate' from argv, keeping the rest
+            sys.argv = [sys.argv[0]] + sys.argv[3:]
+            validate_model()
+            sys.exit(0)
+        elif sys.argv[2] == 'example':
+            # Remove 'model' and 'example' from argv, keeping the rest
+            sys.argv = [sys.argv[0]] + sys.argv[3:]
+            example_model()
+            sys.exit(0)
+        elif sys.argv[2] == '--help' or sys.argv[2] == '-h':
+            # Handle help flag - show fast help without loading heavy imports
+            click.echo("Usage: pulsepipe model [OPTIONS] COMMAND [ARGS]...")
+            click.echo("")
+            click.echo("  Model inspection and management commands.")
+            click.echo("")
+            click.echo("Options:")
+            click.echo("  --help      Show this message and exit.")
+            click.echo("")
+            click.echo("Commands:")
+            click.echo("  list      List available models in the pulsepipe package.")
+            click.echo("  schema    Display schema for a specified model.")
+            click.echo("  validate  Validate JSON data against a model schema.")
+            click.echo("  example   Generate example JSON for a model.")
+            click.echo("")
+            click.echo("Examples:")
+            click.echo("  pulsepipe model list --clinical")
+            click.echo("  pulsepipe model schema pulsepipe.models.patient.PatientInfo")
+            sys.exit(0)
+        elif sys.argv[2].startswith('-'):
+            # Handle unknown flags/options quickly without loading heavy imports
+            click.echo("Usage: pulsepipe model [OPTIONS] COMMAND [ARGS]...")
+            click.echo("")
+            click.echo("Try 'pulsepipe model --help' for help")
+            click.echo(f"Error: No such option: {sys.argv[2]}", err=True)
+            sys.exit(2)
+        else:
+            # Handle unrecognized subcommands quickly without loading heavy imports
+            click.echo("Usage: pulsepipe model [OPTIONS] COMMAND [ARGS]...")
+            click.echo("")
+            click.echo("Try 'pulsepipe model --help' for help")
+            click.echo(f"Error: No such command '{sys.argv[2]}'.", err=True)
+            sys.exit(2)
+    elif len(sys.argv) == 2:
+        # Handle bare 'pulsepipe model' command - show help
+        click.echo("Usage: pulsepipe model [OPTIONS] COMMAND [ARGS]...")
+        click.echo("")
+        click.echo("  Model inspection and management commands.")
+        click.echo("")
+        click.echo("Commands:")
+        click.echo("  list      List available models in the pulsepipe package.")
+        click.echo("  schema    Display schema for a specified model.")
+        click.echo("  validate  Validate JSON data against a model schema.")
+        click.echo("  example   Generate example JSON for a model.")
+        click.echo("")
+        click.echo("Examples:")
+        click.echo("  pulsepipe model list --clinical")
+        click.echo("  pulsepipe model schema pulsepipe.models.patient.PatientInfo")
+        sys.exit(0)
     
     # For other model commands or help, fall through to normal CLI
 

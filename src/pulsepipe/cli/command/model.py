@@ -110,26 +110,8 @@ def schema(model_path, output_json, fields_only):
         pulsepipe model schema pulsepipe.models.allergy.Allergy --json
         pulsepipe model schema pulsepipe.models.patient.PatientInfo --fields-only
     """
-    try:
-        # Suppress logging setup messages for cleaner output
-        old_stdout = os.dup(1)
-        old_stderr = os.dup(2)
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, 1)
-        os.dup2(devnull, 2)
-        
-        from pulsepipe.utils.log_factory import LogFactory
-        logger = LogFactory.get_logger("model.schema")
-        
-        # Restore stdout/stderr
-        os.dup2(old_stdout, 1)
-        os.dup2(old_stderr, 2)
-        os.close(devnull)
-        os.close(old_stdout)
-        os.close(old_stderr)
-    except Exception:
-        # If logger fails, continue without it
-        logger = None
+    # Skip logger setup entirely for performance - model commands don't need complex logging
+    logger = None
     
     try:
         # Dynamically import the model
@@ -278,16 +260,15 @@ def list(show_all, clinical, operational):
                         "diagnosis", "diagnostic_test", "encounter", "family_history",
                         "functional_status", "imaging", "immunization", "implant", "lab",
                         "mar", "medication", "microbiology", "note", "order", "pathology",
-                        "patient", "payor", "prior_authorization", "problem", "procedure",
+                        "patient", "payor", "problem", "procedure",
                         "social_history", "vital_sign"
                         ]
-    operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment"]
+    operational_prefixes = ["operational", "claim", "billing", "payment", "adjustment", "drg", "prior_authorization"]
     
     # Find all models
     try:
         all_models = []
         models_dir = os.path.dirname(pulsepipe.models.__file__)
-        
         # Manual scan of Python files in models directory
         for root, dirs, files in os.walk(models_dir):
             for file in files:
@@ -308,7 +289,8 @@ def list(show_all, clinical, operational):
                                 full_name = f"{module.__name__}.{name}"
                                 all_models.append((full_name, obj))
                     except (ImportError, AttributeError) as e:
-                        logger.debug(f"Couldn't import {module_path}: {str(e)}")
+                        if logger:
+                            logger.debug(f"Couldn't import {module_path}: {str(e)}")
                         continue
         
         # Filter models based on options
@@ -382,7 +364,8 @@ def list(show_all, clinical, operational):
                 click.echo("No models found.")
     
     except Exception as e:
-        logger.error(f"Error listing models: {str(e)}", exc_info=True)
+        if logger:
+            logger.error(f"Error listing models: {str(e)}", exc_info=True)
         click.echo(f"❌ Error: {str(e)}", err=True)
 
 

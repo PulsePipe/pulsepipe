@@ -19,7 +19,10 @@ This document outlines the planned milestones and future direction of the PulseP
 - [x] FHIR (JSON/XML) ingestion
 - [x] X12 Claims and Prior Auth ingester
 - [x] Command Line Interface (CLI) implementation for PulsePipe
-    - [x] Multi pipeline execution
+    - [x] Core commands: run (pipeline execution), config (configuration management), model (data model exploration)
+    - [x] Profile-based configuration system with YAML support
+    - [x] Pipeline tracking, logging, and reporting capabilities
+    - [x] Configuration validation and data model exploration tools
 - [x] Contributor's guide
 - [x] Python package with `pydantic` validation
 - [x] Python developer tooling:
@@ -61,8 +64,8 @@ This document outlines the planned milestones and future direction of the PulseP
     - [ ] Include edge cases (multiple patients, empty fields, varied formats)
     - [ ] Use for unit/integration tests of mappers and embedding steps
 - [ ] Review Canonical Content Models (CDM) by Medical Informatics SME
-    - [ ] SME 1
-    - [ ] SME 2
+    - [ ] Medical Informatics SME 1
+    - [ ] Medical Informatics SME 2
 - [ ] Complete Unit Tests:
     - [x] Banner Display
     - [x] Filewatcher Adapter

@@ -80,14 +80,14 @@ This document outlines the planned milestones and future direction of the PulseP
         - [x] Extend logging to capture record-level processing status (parsed/failed/skipped)
         - [x] Add structured error classification (schema_error, validation_error, parse_error, etc.)
         - [x] Create audit report generator that outputs processing statistics by data source
+        - [x] Add YAML config: `audit_trail.enabled`, `audit_trail.detail_level`
         - [ ] Add CLI command: `pulsepipe audit --summary` and `pulsepipe audit --failures`
-        - [ ] Add YAML config: `audit_trail.enabled`, `audit_trail.detail_level`
-    - [ ] Data Quality Scoring Engine
-        - [ ] Implement completeness scoring (% of required fields populated)
-        - [ ] Add data consistency checks (date ranges, code format validation)
-        - [ ] Create outlier detection for numeric values (vital signs, lab values)
-        - [ ] Generate quality score per record and aggregate scores per batch
-        - [ ] Add YAML config: `quality_scoring.enabled`, `quality_scoring.sampling_rate`
+    - [x] Data Quality Scoring Engine
+        - [x] Implement completeness scoring (% of required fields populated)
+        - [x] Add data consistency checks (date ranges, code format validation)
+        - [x] Create outlier detection for numeric values (vital signs, lab values)
+        - [x] Generate quality score per record and aggregate scores per batch
+        - [x] Add YAML config: `quality_scoring.enabled`, `quality_scoring.sampling_rate`
     - [ ] Clinical Content Analysis Module
         - [ ] Add text analysis to detect missing structured data in clinical notes using ClinicalBERT
         - [ ] Implement regex patterns to identify potential PHI leakage post-de-identification

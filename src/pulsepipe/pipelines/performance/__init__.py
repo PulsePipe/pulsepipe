@@ -40,6 +40,16 @@ from .decorators import (
 )
 from .collector import MetricsCollector
 from .analyzer import PerformanceAnalyzer
+from .system_metrics import (
+    SystemMetricsCollector,
+    SystemSnapshot,
+    CPUMetrics,
+    MemoryMetrics,
+    StorageMetrics,
+    OSMetrics,
+    GPUMetrics,
+    get_global_system_collector
+)
 
 __all__ = [
     'PerformanceTracker',
@@ -50,5 +60,13 @@ __all__ = [
     'track_async_performance', 
     'track_stage_performance',
     'MetricsCollector',
-    'PerformanceAnalyzer'
+    'PerformanceAnalyzer',
+    'SystemMetricsCollector',
+    'SystemSnapshot',
+    'CPUMetrics',
+    'MemoryMetrics',
+    'StorageMetrics',
+    'OSMetrics',
+    'GPUMetrics',
+    'get_global_system_collector'
 ]

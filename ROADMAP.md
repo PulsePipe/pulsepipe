@@ -107,7 +107,7 @@ This document outlines the planned milestones and future direction of the PulseP
         - [x] Identify bottlenecks with detailed step breakdown analysis
         - [x] Generate optimization recommendations based on workload patterns
     - [ ] Environmental System Metrics
-        - [ ] Capture CPU type, core count, RAM, and storage type during pipeline execution
+        - [x] Capture CPU type, core count, RAM, and storage type during pipeline execution
         - [ ] Track peak resource utilization (CPU %, memory usage, disk I/O) per step
         - [ ] Detect GPU availability and utilization for future acceleration features
         - [ ] Add infrastructure sizing recommendations for different workload scales

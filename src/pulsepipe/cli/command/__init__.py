@@ -29,5 +29,6 @@ Contains command implementations for the PulsePipe CLI.
 from .run import run
 from .config import config
 from .model import model
+from .metrics import metrics
 
-__all__ = ["run", "config", "model"]
+__all__ = ["run", "config", "model", "metrics"]

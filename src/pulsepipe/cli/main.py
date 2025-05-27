@@ -594,9 +594,15 @@ def model():
     """Model inspection and management commands."""
     pass
 
+@cli.group()
+def metrics():
+    """Manage and export ingestion metrics."""
+    pass
+
 # Store original invoke methods
 _config_invoke = config.invoke
 _model_invoke = model.invoke
+_metrics_invoke = metrics.invoke
 
 def lazy_config_invoke(ctx):
     """Lazy load config commands only when needed."""
@@ -614,9 +620,18 @@ def lazy_model_invoke(ctx):
             model.add_command(command, name)
     return _model_invoke(ctx)
 
+def lazy_metrics_invoke(ctx):
+    """Lazy load metrics commands only when needed."""
+    if not metrics.commands:
+        from pulsepipe.cli.command.metrics import metrics as metrics_impl
+        for name, command in metrics_impl.commands.items():
+            metrics.add_command(command, name)
+    return _metrics_invoke(ctx)
+
 # Replace invoke methods with lazy versions
 config.invoke = lazy_config_invoke
 model.invoke = lazy_model_invoke
+metrics.invoke = lazy_metrics_invoke
 
 if __name__ == "__main__":
     cli()

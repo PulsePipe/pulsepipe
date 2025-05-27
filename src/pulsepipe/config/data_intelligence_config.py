@@ -63,9 +63,13 @@ class SamplingConfig(BaseModel):
 class IngestionTrackingConfig(BaseModel):
     """Configuration for ingestion success/failure tracking."""
     enabled: bool = True
+    detailed_tracking: bool = True
+    auto_persist: bool = True
     store_failed_records: bool = True
     export_metrics: bool = True
     export_formats: List[str] = Field(default_factory=lambda: ["json", "csv"])
+    batch_size_threshold: int = Field(default=1000, ge=1, description="Records per batch for metrics tracking")
+    retention_days: int = Field(default=30, ge=1, description="Days to retain detailed tracking data")
 
     @field_validator('export_formats')
     def validate_export_formats(cls, v):

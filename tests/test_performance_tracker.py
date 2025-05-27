@@ -285,17 +285,33 @@ class TestBottleneckAnalysis:
         )
         
         # Add steps with varying performance
-        slow_step = StepMetrics(step_name="slow_step", start_time=datetime.now())
+        # Create slow step with manual timing setup
+        slow_start = datetime.now() - timedelta(milliseconds=800)
+        slow_step = StepMetrics(step_name="slow_step", start_time=slow_start)
+        slow_step.end_time = slow_start + timedelta(milliseconds=800)
         slow_step.duration_ms = 800
-        slow_step.finish(records_processed=10, success_count=10)  # Low throughput
+        slow_step.records_processed = 10
+        slow_step.success_count = 10
+        slow_step.records_per_second = 12.5  # 10 records / 0.8 seconds
         
-        fast_step = StepMetrics(step_name="fast_step", start_time=datetime.now())
+        # Create fast step with manual timing setup
+        fast_start = datetime.now() - timedelta(milliseconds=200)
+        fast_step = StepMetrics(step_name="fast_step", start_time=fast_start)
+        fast_step.end_time = fast_start + timedelta(milliseconds=200)
         fast_step.duration_ms = 200
-        fast_step.finish(records_processed=100, success_count=100)  # High throughput
+        fast_step.records_processed = 100
+        fast_step.success_count = 100
+        fast_step.records_per_second = 500  # 100 records / 0.2 seconds
         
-        failing_step = StepMetrics(step_name="failing_step", start_time=datetime.now())
+        # Create failing step with manual timing setup
+        failing_start = datetime.now() - timedelta(milliseconds=200)
+        failing_step = StepMetrics(step_name="failing_step", start_time=failing_start)
+        failing_step.end_time = failing_start + timedelta(milliseconds=200)
         failing_step.duration_ms = 200
-        failing_step.finish(records_processed=100, success_count=80, failure_count=20)
+        failing_step.records_processed = 100
+        failing_step.success_count = 80
+        failing_step.failure_count = 20
+        failing_step.records_per_second = 500
         
         pipeline.add_step_metrics(slow_step)
         pipeline.add_step_metrics(fast_step)

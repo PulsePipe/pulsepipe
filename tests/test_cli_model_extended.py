@@ -391,8 +391,7 @@ class TestCliModelExtended:
         # Check that the schema display logic is working
         assert "Fields:" in result.output or "No fields found" in result.output
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows ValueError: test_model_validate_command is not a normalized and relative path")
-    def test_model_validate_command(self, mock_config_loader, tmp_path):
+    def test_model_validate_command(self, mock_config_loader, safe_tmp_path):
         """Test the validate command with valid JSON."""
         runner = CliRunner()
         
@@ -403,7 +402,7 @@ class TestCliModelExtended:
             "birth_date": "1990-01-01"
         }
         
-        test_file = tmp_path / "test_patient.json"
+        test_file = safe_tmp_path / "test_patient.json"
         test_file.write_text(json.dumps(test_data))
         
         with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
@@ -416,8 +415,7 @@ class TestCliModelExtended:
             assert "✅ Validation successful" in result.output
             assert "Model: Patient" in result.output
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows ValueError: test_model_validate_with_summa is not a normalized and relative path")
-    def test_model_validate_with_summary_method(self, mock_config_loader, tmp_path):
+    def test_model_validate_with_summary_method(self, mock_config_loader, safe_tmp_path):
         """Test validate command with a model that has a summary method."""
         runner = CliRunner()
         
@@ -432,7 +430,7 @@ class TestCliModelExtended:
                 return cls(name=data["name"])
         
         test_data = {"name": "Test"}
-        test_file = tmp_path / "test_data.json"
+        test_file = safe_tmp_path / "test_data.json"
         test_file.write_text(json.dumps(test_data))
         
         with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:
@@ -445,13 +443,12 @@ class TestCliModelExtended:
             assert "✅ Validation successful" in result.output
             assert "Summary: Model for Test" in result.output
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows ValueError: test_model_validate_with_summa is not a normalized and relative path")
-    def test_model_validate_with_list_data(self, mock_config_loader, tmp_path):
+    def test_model_validate_with_list_data(self, mock_config_loader, safe_tmp_path):
         """Test validate command with list data."""
         runner = CliRunner()
         
         test_data = ["item1", "item2", "item3"]
-        test_file = tmp_path / "test_list.json"
+        test_file = safe_tmp_path / "test_list.json"
         test_file.write_text(json.dumps(test_data))
         
         # Test error handling - this should fail validation but exercise the list data path
@@ -459,13 +456,12 @@ class TestCliModelExtended:
         assert result.exit_code == 0
         assert "❌ Validation failed" in result.output
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows ValueError: test_model_validate_with_summa is not a normalized and relative path")
-    def test_model_validate_failure(self, mock_config_loader, tmp_path):
+    def test_model_validate_failure(self, mock_config_loader, safe_tmp_path):
         """Test validate command with validation failure."""
         runner = CliRunner()
         
         test_data = {"invalid": "data"}
-        test_file = tmp_path / "invalid_data.json"
+        test_file = safe_tmp_path / "invalid_data.json"
         test_file.write_text(json.dumps(test_data))
         
         with patch('pulsepipe.cli.command.model.importlib.import_module') as mock_import:

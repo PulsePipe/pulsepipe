@@ -599,12 +599,12 @@ class TestAuditLogger:
         
         assert len(audit_logger.event_buffer) == 0
     
-    def test_export_events_json(self, audit_logger, tmp_path):
+    def test_export_events_json(self, audit_logger, safe_tmp_path):
         """Test export_events in JSON format."""
         audit_logger.log_pipeline_started("pipeline")
         audit_logger.log_record_processed("ingestion", "rec_1")
         
-        export_path = tmp_path / "events.json"
+        export_path = safe_tmp_path / "events.json"
         audit_logger.export_events(str(export_path), format="json")
         
         assert export_path.exists()
@@ -616,12 +616,12 @@ class TestAuditLogger:
         assert len(data) == 2
         assert data[0]["event_type"] == EventType.PIPELINE_STARTED.value
     
-    def test_export_events_csv(self, audit_logger, tmp_path):
+    def test_export_events_csv(self, audit_logger, safe_tmp_path):
         """Test export_events in CSV format."""
         audit_logger.log_pipeline_started("pipeline")
         audit_logger.log_record_processed("ingestion", "rec_1")
         
-        export_path = tmp_path / "events.csv"
+        export_path = safe_tmp_path / "events.csv"
         audit_logger.export_events(str(export_path), format="csv")
         
         assert export_path.exists()
@@ -633,22 +633,22 @@ class TestAuditLogger:
         assert "event_type" in content
         assert "pipeline_started" in content
     
-    def test_export_events_invalid_format(self, audit_logger, tmp_path):
+    def test_export_events_invalid_format(self, audit_logger, safe_tmp_path):
         """Test export_events with invalid format."""
         audit_logger.log_pipeline_started("pipeline")
         
-        export_path = tmp_path / "events.xml"
+        export_path = safe_tmp_path / "events.xml"
         
         with pytest.raises(ValueError, match="Unsupported export format"):
             audit_logger.export_events(str(export_path), format="xml")
     
-    def test_export_events_with_filter(self, audit_logger, tmp_path):
+    def test_export_events_with_filter(self, audit_logger, safe_tmp_path):
         """Test export_events with event type filter."""
         audit_logger.log_pipeline_started("pipeline")
         audit_logger.log_record_processed("ingestion", "rec_1")
         audit_logger.log_warning("processing", "Warning")
         
-        export_path = tmp_path / "warnings.json"
+        export_path = safe_tmp_path / "warnings.json"
         audit_logger.export_events(str(export_path), event_type=EventType.WARNING_ISSUED)
         
         with open(export_path) as f:

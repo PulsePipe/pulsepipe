@@ -490,7 +490,7 @@ class TestAuditReporter:
         assert report.metadata["total_failed_runs"] == 1
         assert report.metadata["most_common_error"] == "network_error"
     
-    def test_export_report_json(self, reporter, tmp_path):
+    def test_export_report_json(self, reporter, safe_tmp_path):
         """Test exporting report to JSON."""
         processing_summary = ProcessingSummary(
             total_records=100, successful_records=95, failed_records=5,
@@ -512,7 +512,7 @@ class TestAuditReporter:
             metadata={"test": "metadata"}
         )
         
-        export_path = tmp_path / "test_report.json"
+        export_path = safe_tmp_path / "test_report.json"
         reporter.export_report(report, str(export_path), "json")
         
         assert export_path.exists()
@@ -526,7 +526,7 @@ class TestAuditReporter:
         assert data["processing_summary"]["total_records"] == 100
         assert data["error_breakdown"]["test_error"] == 5
     
-    def test_export_report_csv(self, reporter, tmp_path):
+    def test_export_report_csv(self, reporter, safe_tmp_path):
         """Test exporting report to CSV."""
         processing_summary = ProcessingSummary(
             total_records=100, successful_records=95, failed_records=5,
@@ -556,7 +556,7 @@ class TestAuditReporter:
             metadata={}
         )
         
-        export_path = tmp_path / "test_report.csv"
+        export_path = safe_tmp_path / "test_report.csv"
         reporter.export_report(report, str(export_path), "csv")
         
         assert export_path.exists()
@@ -571,7 +571,7 @@ class TestAuditReporter:
         assert "Error Breakdown" in content
         assert "Pipeline Runs" in content
     
-    def test_export_report_html(self, reporter, tmp_path):
+    def test_export_report_html(self, reporter, safe_tmp_path):
         """Test exporting report to HTML."""
         processing_summary = ProcessingSummary(
             total_records=100, successful_records=95, failed_records=5,
@@ -593,7 +593,7 @@ class TestAuditReporter:
             metadata={}
         )
         
-        export_path = tmp_path / "test_report.html"
+        export_path = safe_tmp_path / "test_report.html"
         reporter.export_report(report, str(export_path), "html")
         
         assert export_path.exists()
@@ -612,7 +612,7 @@ class TestAuditReporter:
         assert "Recommendations" in content
         assert "Fix validation" in content
     
-    def test_export_report_invalid_format(self, reporter, tmp_path):
+    def test_export_report_invalid_format(self, reporter, safe_tmp_path):
         """Test export with invalid format."""
         processing_summary = ProcessingSummary(
             total_records=100, successful_records=95, failed_records=5,
@@ -634,7 +634,7 @@ class TestAuditReporter:
             metadata={}
         )
         
-        export_path = tmp_path / "test_report.xml"
+        export_path = safe_tmp_path / "test_report.xml"
         
         with pytest.raises(ValueError, match="Unsupported export format"):
             reporter.export_report(report, str(export_path), "xml")

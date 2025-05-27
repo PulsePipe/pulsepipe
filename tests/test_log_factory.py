@@ -214,7 +214,6 @@ def test_domain_aware_text_formatter_no_context():
     output = formatter.format(logger_name="pulsepipe.unknown", level="WARNING", message="Simple message")
     assert output.startswith("Simple message") or output.startswith("[UNKNOWN]")
 
-@pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows or figure out why it fails")
 def test_windows_safe_file_handler_open_failure(monkeypatch):
     """Force WindowsSafeFileHandler._open() failure path gracefully."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -237,7 +236,6 @@ def test_windows_safe_file_handler_open_failure(monkeypatch):
             assert handler.stream is None
             assert handler._closed
 
-@pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows or figure out why it fails")
 def test_windows_safe_file_handler_del_behavior():
     """Test that __del__ does not crash."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -285,7 +283,6 @@ def test_log_factory_expand_env_vars(monkeypatch):
         pytest.skip("Only meaningful to test on Windows")
     LogFactory.init_from_config(config)
 
-@pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows or figure out why it fails")
 def test_windows_safe_file_handler_stream_closed(monkeypatch):
     """Simulate WindowsSafeFileHandler stream being closed."""
     with tempfile.TemporaryDirectory() as tmpdir:

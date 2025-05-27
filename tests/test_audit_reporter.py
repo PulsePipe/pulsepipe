@@ -512,7 +512,7 @@ class TestAuditReporter:
             metadata={"test": "metadata"}
         )
         
-        export_path = tmp_path / "test_report.json"
+        export_path = tmp_path / "test_export_report_json.json"
         reporter.export_report(report, str(export_path), "json")
         
         assert export_path.exists()
@@ -556,7 +556,7 @@ class TestAuditReporter:
             metadata={}
         )
         
-        export_path = tmp_path / "test_report.csv"
+        export_path = tmp_path / "test_export_report_csv.csv"
         reporter.export_report(report, str(export_path), "csv")
         
         assert export_path.exists()
@@ -593,7 +593,7 @@ class TestAuditReporter:
             metadata={}
         )
         
-        export_path = tmp_path / "test_report.html"
+        export_path = tmp_path / "test_export_report_html.html"
         reporter.export_report(report, str(export_path), "html")
         
         assert export_path.exists()
@@ -634,7 +634,7 @@ class TestAuditReporter:
             metadata={}
         )
         
-        export_path = tmp_path / "test_report.xml"
+        export_path = tmp_path / "test_export_report_invalid_format.xml"
         
         with pytest.raises(ValueError, match="Unsupported export format"):
             reporter.export_report(report, str(export_path), "xml")

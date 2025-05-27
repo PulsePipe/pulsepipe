@@ -604,7 +604,7 @@ class TestAuditLogger:
         audit_logger.log_pipeline_started("pipeline")
         audit_logger.log_record_processed("ingestion", "rec_1")
         
-        export_path = tmp_path / "events.json"
+        export_path = tmp_path / "test_export_events_json.json"
         audit_logger.export_events(str(export_path), format="json")
         
         assert export_path.exists()
@@ -621,7 +621,7 @@ class TestAuditLogger:
         audit_logger.log_pipeline_started("pipeline")
         audit_logger.log_record_processed("ingestion", "rec_1")
         
-        export_path = tmp_path / "events.csv"
+        export_path = tmp_path / "test_export_events_csv.csv"
         audit_logger.export_events(str(export_path), format="csv")
         
         assert export_path.exists()
@@ -637,7 +637,7 @@ class TestAuditLogger:
         """Test export_events with invalid format."""
         audit_logger.log_pipeline_started("pipeline")
         
-        export_path = tmp_path / "events.xml"
+        export_path = tmp_path / "test_export_events_invalid_format.xml"
         
         with pytest.raises(ValueError, match="Unsupported export format"):
             audit_logger.export_events(str(export_path), format="xml")
@@ -648,7 +648,7 @@ class TestAuditLogger:
         audit_logger.log_record_processed("ingestion", "rec_1")
         audit_logger.log_warning("processing", "Warning")
         
-        export_path = tmp_path / "warnings.json"
+        export_path = tmp_path / "test_export_events_with_filter.json"
         audit_logger.export_events(str(export_path), event_type=EventType.WARNING_ISSUED)
         
         with open(export_path) as f:

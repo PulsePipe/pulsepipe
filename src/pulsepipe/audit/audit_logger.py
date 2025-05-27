@@ -510,12 +510,16 @@ class AuditLogger:
         """
         events = self.get_events(event_type)
         
+        # Normalize file path for cross-platform compatibility
+        import os
+        normalized_path = os.path.abspath(file_path)
+        
         if format.lower() == "json":
-            with open(file_path, 'w') as f:
+            with open(normalized_path, 'w') as f:
                 json.dump([event.to_dict() for event in events], f, indent=2, default=str)
         elif format.lower() == "csv":
             import csv
-            with open(file_path, 'w', newline='') as f:
+            with open(normalized_path, 'w', newline='') as f:
                 if events:
                     writer = csv.DictWriter(f, fieldnames=events[0].to_dict().keys())
                     writer.writeheader()
@@ -524,7 +528,7 @@ class AuditLogger:
         else:
             raise ValueError(f"Unsupported export format: {format}")
         
-        logger.info(f"Exported {len(events)} audit events to {file_path}")
+        logger.info(f"Exported {len(events)} audit events to {normalized_path}")
     
     def get_summary(self) -> Dict[str, Any]:
         """Get summary statistics of audit events."""

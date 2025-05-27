@@ -360,7 +360,13 @@ class AuditReporter:
             file_path: Path to export file
             format: Export format (json, csv, html)
         """
-        output_path = Path(file_path)
+        try:
+            output_path = Path(file_path)
+        except ValueError:
+            # Handle Windows path issues by using the file_path directly
+            import os
+            output_path = Path(os.path.abspath(file_path))
+        
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         if format.lower() == "json":

@@ -25,6 +25,7 @@
 Test configuration and fixtures for PulsePipe.
 """
 
+import tempfile
 import pytest
 import os
 import sys
@@ -388,3 +389,9 @@ def isolate_log_factory_tests():
     else:
         # For non-LogFactory tests, do nothing special
         yield
+
+@pytest.fixture
+def safe_tmp_path():
+    """Cross-platform safe temp path that avoids pytest's mktemp issues on Windows."""
+    tmpdir = tempfile.mkdtemp(prefix="safe_tmp_")
+    return Path(tmpdir)

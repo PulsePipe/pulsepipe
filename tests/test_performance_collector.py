@@ -27,10 +27,12 @@ Unit tests for performance metrics collection system.
 Tests centralized collection, aggregation, and export functionality.
 """
 
+import sys
 import pytest
 import json
 import csv
 import tempfile
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -264,7 +266,7 @@ class TestMetricsCollector:
         with tempfile.NamedTemporaryFile() as f:
             with pytest.raises(ValueError, match="Unsupported export format"):
                 collector.export_metrics(f.name, 'xml')
-    
+
     def test_clear_old_metrics(self):
         """Test clearing old metrics."""
         collector = MetricsCollector()
@@ -273,6 +275,7 @@ class TestMetricsCollector:
         for i in range(3):
             tracker = collector.create_tracker(f"pipeline_{i}", f"Pipeline {i}")
             tracker.start_step("step_1")
+            time.sleep(0.001)  # ensure non-zero timestamps
             tracker.finish_step(records_processed=100)
             collector.finish_pipeline(f"pipeline_{i}")
         
@@ -283,6 +286,8 @@ class TestMetricsCollector:
         assert cleared_count == 0
         assert len(collector.get_recent_pipelines()) == 3
         
+        time.sleep(0.01)
+
         # Clear metrics older than 0 seconds (should clear everything)
         cleared_count = collector.clear_old_metrics(timedelta(seconds=0))
         assert cleared_count == 3
@@ -327,21 +332,23 @@ class TestMetricsCollector:
         assert recent_pipelines[1].pipeline_id == "pipeline_3"
         assert recent_pipelines[2].pipeline_id == "pipeline_4"
     
+    #@pytest.mark.skipif(sys.platform == "win32", reason="ToDo: fix on Windows issue with timedelta???")
     def test_update_aggregates(self):
         """Test that aggregates are updated correctly."""
         collector = MetricsCollector()
         
-        # Create a pipeline with specific metrics
         tracker = collector.create_tracker("test_pipeline", "Test Pipeline")
         tracker.start_step("slow_step")
+
+        # Force a noticeable duration (at least 1 ms)
+        time.sleep(0.01)
+
         tracker.finish_step(records_processed=100, success_count=100)
         metrics = collector.finish_pipeline("test_pipeline")
-        
-        # Check that aggregates contain the step data
+
         assert len(collector._pipeline_aggregates['duration_ms']) == 1
         assert collector._pipeline_aggregates['duration_ms'][0] == metrics.total_duration_ms
-        
-        # Check step aggregates
+
         step_key = "slow_step_duration_ms"
         assert step_key in collector._step_aggregates
         assert len(collector._step_aggregates[step_key]) == 1

@@ -37,3 +37,11 @@ from .audit_reporter import (
     AuditReport,
     ProcessingSummary
 )
+from .ingestion_tracker import (
+    IngestionTracker,
+    IngestionRecord,
+    IngestionBatchMetrics,
+    IngestionSummary,
+    IngestionOutcome,
+    IngestionStage
+)

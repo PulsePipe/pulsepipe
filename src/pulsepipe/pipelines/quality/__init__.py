@@ -15,20 +15,45 @@
 # We welcome community contributions — if you make it better, 
 # share it back. The whole healthcare ecosystem wins.
 # ------------------------------------------------------------------------------
-# 
+# ------------------------------------------------------------------------------
 # PulsePipe - Open Source ❤️, Healthcare Tough 💪, Builders Only 🛠️
 # ------------------------------------------------------------------------------
 
-# src/pulsepipe/cli/commands/__init__.py
+# src/pulsepipe/pipelines/quality/__init__.py
 
 """
-PulsePipe CLI commands package.
+Data Quality Scoring Engine for PulsePipe.
 
-Contains command implementations for the PulsePipe CLI.
+Provides comprehensive data quality assessment including completeness,
+consistency, outlier detection, and aggregate scoring.
 """
-from .run import run
-from .config import config
-from .model import model
-from .metrics import metrics
 
-__all__ = ["run", "config", "model", "metrics"]
+from .scoring_engine import (
+    DataQualityScorer,
+    QualityScore,
+    CompletenessScorer,
+    ConsistencyScorer,
+    OutlierDetector,
+    DataUsageAnalyzer,
+    QualityDimension,
+    Severity,
+    QualityIssue
+)
+from .integration import (
+    QualityAssessmentService,
+    QualityAssessmentPipeline
+)
+
+__all__ = [
+    "DataQualityScorer",
+    "QualityScore", 
+    "CompletenessScorer",
+    "ConsistencyScorer",
+    "OutlierDetector",
+    "DataUsageAnalyzer",
+    "QualityDimension",
+    "Severity",
+    "QualityIssue",
+    "QualityAssessmentService",
+    "QualityAssessmentPipeline"
+]

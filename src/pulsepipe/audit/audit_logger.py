@@ -38,7 +38,7 @@ from contextlib import contextmanager
 
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.config.data_intelligence_config import DataIntelligenceConfig
-from pulsepipe.persistence import TrackingRepository, ProcessingStatus, ErrorCategory
+from pulsepipe.persistence import ProcessingStatus, ErrorCategory, BaseTrackingRepository
 
 logger = LogFactory.get_logger(__name__)
 
@@ -120,14 +120,14 @@ class AuditLogger:
     """
     
     def __init__(self, pipeline_run_id: str, config: DataIntelligenceConfig,
-                 repository: Optional[TrackingRepository] = None):
+                 repository: BaseTrackingRepository):
         """
         Initialize audit logger.
         
         Args:
             pipeline_run_id: Unique identifier for the pipeline run
             config: Data intelligence configuration
-            repository: Optional tracking repository for persistence
+            repository: Async tracking repository for persistence
         """
         self.pipeline_run_id = pipeline_run_id
         self.config = config
@@ -170,7 +170,7 @@ class AuditLogger:
         """Get the current correlation ID from the stack."""
         return self.correlation_stack[-1] if self.correlation_stack else None
     
-    def log_event(self, event: AuditEvent) -> None:
+    async def log_event(self, event: AuditEvent) -> None:
         """
         Log an audit event.
         
@@ -203,27 +203,26 @@ class AuditLogger:
         elif event.level == AuditLevel.CRITICAL:
             logger.critical(log_message)
         
-        # Persist to repository if available
-        if self.repository:
-            try:
-                self.repository.record_audit_event(
-                    pipeline_run_id=self.pipeline_run_id,
-                    event_type=event.event_type.value,
-                    stage_name=event.stage_name,
-                    message=event.message,
-                    event_level=event.level.value,
-                    record_id=event.record_id,
-                    details=event.details,
-                    correlation_id=event.correlation_id
-                )
-            except Exception as e:
-                logger.error(f"Failed to persist audit event: {e}")
+        # Persist to repository
+        try:
+            await self.repository.record_audit_event(
+                pipeline_run_id=self.pipeline_run_id,
+                event_type=event.event_type.value,
+                stage_name=event.stage_name,
+                message=event.message,
+                event_level=event.level.value,
+                record_id=event.record_id,
+                details=event.details,
+                correlation_id=event.correlation_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to persist audit event: {e}")
         
         # Auto-flush if buffer is full
         if len(self.event_buffer) >= self.auto_flush_threshold:
             self.flush_buffer()
     
-    def log_pipeline_started(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
+    async def log_pipeline_started(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
         """Log pipeline started event."""
         event = AuditEvent(
             event_type=EventType.PIPELINE_STARTED,
@@ -232,9 +231,9 @@ class AuditLogger:
             level=AuditLevel.INFO,
             details=details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_pipeline_completed(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
+    async def log_pipeline_completed(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
         """Log pipeline completed event."""
         event = AuditEvent(
             event_type=EventType.PIPELINE_COMPLETED,
@@ -243,9 +242,9 @@ class AuditLogger:
             level=AuditLevel.INFO,
             details=details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_pipeline_failed(self, stage_name: str, error: Exception, 
+    async def log_pipeline_failed(self, stage_name: str, error: Exception, 
                           details: Optional[Dict[str, Any]] = None) -> None:
         """Log pipeline failed event."""
         error_details = details or {}
@@ -261,9 +260,9 @@ class AuditLogger:
             level=AuditLevel.ERROR,
             details=error_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_stage_started(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
+    async def log_stage_started(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
         """Log stage started event."""
         event = AuditEvent(
             event_type=EventType.STAGE_STARTED,
@@ -272,9 +271,9 @@ class AuditLogger:
             level=AuditLevel.INFO,
             details=details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_stage_completed(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
+    async def log_stage_completed(self, stage_name: str, details: Optional[Dict[str, Any]] = None) -> None:
         """Log stage completed event."""
         event = AuditEvent(
             event_type=EventType.STAGE_COMPLETED,
@@ -283,9 +282,9 @@ class AuditLogger:
             level=AuditLevel.INFO,
             details=details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_stage_failed(self, stage_name: str, error: Exception,
+    async def log_stage_failed(self, stage_name: str, error: Exception,
                         details: Optional[Dict[str, Any]] = None) -> None:
         """Log stage failed event."""
         error_details = details or {}
@@ -301,9 +300,9 @@ class AuditLogger:
             level=AuditLevel.ERROR,
             details=error_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_record_processed(self, stage_name: str, record_id: str,
+    async def log_record_processed(self, stage_name: str, record_id: str,
                            record_type: Optional[str] = None,
                            processing_time_ms: Optional[int] = None,
                            details: Optional[Dict[str, Any]] = None) -> None:
@@ -325,9 +324,9 @@ class AuditLogger:
             record_id=record_id,
             details=record_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_record_failed(self, stage_name: str, record_id: str, error: Exception,
+    async def log_record_failed(self, stage_name: str, record_id: str, error: Exception,
                          error_category: Optional[ErrorCategory] = None,
                          details: Optional[Dict[str, Any]] = None) -> None:
         """Log failed record processing."""
@@ -348,9 +347,9 @@ class AuditLogger:
             record_id=record_id,
             details=error_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_record_skipped(self, stage_name: str, record_id: str, reason: str,
+    async def log_record_skipped(self, stage_name: str, record_id: str, reason: str,
                           details: Optional[Dict[str, Any]] = None) -> None:
         """Log skipped record processing."""
         skip_details = details or {}
@@ -364,9 +363,9 @@ class AuditLogger:
             record_id=record_id,
             details=skip_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_validation_failed(self, stage_name: str, record_id: str,
+    async def log_validation_failed(self, stage_name: str, record_id: str,
                             validation_errors: List[str],
                             details: Optional[Dict[str, Any]] = None) -> None:
         """Log validation failure."""
@@ -384,9 +383,9 @@ class AuditLogger:
             record_id=record_id,
             details=validation_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_data_quality_check(self, stage_name: str, record_id: str,
+    async def log_data_quality_check(self, stage_name: str, record_id: str,
                               quality_score: float, issues: List[str],
                               details: Optional[Dict[str, Any]] = None) -> None:
         """Log data quality check results."""
@@ -407,9 +406,9 @@ class AuditLogger:
             record_id=record_id,
             details=quality_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_performance_metric(self, stage_name: str, metric_name: str,
+    async def log_performance_metric(self, stage_name: str, metric_name: str,
                               metric_value: float, unit: str,
                               details: Optional[Dict[str, Any]] = None) -> None:
         """Log performance metric."""
@@ -427,9 +426,9 @@ class AuditLogger:
             level=AuditLevel.DEBUG,
             details=perf_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_warning(self, stage_name: str, message: str, record_id: Optional[str] = None,
+    async def log_warning(self, stage_name: str, message: str, record_id: Optional[str] = None,
                    details: Optional[Dict[str, Any]] = None) -> None:
         """Log generic warning."""
         event = AuditEvent(
@@ -440,9 +439,9 @@ class AuditLogger:
             record_id=record_id,
             details=details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
-    def log_error(self, stage_name: str, error: Exception, record_id: Optional[str] = None,
+    async def log_error(self, stage_name: str, error: Exception, record_id: Optional[str] = None,
                  details: Optional[Dict[str, Any]] = None) -> None:
         """Log generic error."""
         error_details = details or {}
@@ -459,7 +458,7 @@ class AuditLogger:
             record_id=record_id,
             details=error_details
         )
-        self.log_event(event)
+        await self.log_event(event)
     
     def get_events(self, event_type: Optional[EventType] = None,
                    level: Optional[AuditLevel] = None,

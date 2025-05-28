@@ -29,10 +29,11 @@ correlation tracking, and persistence integration.
 """
 
 import pytest
+import asyncio
 import uuid
 import json
 from datetime import datetime
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, AsyncMock
 
 from pulsepipe.audit.audit_logger import (
     AuditLogger,
@@ -209,8 +210,10 @@ class TestAuditLogger:
     
     @pytest.fixture
     def mock_repository(self):
-        """Create mock tracking repository."""
-        return Mock()
+        """Create mock async tracking repository."""
+        repo = AsyncMock()
+        repo.record_audit_event = AsyncMock()
+        return repo
     
     @pytest.fixture
     def audit_logger(self, mock_config, mock_repository):
@@ -297,7 +300,7 @@ class TestAuditLogger:
             message="Test event"
         )
         
-        audit_logger.log_event(event)
+        asyncio.run(audit_logger.log_event(event))
         
         # Check event was added to buffer
         assert len(audit_logger.event_buffer) == 1
@@ -317,7 +320,7 @@ class TestAuditLogger:
             message="Test event"
         )
         
-        logger.log_event(event)
+        asyncio.run(logger.log_event(event))
         
         # Check event was not added to buffer
         assert len(logger.event_buffer) == 0
@@ -334,7 +337,7 @@ class TestAuditLogger:
         )
         
         with audit_logger.correlation_context("test_corr"):
-            audit_logger.log_event(event)
+            asyncio.run(audit_logger.log_event(event))
         
         # Check correlation ID was set
         logged_event = audit_logger.event_buffer[0]
@@ -351,7 +354,7 @@ class TestAuditLogger:
         )
         
         # Should not raise exception
-        audit_logger.log_event(event)
+        asyncio.run(audit_logger.log_event(event))
         
         # Event should still be in buffer
         assert len(audit_logger.event_buffer) == 1
@@ -367,7 +370,7 @@ class TestAuditLogger:
                 stage_name="test",
                 message=f"Event {i}"
             )
-            audit_logger.log_event(event)
+            asyncio.run(audit_logger.log_event(event))
         
         # Buffer should be flushed
         assert len(audit_logger.event_buffer) == 0
@@ -375,7 +378,7 @@ class TestAuditLogger:
     def test_log_pipeline_started(self, audit_logger):
         """Test log_pipeline_started method."""
         details = {"config_version": "1.0"}
-        audit_logger.log_pipeline_started("pipeline", details)
+        asyncio.run(audit_logger.log_pipeline_started("pipeline", details))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.PIPELINE_STARTED
@@ -386,7 +389,7 @@ class TestAuditLogger:
     
     def test_log_pipeline_completed(self, audit_logger):
         """Test log_pipeline_completed method."""
-        audit_logger.log_pipeline_completed("pipeline")
+        asyncio.run(audit_logger.log_pipeline_completed("pipeline"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.PIPELINE_COMPLETED
@@ -396,7 +399,7 @@ class TestAuditLogger:
     def test_log_pipeline_failed(self, audit_logger):
         """Test log_pipeline_failed method."""
         error = ValueError("Test error")
-        audit_logger.log_pipeline_failed("pipeline", error)
+        asyncio.run(audit_logger.log_pipeline_failed("pipeline", error))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.PIPELINE_FAILED
@@ -407,7 +410,7 @@ class TestAuditLogger:
     
     def test_log_stage_started(self, audit_logger):
         """Test log_stage_started method."""
-        audit_logger.log_stage_started("ingestion")
+        asyncio.run(audit_logger.log_stage_started("ingestion"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.STAGE_STARTED
@@ -416,7 +419,7 @@ class TestAuditLogger:
     
     def test_log_stage_completed(self, audit_logger):
         """Test log_stage_completed method."""
-        audit_logger.log_stage_completed("ingestion")
+        asyncio.run(audit_logger.log_stage_completed("ingestion"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.STAGE_COMPLETED
@@ -426,7 +429,7 @@ class TestAuditLogger:
     def test_log_stage_failed(self, audit_logger):
         """Test log_stage_failed method."""
         error = RuntimeError("Stage error")
-        audit_logger.log_stage_failed("validation", error)
+        asyncio.run(audit_logger.log_stage_failed("validation", error))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.STAGE_FAILED
@@ -436,9 +439,9 @@ class TestAuditLogger:
     
     def test_log_record_processed(self, audit_logger):
         """Test log_record_processed method."""
-        audit_logger.log_record_processed(
+        asyncio.run(audit_logger.log_record_processed(
             "ingestion", "rec_123", "Patient", 150, {"field_count": 25}
-        )
+        ))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.RECORD_PROCESSED
@@ -455,7 +458,7 @@ class TestAuditLogger:
         }.get((feature, sub_feature), False)
         
         logger = AuditLogger("test_run", mock_config, mock_repository)
-        logger.log_record_processed("ingestion", "rec_123")
+        asyncio.run(logger.log_record_processed("ingestion", "rec_123"))
         
         # Should not log anything
         assert len(logger.event_buffer) == 0
@@ -463,9 +466,9 @@ class TestAuditLogger:
     def test_log_record_failed(self, audit_logger):
         """Test log_record_failed method."""
         error = ValueError("Invalid data")
-        audit_logger.log_record_failed(
+        asyncio.run(audit_logger.log_record_failed(
             "validation", "rec_123", error, ErrorCategory.VALIDATION_ERROR
-        )
+        ))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.RECORD_FAILED
@@ -475,7 +478,7 @@ class TestAuditLogger:
     
     def test_log_record_skipped(self, audit_logger):
         """Test log_record_skipped method."""
-        audit_logger.log_record_skipped("filtering", "rec_123", "Duplicate record")
+        asyncio.run(audit_logger.log_record_skipped("filtering", "rec_123", "Duplicate record"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.RECORD_SKIPPED
@@ -486,7 +489,7 @@ class TestAuditLogger:
     def test_log_validation_failed(self, audit_logger):
         """Test log_validation_failed method."""
         errors = ["Missing patient ID", "Invalid date format"]
-        audit_logger.log_validation_failed("validation", "rec_123", errors)
+        asyncio.run(audit_logger.log_validation_failed("validation", "rec_123", errors))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.VALIDATION_FAILED
@@ -498,7 +501,7 @@ class TestAuditLogger:
     def test_log_data_quality_check(self, audit_logger):
         """Test log_data_quality_check method."""
         issues = ["Missing phone number"]
-        audit_logger.log_data_quality_check("quality", "rec_123", 0.65, issues)
+        asyncio.run(audit_logger.log_data_quality_check("quality", "rec_123", 0.65, issues))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.DATA_QUALITY_CHECK
@@ -509,14 +512,14 @@ class TestAuditLogger:
     
     def test_log_data_quality_check_high_score(self, audit_logger):
         """Test log_data_quality_check with high score."""
-        audit_logger.log_data_quality_check("quality", "rec_123", 0.85, [])
+        asyncio.run(audit_logger.log_data_quality_check("quality", "rec_123", 0.85, []))
         
         event = audit_logger.event_buffer[0]
         assert event.level == AuditLevel.INFO  # High score is info level
     
     def test_log_performance_metric(self, audit_logger):
         """Test log_performance_metric method."""
-        audit_logger.log_performance_metric("ingestion", "records_per_second", 125.5, "rec/sec")
+        asyncio.run(audit_logger.log_performance_metric("ingestion", "records_per_second", 125.5, "rec/sec"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.PERFORMANCE_METRIC
@@ -527,7 +530,7 @@ class TestAuditLogger:
     
     def test_log_warning(self, audit_logger):
         """Test log_warning method."""
-        audit_logger.log_warning("processing", "Data quality below threshold", "rec_123")
+        asyncio.run(audit_logger.log_warning("processing", "Data quality below threshold", "rec_123"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.WARNING_ISSUED
@@ -538,7 +541,7 @@ class TestAuditLogger:
     def test_log_error(self, audit_logger):
         """Test log_error method."""
         error = RuntimeError("Processing error")
-        audit_logger.log_error("processing", error, "rec_123")
+        asyncio.run(audit_logger.log_error("processing", error, "rec_123"))
         
         event = audit_logger.event_buffer[0]
         assert event.event_type == EventType.ERROR_OCCURRED
@@ -549,9 +552,9 @@ class TestAuditLogger:
     def test_get_events_no_filter(self, audit_logger):
         """Test get_events without filters."""
         # Add different types of events
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
-        audit_logger.log_warning("processing", "Warning message")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
+        asyncio.run(audit_logger.log_warning("processing", "Warning message"))
         
         events = audit_logger.get_events()
         assert len(events) == 3
@@ -559,10 +562,10 @@ class TestAuditLogger:
     def test_get_events_with_filters(self, audit_logger):
         """Test get_events with filters."""
         # Add different types of events
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
-        audit_logger.log_warning("processing", "Warning message")
-        audit_logger.log_error("processing", ValueError("Error"))
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
+        asyncio.run(audit_logger.log_warning("processing", "Warning message"))
+        asyncio.run(audit_logger.log_error("processing", ValueError("Error")))
         
         # Filter by event type
         warning_events = audit_logger.get_events(event_type=EventType.WARNING_ISSUED)
@@ -580,9 +583,9 @@ class TestAuditLogger:
     
     def test_get_event_count(self, audit_logger):
         """Test get_event_count method."""
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_warning("processing", "Warning 1")
-        audit_logger.log_warning("processing", "Warning 2")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_warning("processing", "Warning 1"))
+        asyncio.run(audit_logger.log_warning("processing", "Warning 2"))
         
         assert audit_logger.get_event_count() == 3
         assert audit_logger.get_event_count(level=AuditLevel.WARNING) == 2
@@ -590,8 +593,8 @@ class TestAuditLogger:
     
     def test_flush_buffer(self, audit_logger):
         """Test flush_buffer method."""
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
         
         assert len(audit_logger.event_buffer) == 2
         
@@ -601,8 +604,8 @@ class TestAuditLogger:
     
     def test_export_events_json(self, audit_logger, safe_tmp_path):
         """Test export_events in JSON format."""
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
         
         export_path = safe_tmp_path / "events.json"
         audit_logger.export_events(str(export_path), format="json")
@@ -618,8 +621,8 @@ class TestAuditLogger:
     
     def test_export_events_csv(self, audit_logger, safe_tmp_path):
         """Test export_events in CSV format."""
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
         
         export_path = safe_tmp_path / "events.csv"
         audit_logger.export_events(str(export_path), format="csv")
@@ -635,7 +638,7 @@ class TestAuditLogger:
     
     def test_export_events_invalid_format(self, audit_logger, safe_tmp_path):
         """Test export_events with invalid format."""
-        audit_logger.log_pipeline_started("pipeline")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
         
         export_path = safe_tmp_path / "events.xml"
         
@@ -644,9 +647,9 @@ class TestAuditLogger:
     
     def test_export_events_with_filter(self, audit_logger, safe_tmp_path):
         """Test export_events with event type filter."""
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
-        audit_logger.log_warning("processing", "Warning")
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
+        asyncio.run(audit_logger.log_warning("processing", "Warning"))
         
         export_path = safe_tmp_path / "warnings.json"
         audit_logger.export_events(str(export_path), event_type=EventType.WARNING_ISSUED)
@@ -660,16 +663,16 @@ class TestAuditLogger:
     def test_get_summary(self, audit_logger):
         """Test get_summary method."""
         # Add various events
-        audit_logger.log_pipeline_started("pipeline")
-        audit_logger.log_record_processed("ingestion", "rec_1")
-        audit_logger.log_warning("processing", "Warning")
-        audit_logger.log_error("processing", ValueError("Error"))
+        asyncio.run(audit_logger.log_pipeline_started("pipeline"))
+        asyncio.run(audit_logger.log_record_processed("ingestion", "rec_1"))
+        asyncio.run(audit_logger.log_warning("processing", "Warning"))
+        asyncio.run(audit_logger.log_error("processing", ValueError("Error")))
         
         with audit_logger.correlation_context("corr_1"):
-            audit_logger.log_record_processed("ingestion", "rec_2")
+            asyncio.run(audit_logger.log_record_processed("ingestion", "rec_2"))
         
         with audit_logger.correlation_context("corr_2"):
-            audit_logger.log_record_processed("ingestion", "rec_3")
+            asyncio.run(audit_logger.log_record_processed("ingestion", "rec_3"))
         
         summary = audit_logger.get_summary()
         

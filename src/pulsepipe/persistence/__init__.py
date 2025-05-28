@@ -21,20 +21,48 @@
 
 # src/pulsepipe/persistence/__init__.py
 
+"""Persistence layer for data intelligence and audit tracking."""
+
+# Async persistence interface
 from .factory import (
-    get_shared_sqlite_connection, 
-    get_tracking_repository, 
-    get_data_intelligence_schema
+    create_persistence_provider,
+    get_async_tracking_repository,
+    validate_persistence_config
 )
-from .models import (
-    DataIntelligenceSchema,
-    ProcessingStatus,
-    ErrorCategory,
-    init_data_intelligence_db
-)
-from .tracking_repository import (
-    TrackingRepository,
+from .base import (
+    BasePersistenceProvider,
+    BaseTrackingRepository,
     PipelineRunSummary,
     IngestionStat,
     QualityMetric
 )
+from .sqlite_provider import SQLitePersistenceProvider
+from .mongodb_provider import MongoDBPersistenceProvider
+from .postgresql_provider import PostgreSQLPersistenceProvider
+from .sqlserver_provider import SQLServerPersistenceProvider
+
+# Enums (database-agnostic)
+from .models import (
+    ProcessingStatus,
+    ErrorCategory
+)
+
+__all__ = [
+    # Async persistence interface
+    "create_persistence_provider",
+    "get_async_tracking_repository", 
+    "validate_persistence_config",
+    "BasePersistenceProvider",
+    "BaseTrackingRepository",
+    "SQLitePersistenceProvider",
+    "MongoDBPersistenceProvider",
+    "PostgreSQLPersistenceProvider",
+    "SQLServerPersistenceProvider",
+    "PipelineRunSummary",
+    "IngestionStat",
+    "QualityMetric",
+    
+    # Enums
+    "ProcessingStatus",
+    "ErrorCategory",
+]

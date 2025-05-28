@@ -1,0 +1,202 @@
+# ------------------------------------------------------------------------------
+# PulsePipe Persistence Configuration Examples
+#
+# This file contains configuration examples for different persistence backends
+# supported by PulsePipe for healthcare data tracking and analytics.
+# ------------------------------------------------------------------------------
+
+# SQLite Configuration (Default - Local development)
+# Lightweight, file-based database suitable for development and small deployments
+persistence:
+  type: sqlite
+  sqlite:
+    db_path: ".pulsepipe/state/ingestion.sqlite3"
+    timeout: 30.0
+    enable_wal: true
+    enable_foreign_keys: true
+    cache_size: -64000  # 64MB cache
+
+---
+
+# MongoDB Configuration (Production - NoSQL document database)
+# Scalable NoSQL database for production healthcare data analytics
+persistence:
+  type: mongodb
+  mongodb:
+    # Connection settings
+    host: "localhost"
+    port: 27017
+    database: "pulsepipe_intelligence"
+    
+    # Authentication (required for production)
+    username: "pulsepipe_user"
+    password: "${MONGODB_PASSWORD}"  # Use environment variable
+    auth_source: "admin"
+    
+    # Security settings (HIPAA compliance)
+    tls: true
+    tls_ca_file: "/path/to/ca-certificate.pem"
+    tls_cert_file: "/path/to/client-certificate.pem"
+    tls_key_file: "/path/to/client-key.pem"
+    
+    # High availability
+    replica_set: "pulsepipe-replica-set"
+    
+    # Connection timeouts
+    connection_timeout_ms: 5000
+    server_selection_timeout_ms: 5000
+
+---
+
+# MongoDB Atlas Configuration (Cloud deployment)
+# Managed MongoDB service with built-in security and scaling
+persistence:
+  type: mongodb
+  mongodb:
+    # Atlas connection string format
+    host: "cluster0.mongodb.net"
+    port: 27017
+    database: "pulsepipe_intelligence"
+    
+    # Atlas authentication
+    username: "pulsepipe_atlas_user"
+    password: "${MONGODB_ATLAS_PASSWORD}"
+    auth_source: "admin"
+    
+    # Atlas always uses TLS
+    tls: true
+    
+    # Atlas replica set
+    replica_set: "atlas-replica-set"
+    
+    # Connection settings
+    connection_timeout_ms: 10000
+    server_selection_timeout_ms: 10000
+
+---
+
+# SQL Server Configuration (Enterprise - Relational database)
+# Enterprise-grade SQL database for large healthcare organizations
+persistence:
+  type: sqlserver
+  sqlserver:
+    # Connection settings
+    server: "localhost"
+    port: 1433
+    database: "pulsepipe_intelligence"
+    
+    # Authentication options
+    username: "pulsepipe_user"
+    password: "${SQLSERVER_PASSWORD}"
+    use_windows_auth: false  # Set to true for Windows authentication
+    
+    # Security settings
+    driver: "ODBC Driver 18 for SQL Server"
+    encrypt: true
+    trust_server_certificate: false
+    
+    # Timeouts
+    connection_timeout: 30
+    command_timeout: 30
+    
+    # Application identification
+    application_name: "PulsePipe"
+
+---
+
+# Development Environment Configuration
+# Minimal setup for local development
+persistence:
+  type: sqlite
+  sqlite:
+    db_path: "./dev_data/pulsepipe.db"
+    enable_wal: false
+    cache_size: -16000  # 16MB cache for development
+
+---
+
+# High Availability MongoDB Configuration
+# Production setup with multiple hosts and advanced security
+persistence:
+  type: mongodb
+  mongodb:
+    # Multiple hosts for high availability
+    hosts:
+      - "mongo1.example.com:27017"
+      - "mongo2.example.com:27017"
+      - "mongo3.example.com:27017"
+    
+    database: "pulsepipe_production"
+    
+    # Security credentials
+    username: "pulsepipe_prod"
+    password: "${MONGODB_PROD_PASSWORD}"
+    auth_source: "admin"
+    
+    # TLS configuration for healthcare compliance
+    tls: true
+    tls_ca_file: "/etc/ssl/certs/mongodb-ca.pem"
+    tls_cert_file: "/etc/ssl/certs/mongodb-client.pem"
+    
+    # Performance settings
+    connection_timeout_ms: 3000
+    server_selection_timeout_ms: 3000
+    
+    # Replica set for data redundancy
+    replica_set: "pulsepipe-production-rs"
+
+---
+
+# Environment-specific Configuration Template
+# Use with environment variable substitution
+persistence:
+  type: "${PERSISTENCE_TYPE:-sqlite}"
+  
+  sqlite:
+    db_path: "${SQLITE_DB_PATH:-.pulsepipe/state/ingestion.sqlite3}"
+    enable_wal: "${SQLITE_WAL:-true}"
+  
+  mongodb:
+    host: "${MONGODB_HOST:-localhost}"
+    port: "${MONGODB_PORT:-27017}"
+    database: "${MONGODB_DATABASE:-pulsepipe_intelligence}"
+    username: "${MONGODB_USERNAME}"
+    password: "${MONGODB_PASSWORD}"
+    tls: "${MONGODB_TLS:-true}"
+    replica_set: "${MONGODB_REPLICA_SET}"
+  
+  sqlserver:
+    server: "${SQLSERVER_HOST:-localhost}"
+    port: "${SQLSERVER_PORT:-1433}"
+    database: "${SQLSERVER_DATABASE:-pulsepipe_intelligence}"
+    username: "${SQLSERVER_USERNAME}"
+    password: "${SQLSERVER_PASSWORD}"
+    encrypt: "${SQLSERVER_ENCRYPT:-true}"
+
+---
+
+# Healthcare Compliance Notes:
+#
+# 1. HIPAA Compliance:
+#    - Always use TLS/SSL encryption for network connections
+#    - Implement proper authentication and authorization
+#    - Enable audit logging for all data access
+#    - Use encrypted storage for sensitive data
+#
+# 2. Security Best Practices:
+#    - Store passwords in environment variables, not config files
+#    - Use certificate-based authentication when possible
+#    - Regularly rotate credentials and certificates
+#    - Implement network segmentation and firewall rules
+#
+# 3. High Availability:
+#    - Use replica sets for MongoDB deployments
+#    - Configure Always On Availability Groups for SQL Server
+#    - Implement proper backup and disaster recovery
+#    - Monitor database performance and health
+#
+# 4. Performance Optimization:
+#    - Tune connection pool sizes based on workload
+#    - Create appropriate indexes for query patterns
+#    - Monitor and optimize slow queries
+#    - Consider partitioning for large datasets

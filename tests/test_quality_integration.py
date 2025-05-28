@@ -38,13 +38,13 @@ from pulsepipe.pipelines.quality.integration import (
     QualityAssessmentPipeline
 )
 from pulsepipe.pipelines.quality.scoring_engine import QualityScore
-from pulsepipe.persistence.tracking_repository import TrackingRepository, QualityMetric
+from pulsepipe.persistence import QualityMetric
 
 
 @pytest.fixture
 def mock_repository():
     """Create a mock tracking repository."""
-    repository = Mock(spec=TrackingRepository)
+    repository = Mock()
     repository.record_quality_metric.return_value = 1
     repository.get_quality_summary.return_value = {
         'total_records': 100,

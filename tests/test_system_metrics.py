@@ -379,7 +379,7 @@ class TestSystemMetricsCollector:
         mock_cpu_freq.return_value = Mock(current=2400.0, max=3000.0, min=800.0)
         mock_cpu_stats.return_value = Mock(ctx_switches=1000, interrupts=500)
         
-        with patch('os.getloadavg', return_value=(1.5, 1.2, 1.0)):
+        with patch.dict('os.__dict__', {'getloadavg': lambda: (1.5, 1.2, 1.0)}):
             metrics = collector.get_cpu_metrics()
         
         assert metrics.usage_percent == 75.5

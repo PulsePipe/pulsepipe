@@ -39,7 +39,7 @@ from enum import Enum
 from contextlib import contextmanager
 
 from pulsepipe.utils.log_factory import LogFactory
-from pulsepipe.persistence import TrackingRepository, ProcessingStatus, ErrorCategory, IngestionStat
+from pulsepipe.persistence import ProcessingStatus, ErrorCategory, IngestionStat
 from pulsepipe.config.data_intelligence_config import DataIntelligenceConfig
 
 logger = LogFactory.get_logger(__name__)
@@ -307,7 +307,7 @@ class IngestionTracker:
     
     def __init__(self, pipeline_run_id: str, stage_name: str, 
                  config: DataIntelligenceConfig,
-                 repository: Optional[TrackingRepository] = None):
+                 repository: Optional[Any] = None):
         """
         Initialize ingestion tracker.
         
@@ -315,7 +315,7 @@ class IngestionTracker:
             pipeline_run_id: Unique identifier for the pipeline run
             stage_name: Name of the ingestion stage
             config: Data intelligence configuration
-            repository: Optional tracking repository for persistence
+            repository: Optional tracking repository for persistence (legacy)
         """
         self.pipeline_run_id = pipeline_run_id
         self.stage_name = stage_name

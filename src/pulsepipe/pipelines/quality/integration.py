@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
 from pulsepipe.utils.log_factory import LogFactory
-from pulsepipe.persistence.tracking_repository import TrackingRepository, QualityMetric
+from pulsepipe.persistence import QualityMetric
 from .scoring_engine import DataQualityScorer, QualityScore
 
 logger = LogFactory.get_logger(__name__)
@@ -46,12 +46,12 @@ class QualityAssessmentService:
     to provide comprehensive quality assessment capabilities.
     """
     
-    def __init__(self, repository: TrackingRepository, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, repository: Optional[Any] = None, config: Optional[Dict[str, Any]] = None):
         """
         Initialize quality assessment service.
         
         Args:
-            repository: Tracking repository for persistence
+            repository: Tracking repository for persistence (legacy, deprecated)
             config: Configuration for quality scoring
         """
         self.repository = repository

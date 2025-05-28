@@ -25,11 +25,11 @@ import asyncio
 import os
 import sys
 import time
+import sqlite3
 from pathlib import Path
 from typing import Set, Dict, Any, List, Optional
 
 from .base import Adapter
-from pulsepipe.persistence.factory import get_shared_sqlite_connection
 from .file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import FileWatcherError, FileSystemError
@@ -80,8 +80,10 @@ class FileWatcherAdapter(Adapter):
                 })()
                 self.logger.info(f"Using simple bookmark store for testing with {self.bookmark_file}")
             else:
-                # Normal operation mode
-                sqlite_conn = get_shared_sqlite_connection({})
+                # Normal operation mode - create SQLite connection directly
+                db_path = Path(".pulsepipe/state/ingestion.sqlite3")
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                sqlite_conn = sqlite3.connect(str(db_path))
                 self.bookmarks = SQLiteBookmarkStore(sqlite_conn)
             
             # Track existing files to detect new ones

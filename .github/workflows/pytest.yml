@@ -22,7 +22,7 @@ jobs:
         run: pip install poetry
 
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --with dev
         # optional: install pytest-cov separately if not in pyproject
         # run: poetry add --group dev pytest-cov
 

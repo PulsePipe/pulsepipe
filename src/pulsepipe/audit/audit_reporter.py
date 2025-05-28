@@ -35,7 +35,8 @@ from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-from pulsepipe.persistence import TrackingRepository, PipelineRunSummary
+# from pulsepipe.persistence import TrackingRepository  # Legacy - TODO: Update to async
+from pulsepipe.persistence import PipelineRunSummary
 from pulsepipe.utils.log_factory import LogFactory
 
 logger = LogFactory.get_logger(__name__)
@@ -139,12 +140,12 @@ class AuditReporter:
     error analysis, quality assessments, and operational insights.
     """
     
-    def __init__(self, repository: TrackingRepository):
+    def __init__(self, repository: Optional[Any] = None):
         """
         Initialize audit reporter.
         
         Args:
-            repository: Tracking repository for data access
+            repository: Tracking repository for data access (legacy, deprecated)
         """
         self.repository = repository
     

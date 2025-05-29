@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Set, Dict, Any, List, Optional
 
 from .base import Adapter
-from pulsepipe.persistence.factory import get_shared_sqlite_connection
+from pulsepipe.persistence.factory import get_database_connection
 from .file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import FileWatcherError, FileSystemError
@@ -81,8 +81,8 @@ class FileWatcherAdapter(Adapter):
                 self.logger.info(f"Using simple bookmark store for testing with {self.bookmark_file}")
             else:
                 # Normal operation mode
-                sqlite_conn = get_shared_sqlite_connection({})
-                self.bookmarks = SQLiteBookmarkStore(sqlite_conn)
+                db_conn = get_database_connection({})
+                self.bookmarks = SQLiteBookmarkStore(db_conn)
             
             # Track existing files to detect new ones
             self._known_files: Set[str] = set()

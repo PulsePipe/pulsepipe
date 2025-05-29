@@ -15,7 +15,11 @@ This document outlines the planned milestones and future direction of the PulseP
 - [x] Canonical Operational Content Model (Pulse Canonical Operational Model)
 - [x] YAML-based configuration (ingestor registration, pipelines, vector dbs, deid)
 - [x] Ingestion Adapter factory with file watcher
-- [x] Global persistence for file watcher cache and other cache using SQLite
+- [x] Global persistence for file watcher cache, pipeline metrics, ingestion metrics, data metrics and other non-PHI cache
+    - [x] SQLite
+    - [x] MongoDB
+    - [x] PostgreSQL
+    - [ ] MS SQL Server (Enterprise Version)
 - [x] FHIR (JSON/XML) ingestion
 - [x] X12 Claims and Prior Auth ingester
 - [x] Command Line Interface (CLI) implementation for PulsePipe

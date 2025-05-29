@@ -154,7 +154,7 @@ class TestMetricsCollector:
         assert metrics['summary']['total_pipelines'] == 0
         assert metrics['summary']['total_records_processed'] == 0
         assert metrics['pipeline_metrics']['avg_duration_ms'] == 0
-    
+
     def test_get_aggregated_metrics_with_data(self):
         """Test aggregated metrics with pipeline data."""
         collector = MetricsCollector()
@@ -165,22 +165,25 @@ class TestMetricsCollector:
             
             # Add steps with different performance
             tracker.start_step("step_1")
+            time.sleep(0.005)  # 5ms delay
             tracker.finish_step(records_processed=100, success_count=100)
             
             tracker.start_step("step_2")
+            time.sleep(0.005)  # 5ms delay
             tracker.finish_step(records_processed=50, success_count=45, failure_count=5)
             
+            time.sleep(0.005)  # Small delay before finish
             collector.finish_pipeline(f"pipeline_{i}")
         
         metrics = collector.get_aggregated_metrics()
         
         assert metrics['summary']['total_pipelines'] == 3
-        assert metrics['summary']['total_records_processed'] == 450  # (100+50) * 3
+        assert metrics['summary']['total_records_processed'] == 450
         assert metrics['pipeline_metrics']['avg_duration_ms'] > 0
-        assert metrics['step_metrics']['total_steps'] == 6  # 2 steps * 3 pipelines
+        assert metrics['step_metrics']['total_steps'] == 6
         assert 'step_1' in metrics['step_metrics']['step_types']
         assert 'step_2' in metrics['step_metrics']['step_types']
-    
+
     def test_get_aggregated_metrics_with_time_window(self):
         """Test aggregated metrics with time window filtering."""
         collector = MetricsCollector()

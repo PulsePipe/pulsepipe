@@ -22,15 +22,13 @@
 # src/pulsepipe/persistence/__init__.py
 
 from .factory import (
-    get_shared_sqlite_connection, 
-    get_tracking_repository, 
-    get_data_intelligence_schema
+    get_database_connection,
+    get_sql_dialect,
+    get_tracking_repository
 )
 from .models import (
-    DataIntelligenceSchema,
     ProcessingStatus,
-    ErrorCategory,
-    init_data_intelligence_db
+    ErrorCategory
 )
 from .tracking_repository import (
     TrackingRepository,

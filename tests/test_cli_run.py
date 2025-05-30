@@ -65,14 +65,16 @@ class TestCliRun:
     @pytest.fixture
     def mock_pipeline_runner(self):
         """Mock for the PipelineRunner class."""
-        with patch('pulsepipe.cli.command.run.PipelineRunner') as mock:
-            # Set up the run_pipeline method as AsyncMock
-            runner_instance = mock.return_value
-            runner_instance.run_pipeline = AsyncMock()
-            runner_instance.run_pipeline.return_value = {
+        with patch('pulsepipe.cli.command.run._get_pipeline_runner') as mock:
+            # Set up the mock to return a mock class
+            mock_runner_class = Mock()
+            mock_runner_instance = mock_runner_class.return_value
+            mock_runner_instance.run_pipeline = AsyncMock()
+            mock_runner_instance.run_pipeline.return_value = {
                 "success": True,
                 "result": [{"id": "test-1234", "type": "processed"}]
             }
+            mock.return_value = mock_runner_class
             yield mock
 
     @pytest.fixture
@@ -125,13 +127,14 @@ class TestCliRun:
                 
                 # Verify pipeline runner was properly instantiated
                 mock_pipeline_runner.assert_called_once()
+                mock_pipeline_runner.return_value.assert_called_once()
                 
                 # Verify run_async_with_shutdown was called with the right parameters
                 mock_run_async.assert_called_once()
                 
                 # Check that the correct arguments were passed to run_pipeline
                 args, kwargs = mock_run_async.call_args
-                assert kwargs["runner"] == mock_pipeline_runner.return_value
+                assert kwargs["runner"] == mock_pipeline_runner.return_value.return_value
     
     def test_run_with_missing_profile(self, mock_pipeline_runner):
         """Test running with a non-existent profile."""
@@ -149,7 +152,7 @@ class TestCliRun:
                 main_config_loader.return_value = {"logging": {"show_banner": False}}
                 
                 # Set up PipelineRunner and AsyncMock properly
-                pipeline_instance = mock_pipeline_runner.return_value
+                pipeline_instance = mock_pipeline_runner.return_value.return_value
                 
                 # No need to mock run_async_with_shutdown since it won't be called
                 # with a missing profile (the error is caught earlier)
@@ -197,6 +200,7 @@ class TestCliRun:
                         
                         # Verify pipeline runner was instantiated
                         mock_pipeline_runner.assert_called_once()
+                        mock_pipeline_runner.return_value.assert_called_once()
                         
                         # Verify run_async_with_shutdown was called
                         mock_run_async.assert_called_once()
@@ -226,7 +230,7 @@ class TestCliRun:
                 assert args[0] is not None  # The coroutine should exist
                 
                 # Verify that the concurrent flag was passed correctly to run_pipeline
-                pipeline_instance = mock_pipeline_runner.return_value
+                pipeline_instance = mock_pipeline_runner.return_value.return_value
                 run_pipeline_kwargs = pipeline_instance.run_pipeline.call_args.kwargs
                 assert run_pipeline_kwargs.get('concurrent') is True
     
@@ -239,7 +243,7 @@ class TestCliRun:
             return {"success": False, "errors": ["Test pipeline error"]}
             
         # Set up the AsyncMock correctly to return a coroutine
-        pipeline_instance = mock_pipeline_runner.return_value
+        pipeline_instance = mock_pipeline_runner.return_value.return_value
         # Use a synchronous function that returns an awaitable
         pipeline_instance.run_pipeline.side_effect = mock_pipeline_coro
         
@@ -607,7 +611,7 @@ class TestCliRun:
                 assert result.exit_code == 0
                 
                 # Verify that watch=True was passed to run_pipeline
-                pipeline_instance = mock_pipeline_runner.return_value
+                pipeline_instance = mock_pipeline_runner.return_value.return_value
                 run_pipeline_kwargs = pipeline_instance.run_pipeline.call_args.kwargs
                 assert run_pipeline_kwargs.get('watch') is True
 
@@ -628,7 +632,7 @@ class TestCliRun:
                 assert result.exit_code == 0
                 
                 # Verify that timeout=30.5 was passed to run_pipeline
-                pipeline_instance = mock_pipeline_runner.return_value
+                pipeline_instance = mock_pipeline_runner.return_value.return_value
                 run_pipeline_kwargs = pipeline_instance.run_pipeline.call_args.kwargs
                 assert run_pipeline_kwargs.get('timeout') == 30.5
 
@@ -649,7 +653,7 @@ class TestCliRun:
                 assert result.exit_code == 0
                 
                 # Verify that verbose=True was passed to run_pipeline
-                pipeline_instance = mock_pipeline_runner.return_value
+                pipeline_instance = mock_pipeline_runner.return_value.return_value
                 run_pipeline_kwargs = pipeline_instance.run_pipeline.call_args.kwargs
                 assert run_pipeline_kwargs.get('verbose') is True
 

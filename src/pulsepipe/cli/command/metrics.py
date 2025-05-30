@@ -32,12 +32,18 @@ import click
 from datetime import datetime, timedelta
 from typing import Optional
 
+# Import only lightweight modules at startup
 from pulsepipe.utils.log_factory import LogFactory
-from pulsepipe.persistence import get_tracking_repository
-from pulsepipe.config.data_intelligence_config import DataIntelligenceConfig
-from pulsepipe.audit import AuditReporter, IngestionTracker
 
 logger = LogFactory.get_logger(__name__)
+
+# Lazy import functions for heavy modules
+def _get_persistence_modules():
+    """Lazy import persistence modules."""
+    from pulsepipe.persistence import get_tracking_repository
+    from pulsepipe.config.data_intelligence_config import DataIntelligenceConfig
+    from pulsepipe.audit import AuditReporter, IngestionTracker
+    return get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker
 
 
 @click.group()
@@ -57,6 +63,9 @@ def export(pipeline_run_id: Optional[str], format: str, output: Optional[str],
            days: int, include_details: bool):
     """Export ingestion metrics to file."""
     try:
+        # Lazy load heavy modules only when function is called
+        get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
+        
         # Initialize persistence - we need a config dict for this
         # For CLI usage, we'll use default configuration
         config = {}
@@ -117,6 +126,9 @@ def export(pipeline_run_id: Optional[str], format: str, output: Optional[str],
 def analyze(pipeline_run_id: Optional[str], days: int, format: str):
     """Analyze ingestion metrics and show insights."""
     try:
+        # Lazy load heavy modules only when function is called
+        get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
+        
         # Initialize persistence - we need a config dict for this
         # For CLI usage, we'll use default configuration
         config = {}
@@ -155,6 +167,9 @@ def analyze(pipeline_run_id: Optional[str], days: int, format: str):
 def cleanup(days: int):
     """Clean up old ingestion metrics data."""
     try:
+        # Lazy load heavy modules only when function is called
+        get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
+        
         # Initialize persistence
         config = {}
         repository = get_tracking_repository(config)
@@ -175,6 +190,9 @@ def cleanup(days: int):
 def status(pipeline_run_id: Optional[str], tail: bool):
     """Show current ingestion metrics status."""
     try:
+        # Lazy load heavy modules only when function is called
+        get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
+        
         # Initialize persistence
         config = {}
         repository = get_tracking_repository(config)
@@ -225,6 +243,7 @@ def status(pipeline_run_id: Optional[str], tail: bool):
 
 def _display_metrics_table(report):
     """Display metrics report in table format."""
+    # Lazy import only when needed for display
     from pulsepipe.audit import AuditReport
     
     click.echo("\n" + "="*60)

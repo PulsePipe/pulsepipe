@@ -35,6 +35,7 @@ from typing import Dict, Any, Optional
 
 import signal
 
+# Import only lightweight modules at startup
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
 from pulsepipe.utils.errors import (
@@ -43,7 +44,12 @@ from pulsepipe.utils.errors import (
     ChunkerError, FileSystemError, CLIError
 )
 from pulsepipe.cli.options import output_options
-from pulsepipe.pipelines.runner import PipelineRunner
+
+# Lazy import function for heavy pipeline modules
+def _get_pipeline_runner():
+    """Lazy import PipelineRunner only when actually running."""
+    from pulsepipe.pipelines.runner import PipelineRunner
+    return PipelineRunner
 
 logger = LogFactory.get_logger(__name__)
 
@@ -230,7 +236,8 @@ def run(ctx, adapter, ingester, chunker, embedding, vectorstore, profile, timeou
     """
     logger = LogFactory.get_logger("cli.run")
     
-    # Create the pipeline runner
+    # Lazy load the pipeline runner only when actually running
+    PipelineRunner = _get_pipeline_runner()
     runner = PipelineRunner()
     
     try:

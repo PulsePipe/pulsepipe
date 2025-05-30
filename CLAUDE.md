@@ -1,177 +1,164 @@
-# CLAUDE.md
+# CLAUDE.md - Enhanced Development Instructions
 
 ## Project Overview
 PulsePipe is a modular, AI-native healthcare data pipeline that processes clinical data formats (HL7 v2, FHIR, CDA/CCDA, X12, plain text), de-identifies and normalizes it, and prepares it for LLM processing and vector embeddings.
 
-## Core Architecture
-- Pipeline stages: Adapter → Ingester → De-ID → Chunker → Embedder → VectorStore
-- Each stage has a specific responsibility in the data transformation process
-- Modular design allows each component to be swapped or extended
-- Async/await pattern used throughout for I/O operations
+**⚠️ CRITICAL PERFORMANCE CONTEXT**: PulsePipe currently has significant CLI performance issues with 7+ second startup times for most commands. Performance optimization is a top priority.
 
-## Development Environment
-- Python 3.11.x
-- Poetry 1.6.1+ for dependency management (no pip)
-- `poetry install` to set up environment
-- `poetry run pulsepipe` to run commands
+## Performance Optimization Roadmap: CLI Command Performance
 
-## Key Components
+### Current Status
+✅ **Help commands fixed** - `pulsepipe metrics --help` now works and is fast  
+❌ **Core commands still slow** - `pulsepipe metrics` and `pulsepipe config` are still taking 7+ seconds
 
-### Adapters
-- **FileWatcherAdapter**: Monitors directories for healthcare data files
-  - Processes existing files first, then watches for changes
-  - **Important**: For continuous processing, use the watch script: `./scripts/watch_directory.sh <profile> <interval>`
-  - SQLite bookmark store tracks processed files to prevent duplicates
+### Critical Performance Issues
+PulsePipe is fundamentally a slow CLI that needs deep architectural optimization. The help commands are now fast, but the actual functionality commands remain painfully slow.
 
-### Ingesters
-- Parse and normalize specific healthcare formats:
-  - **FHIR**: JSON/XML resources and bundles
-  - **HL7v2**: The traditional pipe-delimited format
-  - **X12**: EDI format for claims, payments, authorizations (837, 835, 278)
-  - **PlainText**: Basic text processing
+### Performance Optimization Targets
+1. **`pulsepipe metrics`** - Currently 7+ seconds → Target: < 2 seconds
+2. **`pulsepipe config`** - Currently 7+ seconds → Target: < 2 seconds  
+3. **General CLI responsiveness** - Make all commands sub-2 seconds
 
-### Pipeline Processing
-- **De-ID**: Currently a pass-through placeholder
-- **Chunkers**: Break data into embedding-friendly segments
-  - Clinical chunks based on medical sections
-  - Operational chunks based on business entities (claims, payments)
-- **Embedders**: Generate vector embeddings using various models
-- **VectorStores**: Store embeddings (Weaviate, Qdrant implemented)
+### Key Optimization Strategies
+- Implement aggressive lazy loading
+- Defer database connections
+- Optimize configuration loading
+- Minimize startup dependencies
+- Profile and eliminate bottlenecks
 
-## Data Models
-- `PulseClinicalContent`: For clinical/medical data (patients, encounters, observations)
-- `PulseOperationalContent`: For billing/administrative data (claims, payments)
-- Both use Pydantic models with validation
+### Performance Investigation Areas
+- Heavy imports blocking startup
+- Unnecessary database connections
+- Configuration parsing overhead
+- Pre-loading of ML models and embeddings
+- Expensive startup routines
 
-## Command-Line Interface
+## Detailed Performance Optimization Analysis
 
-### Running Pipelines
+### 1. Startup Bottleneck Investigation
+**Profile the entire application startup sequence:**
 ```bash
-# Run a pipeline with a named profile
-poetry run pulsepipe run --profile <profile_name>
-
-# Run a pipeline with concurrent execution (recommended)
-poetry run pulsepipe run --profile <profile_name> --concurrent
-
-# For continuous processing, use the watch script
-./scripts/watch_directory.sh <profile_name> <interval_seconds>
+# Use Python profiling to identify bottlenecks
+python -m cProfile -o profile.stats -c "import pulsepipe; pulsepipe.cli.main()"
 ```
+- **Heavy imports**: Identify which modules are causing the 7-second delays
+- **Database connections**: Check if commands are unnecessarily connecting to databases
+- **Configuration loading**: See if large config files are being parsed multiple times
+- **Model loading**: Check if ML models or embeddings are being loaded upfront
 
-### Configuration Commands
-```bash
-# List available configurations
-poetry run pulsepipe config list
+### 2. Architecture Analysis
+**Examine the core application architecture:**
+- **Dependency injection**: Look for heavy dependencies being loaded at startup
+- **Plugin system**: Check if all plugins are being loaded regardless of command
+- **Database initialization**: Verify database connections aren't blocking startup
+- **File system scanning**: Look for expensive directory traversals or file operations
+- **Network calls**: Check for API calls or remote connections during startup
 
-# View a specific model schema
-poetry run pulsepipe model schema <model_name>
-```
-
-## Configuration
-
-### YAML Configuration Files
-- `config/<profile>.yaml`: Pipeline configuration profiles
-- Key sections:
-  - `adapter`: Data source configuration
-  - `ingester`: Parser configuration
-  - `chunker`: Chunking configuration
-  - `embedding`: Embedding model configuration
-  - `vectorstore`: Vector database configuration
-
-### Example Configuration
-```yaml
-profile:
-  name: billing_x12
-  description: Process X12 billing files
-adapter:
-  type: file_watcher
-  watch_path: ./incoming/x12
-  extensions: [.txt, .x12, .835, .837, .278]
-  continuous: true  # Watch for new files
-ingester:
-  type: x12
-  transaction_types: [835, 837, 278]
-chunker:
-  type: operational
-embedding:
-  type: operational
-  model_name: all-MiniLM-L6-v2
-vectorstore:
-  enabled: true
-  engine: qdrant
-  host: http://localhost:6333
-```
-
-## Common Issues and Solutions
-
-### Continuous Pipeline Processing
-- **Issue**: Pipeline gets stuck in ingestion stage
-- **Solution**: Use the watch script for reliable operation
-  ```bash
-  ./scripts/watch_directory.sh billing_x12 30
-  ```
-  This script:
-  - Processes all files in the directory
-  - Waits for the specified interval (30 seconds)
-  - Checks for new files and processes them
-  - Repeats automatically
-
-### Missing Dependencies
-- **Issue**: Errors about missing packages
-- **Solution**: Always use Poetry for dependency management
-  ```bash
-  poetry install
-  poetry add <package_name>
-  ```
-
-### Vector Database Connectivity
-- **Issue**: Cannot connect to vector database
-- **Solution**: Ensure vector database is running and accessible
-  ```bash
-  # For Qdrant
-  docker run -p 6333:6333 qdrant/qdrant
-  ```
-
-## Best Practices
-
-### Extending the Pipeline
-1. Create new component in appropriate directory
-2. Implement required interface methods
-3. Register in factory classes
-4. Add configuration options in YAML
-
-### Error Handling
-- Catch and wrap specific errors in domain-specific PulsePipeError types
-- Include helpful error messages and context in the details dict
-- Propagate errors up the stack for proper logging and CLI display
-
-### Performance Optimization
-- Use the `--concurrent` flag for parallel stage execution
-- For large datasets, consider chunking the input data
-- Monitor memory usage with large vector embeddings
-
-## API Usage Example
+### 3. Import Optimization Strategy
+**Apply aggressive lazy loading:**
 ```python
-from pulsepipe.pipelines.runner import PipelineRunner
-from pulsepipe.utils.config_loader import load_config
+# Instead of top-level imports
+import pandas as pd
+import numpy as np
+from some_heavy_ml_library import Model
 
-async def process_healthcare_data():
-    # Create a pipeline runner
-    runner = PipelineRunner()
-    
-    # Load a configuration
-    config = load_config("config/billing_x12.yaml")
-    
-    # Run the pipeline
-    result = await runner.run_pipeline(
-        config=config,
-        name="billing_x12",
-        concurrent=True
-    )
-    
-    # Process results
-    if result["success"]:
-        data = result["result"]
-        print(f"Processed {len(data) if isinstance(data, list) else 1} items")
-    else:
-        print(f"Pipeline failed: {result['errors']}")
+# Use function-level imports
+def metrics_command():
+    import pandas as pd  # Only when needed
+    import numpy as np
+    # ... rest of function
 ```
+
+### 4. Configuration System Overhaul
+**Optimize configuration loading:**
+- **Lazy config loading**: Only load config sections when needed
+- **Config caching**: Cache parsed configuration in memory
+- **Validation deferral**: Skip expensive validation for simple commands
+- **Profile-based loading**: Only load relevant config profiles
+
+### 5. Database Connection Management
+**Optimize database interactions:**
+- **Connection pooling**: Implement proper connection pooling
+- **Lazy connections**: Don't connect until absolutely necessary
+- **Command-specific connections**: Only connect to databases the command actually needs
+- **Connection caching**: Reuse connections across command executions
+
+### 6. Model and Embedding Optimization
+**If ML models are causing slowness:**
+- **Model lazy loading**: Load models only when doing actual inference
+- **Model caching**: Cache loaded models in memory for reuse
+- **Lightweight alternatives**: Use smaller models for non-critical operations
+- **Background loading**: Load heavy models in background threads
+
+## Implementation Priority
+
+### Phase 1: Profiling and Root Cause Analysis (High Priority)
+1. **Profile actual command execution** - Not just imports, but full command lifecycle
+2. **Identify the top 3 bottlenecks** - Focus on the biggest time consumers
+3. **Database connection analysis** - Check if DB calls are blocking startup
+4. **File I/O analysis** - Look for expensive file operations
+
+### Phase 2: Targeted Optimizations (High Priority)  
+1. **Eliminate startup blockers** - Remove anything that doesn't need to happen at startup
+2. **Implement command-specific loading** - Each command should only load what it needs
+3. **Cache expensive operations** - Cache anything that can be reused
+4. **Async initialization** - Move non-critical setup to background
+
+### Phase 3: Architecture Improvements (Medium Priority)
+1. **Plugin system optimization** - Load plugins on-demand
+2. **Configuration system redesign** - Make config loading truly lazy
+3. **Connection management** - Implement proper connection lifecycle
+4. **Background services** - Move heavy operations to background processes
+
+## Specific Investigation Areas
+
+### Database/Storage Layer
+- Are database connections being established unnecessarily?
+- Is the application scanning large directories or files?
+- Are there expensive database queries running during startup?
+
+### ML/AI Components  
+- Are embedding models being loaded during startup?
+- Is the application connecting to vector databases unnecessarily?
+- Are there expensive model initialization routines?
+
+### Configuration System
+- Is the entire configuration being validated on every command?
+- Are large configuration files being parsed multiple times?
+- Is configuration loading triggering expensive checks?
+
+## Performance Measurement
+**Before optimization, measure:**
+```bash
+time pulsepipe metrics          # Current baseline
+time pulsepipe config           # Current baseline  
+time pulsepipe config validate  # Current baseline
+```
+
+**After optimization, verify:**
+- All commands complete in < 2 seconds
+- Functionality remains intact
+- Unit test coverage stays ≥ 85%
+
+## Expected Outcomes
+🎯 **Target Performance:**
+- `pulsepipe metrics`: < 2 seconds (from 7+ seconds)
+- `pulsepipe config`: < 2 seconds (from 7+ seconds)
+- All other commands: < 2 seconds
+- Cold start performance: < 3 seconds for any command
+
+🔍 **Root Cause Identification:**
+- Identify the specific components causing 7-second delays
+- Document performance bottlenecks for future optimization
+- Create performance regression tests
+
+⚡ **Architectural Improvements:**
+- Implement true lazy loading throughout the application
+- Optimize the critical path for common operations
+- Establish performance monitoring for future changes
+
+## Testing Requirements
+- **Maintain 85% unit test coverage** (tests in `tests/`)
+- **Performance regression tests** for all optimized commands
+- **Functionality verification** - ensure no features are broken
+- **Cross-platform testing** - verify improvements work on all platforms

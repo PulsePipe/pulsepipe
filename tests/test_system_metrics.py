@@ -28,6 +28,7 @@ Tests CPU, RAM, storage, OS, and GPU metrics collection
 with comprehensive coverage including error handling and edge cases.
 """
 
+import sys
 import pytest
 import time
 import threading
@@ -366,7 +367,8 @@ class TestSystemMetricsCollector:
         assert collector._monitoring is False
         assert collector._latest_snapshot is None
         assert len(collector._snapshot_history) == 0
-    
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="os.getloadavg not available on Windows")
     @patch('psutil.cpu_percent')
     @patch('psutil.cpu_count')
     @patch('psutil.cpu_freq')

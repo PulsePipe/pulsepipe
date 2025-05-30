@@ -28,7 +28,6 @@ Provides high-level methods for storing and retrieving ingestion statistics,
 audit events, quality metrics, and performance data.
 """
 
-import sqlite3
 import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Tuple
@@ -36,6 +35,7 @@ from dataclasses import dataclass
 
 from pulsepipe.utils.log_factory import LogFactory
 from .models import ProcessingStatus, ErrorCategory
+from .database import DatabaseConnection, SQLDialect
 
 logger = LogFactory.get_logger(__name__)
 
@@ -103,15 +103,16 @@ class TrackingRepository:
     while abstracting away the database implementation details.
     """
     
-    def __init__(self, connection: sqlite3.Connection):
+    def __init__(self, connection: DatabaseConnection, dialect: SQLDialect):
         """
         Initialize tracking repository.
         
         Args:
-            connection: SQLite database connection
+            connection: Database connection (abstracted)
+            dialect: SQL dialect for database-specific operations
         """
         self.conn = connection
-        self.conn.row_factory = sqlite3.Row  # Enable column access by name
+        self.dialect = dialect
     
     # Pipeline Run Management
     
@@ -124,14 +125,12 @@ class TrackingRepository:
             name: Pipeline name
             config_snapshot: Optional snapshot of configuration used
         """
-        config_json = json.dumps(config_snapshot) if config_snapshot else None
+        config_data = self.dialect.serialize_json(config_snapshot)
         
-        self.conn.execute("""
-            INSERT INTO pipeline_runs (
-                id, name, started_at, status, config_snapshot
-            ) VALUES (?, ?, ?, ?, ?)
-        """, (run_id, name, datetime.now(), "running", config_json))
+        sql = self.dialect.get_pipeline_run_insert_sql()
+        params = (run_id, name, self.dialect.format_datetime(datetime.now()), "running", config_data)
         
+        self.conn.execute(sql, params)
         self.conn.commit()
         logger.debug(f"Started tracking pipeline run: {run_id}")
     
@@ -145,12 +144,11 @@ class TrackingRepository:
             status: Final status (completed, failed, cancelled)
             error_message: Optional error message if failed
         """
-        self.conn.execute("""
-            UPDATE pipeline_runs 
-            SET completed_at = ?, status = ?, error_message = ?, updated_at = ?
-            WHERE id = ?
-        """, (datetime.now(), status, error_message, datetime.now(), run_id))
+        sql = self.dialect.get_pipeline_run_update_sql()
+        now = self.dialect.format_datetime(datetime.now())
+        params = (now, status, error_message, now, run_id)
         
+        self.conn.execute(sql, params)
         self.conn.commit()
         logger.debug(f"Completed pipeline run: {run_id} with status: {status}")
     
@@ -188,23 +186,18 @@ class TrackingRepository:
         Returns:
             PipelineRunSummary or None if not found
         """
-        cursor = self.conn.execute("""
-            SELECT id, name, started_at, completed_at, status,
-                   total_records, successful_records, failed_records, 
-                   skipped_records, error_message
-            FROM pipeline_runs 
-            WHERE id = ?
-        """, (run_id,))
+        sql = self.dialect.get_pipeline_run_select_sql()
+        result = self.conn.execute(sql, (run_id,))
         
-        row = cursor.fetchone()
+        row = result.fetchone()
         if not row:
             return None
         
         return PipelineRunSummary(
             id=row['id'],
             name=row['name'],
-            started_at=datetime.fromisoformat(row['started_at']),
-            completed_at=datetime.fromisoformat(row['completed_at']) if row['completed_at'] else None,
+            started_at=self.dialect.parse_datetime(row['started_at']),
+            completed_at=self.dialect.parse_datetime(row['completed_at']) if row['completed_at'] else None,
             status=row['status'],
             total_records=row['total_records'],
             successful_records=row['successful_records'],
@@ -225,24 +218,21 @@ class TrackingRepository:
         Returns:
             ID of the inserted record
         """
-        error_details_json = json.dumps(stat.error_details) if stat.error_details else None
+        error_details_data = self.dialect.serialize_json(stat.error_details)
         
-        cursor = self.conn.execute("""
-            INSERT INTO ingestion_stats (
-                pipeline_run_id, stage_name, file_path, record_id, record_type,
-                status, error_category, error_message, error_details,
-                processing_time_ms, record_size_bytes, data_source, timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        sql = self.dialect.get_ingestion_stat_insert_sql()
+        params = (
             stat.pipeline_run_id, stat.stage_name, stat.file_path, stat.record_id,
             stat.record_type, stat.status.value if stat.status else None,
             stat.error_category.value if stat.error_category else None,
-            stat.error_message, error_details_json, stat.processing_time_ms,
-            stat.record_size_bytes, stat.data_source, stat.timestamp
-        ))
+            stat.error_message, error_details_data, stat.processing_time_ms,
+            stat.record_size_bytes, stat.data_source, 
+            self.dialect.format_datetime(stat.timestamp) if stat.timestamp else self.dialect.format_datetime(datetime.now())
+        )
         
+        result = self.conn.execute(sql, params)
         self.conn.commit()
-        return cursor.lastrowid
+        return result.lastrowid
     
     def record_failed_record(self, ingestion_stat_id: int, original_data: str,
                            failure_reason: str, normalized_data: Optional[str] = None,
@@ -400,36 +390,9 @@ class TrackingRepository:
         Returns:
             Dictionary with ingestion summary statistics
         """
-        where_conditions = []
-        params = []
-        
-        if pipeline_run_id:
-            where_conditions.append("pipeline_run_id = ?")
-            params.append(pipeline_run_id)
-        
-        if start_date:
-            where_conditions.append("timestamp >= ?")
-            params.append(start_date)
-        
-        if end_date:
-            where_conditions.append("timestamp <= ?")
-            params.append(end_date)
-        
-        where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
-        
-        cursor = self.conn.execute(f"""
-            SELECT 
-                status,
-                error_category,
-                COUNT(*) as count,
-                AVG(processing_time_ms) as avg_processing_time,
-                SUM(record_size_bytes) as total_bytes
-            FROM ingestion_stats 
-            {where_clause}
-            GROUP BY status, error_category
-        """, params)
-        
-        results = cursor.fetchall()
+        sql, params = self.dialect.get_ingestion_summary_sql(pipeline_run_id, start_date, end_date)
+        result = self.conn.execute(sql, params)
+        results = result.fetchall()
         
         summary = {
             "total_records": 0,
@@ -449,10 +412,10 @@ class TrackingRepository:
             total_records += count
             summary["total_records"] += count
             
-            if row['avg_processing_time']:
+            if row.get('avg_processing_time'):
                 total_processing_time += row['avg_processing_time'] * count
             
-            if row['total_bytes']:
+            if row.get('total_bytes'):
                 summary["total_bytes_processed"] += row['total_bytes']
             
             status = row['status']
@@ -460,7 +423,7 @@ class TrackingRepository:
                 summary["successful_records"] += count
             elif status == ProcessingStatus.FAILURE.value:
                 summary["failed_records"] += count
-                error_category = row['error_category'] or 'unknown'
+                error_category = row.get('error_category') or 'unknown'
                 summary["error_breakdown"][error_category] = summary["error_breakdown"].get(error_category, 0) + count
             elif status == ProcessingStatus.SKIPPED.value:
                 summary["skipped_records"] += count
@@ -562,7 +525,7 @@ class TrackingRepository:
             "SELECT id FROM pipeline_runs WHERE started_at < ?",
             (cutoff_date,)
         )
-        old_run_ids = [row[0] for row in cursor.fetchall()]
+        old_run_ids = [row['id'] for row in cursor.fetchall()]
         
         if not old_run_ids:
             return 0

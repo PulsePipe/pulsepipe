@@ -40,8 +40,10 @@ class TestFactory:
         }
     
     @patch('pulsepipe.utils.factory.load_config')
-    def test_create_adapter_file_watcher(self, mock_load_config, file_watcher_config):
+    @patch('pulsepipe.adapters.file_watcher.SQLiteBookmarkStore')
+    def test_create_adapter_file_watcher(self, mock_bookmark_store, mock_load_config, file_watcher_config):
         mock_load_config.return_value = {"logging": {"level": "INFO"}}
+        mock_bookmark_store.return_value = MagicMock()
         
         adapter = create_adapter(file_watcher_config)
         

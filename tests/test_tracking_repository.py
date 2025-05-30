@@ -36,7 +36,9 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
-from pulsepipe.persistence.models import init_data_intelligence_db, ProcessingStatus, ErrorCategory
+from pulsepipe.persistence.models import ProcessingStatus, ErrorCategory
+from pulsepipe.persistence.factory import get_database_connection, get_sql_dialect
+from pulsepipe.persistence.database import init_data_intelligence_db
 from pulsepipe.persistence.tracking_repository import (
     TrackingRepository,
     PipelineRunSummary,
@@ -210,7 +212,11 @@ class TestTrackingRepository:
         fd, path = tempfile.mkstemp(suffix='.db')
         os.close(fd)
         
-        conn = sqlite3.connect(path)
+        # Use new database abstraction
+        config = {"persistence": {"type": "sqlite", "sqlite": {"db_path": path}}}
+        conn = get_database_connection(config)
+        
+        # Initialize database schema
         init_data_intelligence_db(conn)
         
         yield conn
@@ -221,13 +227,17 @@ class TestTrackingRepository:
     @pytest.fixture
     def repository(self, temp_db):
         """Create a TrackingRepository instance."""
-        return TrackingRepository(temp_db)
+        config = {"persistence": {"type": "sqlite"}}
+        dialect = get_sql_dialect(config)
+        return TrackingRepository(temp_db, dialect)
     
     def test_init(self, temp_db):
         """Test repository initialization."""
-        repo = TrackingRepository(temp_db)
+        config = {"persistence": {"type": "sqlite"}}
+        dialect = get_sql_dialect(config)
+        repo = TrackingRepository(temp_db, dialect)
         assert repo.conn == temp_db
-        assert temp_db.row_factory == sqlite3.Row
+        assert hasattr(repo, 'dialect')
     
     # Pipeline Run Management Tests
     
@@ -795,7 +805,11 @@ class TestRepositoryIntegration:
         fd, path = tempfile.mkstemp(suffix='.db')
         os.close(fd)
         
-        conn = sqlite3.connect(path)
+        # Use new database abstraction
+        config = {"persistence": {"type": "sqlite", "sqlite": {"db_path": path}}}
+        conn = get_database_connection(config)
+        
+        # Initialize database schema
         init_data_intelligence_db(conn)
         
         yield conn
@@ -806,7 +820,9 @@ class TestRepositoryIntegration:
     @pytest.fixture
     def repository(self, temp_db):
         """Create a TrackingRepository instance."""
-        return TrackingRepository(temp_db)
+        config = {"persistence": {"type": "sqlite"}}
+        dialect = get_sql_dialect(config)
+        return TrackingRepository(temp_db, dialect)
     
     def test_complete_pipeline_workflow(self, repository, temp_db):
         """Test a complete pipeline workflow with all tracking components."""

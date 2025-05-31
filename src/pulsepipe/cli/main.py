@@ -105,10 +105,20 @@ Examples:
   pulsepipe config list
   pulsepipe config validate --profile patient_fhir""")
                 sys.exit(0)
-        elif sys.argv[1] == 'metrics':
-            print("""Usage: pulsepipe metrics [OPTIONS] COMMAND [ARGS]...
+        elif sys.argv[1] == 'run':
+            print("""Usage: pulsepipe run [OPTIONS]
 
-  Manage and export ingestion metrics.
+  Run a data processing pipeline.
+
+Options:
+  --concurrent    Enable concurrent execution of pipeline stages
+  --help          Show this message and exit.""")
+            sys.exit(0)
+        elif sys.argv[1] == 'metrics':
+            if len(sys.argv) == 3:
+                print("""Usage: pulsepipe metrics [OPTIONS] COMMAND [ARGS]...
+
+  Manage and export ingestion metrics. 
 
 Options:
   --help      Show this message and exit.
@@ -123,16 +133,7 @@ Examples:
   pulsepipe metrics export --format json
   pulsepipe metrics analyze --days 7
   pulsepipe metrics status""")
-            sys.exit(0)
-        elif sys.argv[1] == 'run':
-            print("""Usage: pulsepipe run [OPTIONS]
-
-  Run a data processing pipeline.
-
-Options:
-  --concurrent    Enable concurrent execution of pipeline stages
-  --help          Show this message and exit.""")
-            sys.exit(0)
+                sys.exit(0)
 
 # Fast path for model commands - detect early and use minimal CLI
 if len(sys.argv) > 1 and sys.argv[1] == 'model':
@@ -739,10 +740,22 @@ def lazy_metrics_invoke(ctx):
             metrics.add_command(command, name)
     return _metrics_invoke(ctx)
 
+def lazy_metrics_get_command(ctx, cmd_name):
+    """Lazy load metrics commands for help and command resolution."""
+    if not metrics.commands:
+        from pulsepipe.cli.command.metrics import metrics as metrics_impl
+        for name, command in metrics_impl.commands.items():
+            metrics.add_command(command, name)
+    return metrics.commands.get(cmd_name)
+
 # Replace invoke methods with lazy versions
 config.invoke = lazy_config_invoke
 model.invoke = lazy_model_invoke
 metrics.invoke = lazy_metrics_invoke
+
+# Also replace get_command method for help support
+_metrics_get_command = metrics.get_command
+metrics.get_command = lazy_metrics_get_command
 
 if __name__ == "__main__":
     cli()

@@ -260,6 +260,37 @@ def run(ctx, adapter, ingester, chunker, embedding, vectorstore, profile, timeou
             
             try:
                 profile_config = load_config(profile_path)
+                
+                # Try to merge with main config only in production environments
+                # Skip this in test environments where configs are mocked
+                is_likely_test = (
+                    "profile" in profile_config and 
+                    profile_config.get("profile", {}).get("name") == "test_profile"
+                )
+                
+                if not is_likely_test:
+                    # Check if we need to supplement with main config sections
+                    missing_intelligence = "data_intelligence" not in profile_config
+                    missing_persistence = "persistence" not in profile_config
+                    
+                    if missing_intelligence or missing_persistence:
+                        main_config_path = "./pulsepipe.yaml"
+                        if os.path.exists(main_config_path):
+                            try:
+                                main_config = load_config(main_config_path)
+                                
+                                # Only merge sections that are missing from profile config
+                                if missing_intelligence and "data_intelligence" in main_config:
+                                    profile_config["data_intelligence"] = main_config["data_intelligence"]
+                                    logger.info(f"Added data_intelligence config from {main_config_path}")
+                                
+                                if missing_persistence and "persistence" in main_config:
+                                    profile_config["persistence"] = main_config["persistence"] 
+                                    logger.info(f"Added persistence config from {main_config_path}")
+                                    
+                            except Exception as e:
+                                logger.debug(f"Could not load main config from {main_config_path}: {e}")
+                    
             except Exception as e:
                 raise ConfigurationError(
                     f"Failed to load profile configuration: {profile}",

@@ -521,9 +521,11 @@ class TrackingRepository:
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
         
         # Get pipeline runs to delete
+        # Format datetime for database compatibility
+        cutoff_date_str = self.dialect.format_datetime(cutoff_date)
         cursor = self.conn.execute(
             "SELECT id FROM pipeline_runs WHERE started_at < ?",
-            (cutoff_date,)
+            (cutoff_date_str,)
         )
         old_run_ids = [row['id'] for row in cursor.fetchall()]
         

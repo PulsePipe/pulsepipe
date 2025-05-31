@@ -495,11 +495,11 @@ class SQLiteDialect(SQLDialect):
         
         if start_date:
             where_conditions.append("timestamp >= ?")
-            params.append(start_date)
+            params.append(self.format_datetime(start_date))
         
         if end_date:
             where_conditions.append("timestamp <= ?")
-            params.append(end_date)
+            params.append(self.format_datetime(end_date))
         
         where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         

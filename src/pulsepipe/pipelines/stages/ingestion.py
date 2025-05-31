@@ -141,11 +141,59 @@ class IngestionStage(PipelineStage):
                                          err.get("message", "Unknown error"),
                                          details=err)
             
-            # Log summary of results
+            # Log summary of results and record ingestion statistics
+            ingestion_tracker = context.get_ingestion_tracker("ingestion")
+            
             if isinstance(result, list):
                 self.logger.info(f"{context.log_prefix} Ingested {len(result)} items")
+                
+                # Record ingestion statistics for each item
+                if ingestion_tracker:
+                    with ingestion_tracker.track_batch(f"ingestion_batch_{context.pipeline_id[:8]}") as batch:
+                        for i, item in enumerate(result):
+                            record_id = self._extract_record_id(item)
+                            record_type = type(item).__name__
+                            ingestion_tracker.record_success(
+                                record_id=record_id,
+                                record_type=record_type,
+                                processing_time_ms=10,  # Approximate since we don't track individual timing
+                                data_source="pipeline_ingestion"
+                            )
+                
+                # Update pipeline run totals
+                if context.tracking_repository:
+                    context.tracking_repository.update_pipeline_run_counts(
+                        run_id=context.pipeline_id,
+                        total=len(result),
+                        successful=len(result),
+                        failed=0,
+                        skipped=0
+                    )
+                        
             elif result is not None:
                 self.logger.info(f"{context.log_prefix} Ingested 1 item of type: {type(result).__name__}")
+                
+                # Record single item ingestion statistics
+                if ingestion_tracker:
+                    with ingestion_tracker.track_batch(f"ingestion_batch_{context.pipeline_id[:8]}") as batch:
+                        record_id = self._extract_record_id(result)
+                        record_type = type(result).__name__
+                        ingestion_tracker.record_success(
+                            record_id=record_id,
+                            record_type=record_type,
+                            processing_time_ms=10,
+                            data_source="pipeline_ingestion"
+                        )
+                
+                # Update pipeline run totals
+                if context.tracking_repository:
+                    context.tracking_repository.update_pipeline_run_counts(
+                        run_id=context.pipeline_id,
+                        total=1,
+                        successful=1,
+                        failed=0,
+                        skipped=0
+                    )
             else:
                 self.logger.warning(f"{context.log_prefix} No data was ingested")
             
@@ -164,3 +212,22 @@ class IngestionStage(PipelineStage):
                 f"Unexpected error in ingestion engine: {str(e)}",
                 cause=e
             )
+    
+    def _extract_record_id(self, item: Any) -> Optional[str]:
+        """
+        Extract a record ID from an ingested item.
+        
+        Args:
+            item: The ingested item
+            
+        Returns:
+            Record ID if available, otherwise None
+        """
+        if hasattr(item, 'patient') and hasattr(item.patient, 'id'):
+            return item.patient.id
+        elif hasattr(item, 'id'):
+            return str(item.id)
+        elif hasattr(item, 'patient_id'):
+            return item.patient_id
+        else:
+            return None

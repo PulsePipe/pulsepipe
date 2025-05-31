@@ -129,9 +129,26 @@ def analyze(pipeline_run_id: Optional[str], days: int, format: str):
         # Lazy load heavy modules only when function is called
         get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
         
-        # Initialize persistence - we need a config dict for this
-        # For CLI usage, we'll use default configuration
-        config = {}
+        # Initialize persistence - use the same config discovery logic as run command
+        from pulsepipe.utils.config_loader import load_config
+        from pulsepipe.cli.command.run import find_profile_path
+        
+        # Try to find and load main pulsepipe config using same logic as run command
+        main_config_path = find_profile_path("pulsepipe")
+        if main_config_path:
+            config = load_config(main_config_path)
+        else:
+            # Fall back to minimal SQLite config if main config not found
+            config = {
+                "persistence": {
+                    "type": "sqlite",
+                    "sqlite": {
+                        "db_path": ".pulsepipe/state/ingestion.sqlite3",
+                        "timeout": 30.0
+                    }
+                }
+            }
+        
         repository = get_tracking_repository(config)
         reporter = AuditReporter(repository)
         
@@ -162,16 +179,43 @@ def analyze(pipeline_run_id: Optional[str], days: int, format: str):
 
 
 @metrics.command()
-@click.option('--days', '-d', default=30, type=int, help='Number of days of data to keep')
+@click.option('--days', '-d', default=30, type=int, help='Number of days of data to keep (0 = delete all)')
 @click.confirmation_option(prompt='Are you sure you want to cleanup old metrics data?')
 def cleanup(days: int):
-    """Clean up old ingestion metrics data."""
+    """Clean up old ingestion metrics data.
+    
+    Removes pipeline runs, audit events, ingestion statistics, and quality metrics
+    older than the specified number of days. Use --days 0 to delete all data.
+    
+    Examples:
+        pulsepipe metrics cleanup --days 30    # Keep last 30 days
+        pulsepipe metrics cleanup --days 7     # Keep last 7 days  
+        pulsepipe metrics cleanup --days 0     # Delete all data
+    """
     try:
         # Lazy load heavy modules only when function is called
         get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
         
-        # Initialize persistence
-        config = {}
+        # Initialize persistence - use the same config discovery logic as run command
+        from pulsepipe.utils.config_loader import load_config
+        from pulsepipe.cli.command.run import find_profile_path
+        
+        # Try to find and load main pulsepipe config using same logic as run command
+        main_config_path = find_profile_path("pulsepipe")
+        if main_config_path:
+            config = load_config(main_config_path)
+        else:
+            # Fall back to minimal SQLite config if main config not found
+            config = {
+                "persistence": {
+                    "type": "sqlite",
+                    "sqlite": {
+                        "db_path": ".pulsepipe/state/ingestion.sqlite3",
+                        "timeout": 30.0
+                    }
+                }
+            }
+        
         repository = get_tracking_repository(config)
         
         deleted_count = repository.cleanup_old_data(days)
@@ -193,8 +237,26 @@ def status(pipeline_run_id: Optional[str], tail: bool):
         # Lazy load heavy modules only when function is called
         get_tracking_repository, DataIntelligenceConfig, AuditReporter, IngestionTracker = _get_persistence_modules()
         
-        # Initialize persistence
-        config = {}
+        # Initialize persistence - use the same config discovery logic as run command
+        from pulsepipe.utils.config_loader import load_config
+        from pulsepipe.cli.command.run import find_profile_path
+        
+        # Try to find and load main pulsepipe config using same logic as run command
+        main_config_path = find_profile_path("pulsepipe")
+        if main_config_path:
+            config = load_config(main_config_path)
+        else:
+            # Fall back to minimal SQLite config if main config not found
+            config = {
+                "persistence": {
+                    "type": "sqlite",
+                    "sqlite": {
+                        "db_path": ".pulsepipe/state/ingestion.sqlite3",
+                        "timeout": 30.0
+                    }
+                }
+            }
+        
         repository = get_tracking_repository(config)
         
         if pipeline_run_id:

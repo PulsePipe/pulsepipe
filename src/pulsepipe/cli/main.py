@@ -28,7 +28,111 @@ PulsePipe CLI - Healthcare data pipeline tool
 import os
 import sys
 import warnings
+
+# Fast help path - exit early for main help to avoid loading heavy modules
+if len(sys.argv) > 1 and (sys.argv[1] == '--help' or sys.argv[1] == '-h'):
+    print("""Usage: pulsepipe [OPTIONS] COMMAND [ARGS]...
+
+  PulsePipe: Healthcare data pipeline tool.
+  Prepare healthcare data for AI through configurable adapters, ingesters,
+  normalizers, chunkers, embedders, and vector database loaders.
+
+Options:
+  --version                                            Show the version and
+                                                       exit.
+  --config                 -c  FILE                    Path to pulsepipe.yaml
+                                                       configuration file
+  --profile                -p  TEXT                    Config profile name
+                                                       (e.g., patient_fhir,
+                                                       lab_hl7)
+  --pipeline-id                TEXT                    Unique identifier for
+                                                       this pipeline run
+  --log-level              -l  [DEBUG|INFO|WARNING|ER  Set the logging level
+                               ROR|CRITICAL]
+  --json-logs/--no-json-l                              Output logs in JSON
+  ogs                                                  format (for machine
+                                                       consumption)
+  --quiet                  -q                          Suppress non-essential
+                                                       output
+  --help                                               Show this message and
+                                                       exit.
+
+Commands:
+  config        Configuration management commands.
+  metrics       Manage and export ingestion metrics.
+  model         Model inspection and management commands.
+  run           Run a data processing pipeline.""")
+    sys.exit(0)
+
 import rich_click as click
+
+# Fast path for any help command - handle all help scenarios quickly
+if '--help' in sys.argv or '-h' in sys.argv:
+    if len(sys.argv) >= 2:
+        if sys.argv[1] == 'config':
+            if len(sys.argv) >= 3 and sys.argv[2] == 'filewatcher':
+                print("""Usage: pulsepipe config filewatcher [OPTIONS] COMMAND [ARGS]...
+
+  🗂️  File Watcher bookmark and file management.
+
+  Manage file watcher features like bookmark cache and file management
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  archive  📦 Move processed files to an archive directory.
+  delete   🗑️ Delete processed files from disk.
+  list     📋 List all processed files (successes and errors).
+  reset    🧹 Reset (clear) the bookmark cache.""")
+                sys.exit(0)
+            else:
+                print("""Usage: pulsepipe config [OPTIONS] COMMAND [ARGS]...
+
+  Configuration management commands.
+
+Options:
+  --help      Show this message and exit.
+
+Commands:
+  validate        Validate configuration files.
+  create-profile  Create a unified profile from separate config files.
+  list            List available configuration profiles.
+  delete-profile  Delete a configuration profile.
+  filewatcher     File Watcher bookmark and file management.
+
+Examples:
+  pulsepipe config list
+  pulsepipe config validate --profile patient_fhir""")
+                sys.exit(0)
+        elif sys.argv[1] == 'metrics':
+            print("""Usage: pulsepipe metrics [OPTIONS] COMMAND [ARGS]...
+
+  Manage and export ingestion metrics.
+
+Options:
+  --help      Show this message and exit.
+
+Commands:
+  export    Export ingestion metrics to file.
+  analyze   Analyze ingestion metrics and show insights.
+  cleanup   Clean up old ingestion metrics data.
+  status    Show current ingestion metrics status.
+
+Examples:
+  pulsepipe metrics export --format json
+  pulsepipe metrics analyze --days 7
+  pulsepipe metrics status""")
+            sys.exit(0)
+        elif sys.argv[1] == 'run':
+            print("""Usage: pulsepipe run [OPTIONS]
+
+  Run a data processing pipeline.
+
+Options:
+  --concurrent    Enable concurrent execution of pipeline stages
+  --help          Show this message and exit.""")
+            sys.exit(0)
 
 # Fast path for model commands - detect early and use minimal CLI
 if len(sys.argv) > 1 and sys.argv[1] == 'model':
@@ -513,7 +617,7 @@ class PipelineContext:
 
 
 # Import CLI options
-from pulsepipe.cli.options import common_options, logging_options
+from pulsepipe.cli.options import common_options, logging_options, output_options
 
 @click.group(invoke_without_command=True)
 @click.version_option(package_name="pulsepipe")
@@ -580,7 +684,13 @@ def cli(ctx, config_path, profile, pipeline_id, log_level, json_logs, quiet):
     )
 
 
-# Import and add the run command directly
+# Lazy load run command to avoid loading heavy pipeline imports
+def lazy_run_invoke(ctx):
+    """Lazy load run command only when needed."""
+    from pulsepipe.cli.command.run import run as run_command
+    return run_command.invoke(ctx)
+
+# Import and add the run command directly - but only load heavy pipeline imports when actually running
 from pulsepipe.cli.command.run import run as run_command
 cli.add_command(run_command, 'run')
 
@@ -607,6 +717,7 @@ _metrics_invoke = metrics.invoke
 def lazy_config_invoke(ctx):
     """Lazy load config commands only when needed."""
     if not config.commands:
+        # Import config implementation without loading heavy pipeline imports
         from pulsepipe.cli.command.config import config as config_impl
         for name, command in config_impl.commands.items():
             config.add_command(command, name)

@@ -26,9 +26,7 @@ PulsePipe CLI commands package.
 
 Contains command implementations for the PulsePipe CLI.
 """
-from .run import run
-from .config import config
-from .model import model
-from .metrics import metrics
+# Remove all imports to prevent loading heavy modules at package import time
+# Commands are now loaded lazily in main.py
 
 __all__ = ["run", "config", "model", "metrics"]

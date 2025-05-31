@@ -34,9 +34,15 @@ from typing import Dict, Any
 from datetime import datetime
 from pathlib import Path
 
-from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
+# Import only lightweight modules at startup
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
+
+# Lazy import function for heavy modules
+def _get_sqlite_store():
+    """Lazy import SQLiteBookmarkStore."""
+    from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
+    return SQLiteBookmarkStore
 
 @click.group()
 @click.pass_context
@@ -321,6 +327,9 @@ def filewatcher():
 @click.option("--profile", default=None, help="Optional config profile to load.")
 def list_processed_files(config_path, profile):
     """📋 List all processed files (successes and errors)."""
+    # Lazy load SQLiteBookmarkStore only when function is called
+    SQLiteBookmarkStore = _get_sqlite_store()
+    
     if profile:
         config_dir = os.path.dirname(config_path)
         profile_path = os.path.join(config_dir, f"{profile}.yaml")
@@ -352,6 +361,9 @@ def list_processed_files(config_path, profile):
 @click.option("--profile", default=None, help="Optional config profile to load.")
 def reset_bookmarks(config_path, profile):
     """🧹 Reset (clear) the bookmark cache."""
+    # Lazy load SQLiteBookmarkStore only when function is called
+    SQLiteBookmarkStore = _get_sqlite_store()
+    
     if profile:
         config_dir = os.path.dirname(config_path)
         profile_path = os.path.join(config_dir, f"{profile}.yaml")
@@ -379,6 +391,9 @@ def reset_bookmarks(config_path, profile):
 @click.option("--archive-dir", required=True, help="Destination directory for archived files.")
 def archive_files(config_path, profile, archive_dir):
     """📦 Move processed files to an archive directory."""
+    # Lazy load SQLiteBookmarkStore only when function is called
+    SQLiteBookmarkStore = _get_sqlite_store()
+    
     if profile:
         config_dir = os.path.dirname(config_path)
         profile_path = os.path.join(config_dir, f"{profile}.yaml")
@@ -415,6 +430,9 @@ def archive_files(config_path, profile, archive_dir):
 @click.option("--profile", default=None, help="Optional config profile to load.")
 def delete_files(config_path, profile):
     """🗑️ Delete processed files from disk."""
+    # Lazy load SQLiteBookmarkStore only when function is called
+    SQLiteBookmarkStore = _get_sqlite_store()
+    
     if profile:
         config_dir = os.path.dirname(config_path)
         profile_path = os.path.join(config_dir, f"{profile}.yaml")

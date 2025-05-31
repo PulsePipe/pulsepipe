@@ -21,13 +21,23 @@
 
 # src/pulsepipe/config/factory.py
 
-from pulsepipe.adapters.file_watcher import FileWatcherAdapter
-from pulsepipe.ingesters.fhir_ingester import FHIRIngester
-from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
-from pulsepipe.ingesters.x12_ingester import X12Ingester
-from pulsepipe.ingesters.plaintext_ingester import PlainTextIngester
+# Import only lightweight modules at startup
 from pulsepipe.utils.log_factory import LogFactory
 from .config_loader import load_config
+
+# Lazy import functions for heavy modules
+def _get_adapter_classes():
+    """Lazy import adapter classes."""
+    from pulsepipe.adapters.file_watcher import FileWatcherAdapter
+    return FileWatcherAdapter
+
+def _get_ingester_classes():
+    """Lazy import ingester classes."""
+    from pulsepipe.ingesters.fhir_ingester import FHIRIngester
+    from pulsepipe.ingesters.hl7v2_ingester import HL7v2Ingester
+    from pulsepipe.ingesters.x12_ingester import X12Ingester
+    from pulsepipe.ingesters.plaintext_ingester import PlainTextIngester
+    return FHIRIngester, HL7v2Ingester, X12Ingester, PlainTextIngester
 
 def create_adapter(config: dict, **kwargs):
     log_config = load_config()
@@ -35,6 +45,8 @@ def create_adapter(config: dict, **kwargs):
     adapter_type = config["type"]
 
     if adapter_type == "file_watcher":
+        # Lazy load adapter classes only when creating
+        FileWatcherAdapter = _get_adapter_classes()
         adapter = FileWatcherAdapter(config)
         
         # Check for special flags 
@@ -47,6 +59,9 @@ def create_adapter(config: dict, **kwargs):
     raise ValueError(f"Unsupported adapter type: {adapter_type}")
 
 def create_ingester(config: dict):
+    # Lazy load ingester classes only when creating
+    FHIRIngester, HL7v2Ingester, X12Ingester, PlainTextIngester = _get_ingester_classes()
+    
     ingester_type = config["type"]
 
     if ingester_type == "fhir":

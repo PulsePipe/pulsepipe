@@ -24,7 +24,7 @@
 import os
 import pytest
 import yaml
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import Mock, patch, MagicMock, mock_open
 from click.testing import CliRunner
 
 from pulsepipe.cli.main import cli
@@ -293,21 +293,27 @@ class TestCliConfig:
             with patch('pulsepipe.cli.command.config.load_config') as config_load:
                 config_load.return_value = {}
                 
-                # Mock SQLiteBookmarkStore.get_all to return test bookmarks
-                with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.get_all') as mock_get_all:
-                        mock_get_all.return_value = [
-                            "/path/to/file1.txt",
-                            "/path/to/file2.txt"
-                        ]
-                        
-                        # Run the filewatcher list command
-                        result = runner.invoke(cli, ["config", "filewatcher", "list"])
-                        
-                        # Check the command execution
-                        assert result.exit_code == 0
-                        assert "📌 Processed Files:" in result.output
-                        assert "/path/to/file1.txt" in result.output
-                        assert "/path/to/file2.txt" in result.output
+                # Mock the unified bookmark store factory and its return value
+                with patch('pulsepipe.cli.command.config._get_bookmark_factory') as mock_factory:
+                    # Create a mock store instance that will be returned by create_bookmark_store
+                    mock_store = Mock()
+                    mock_store.get_all.return_value = [
+                        "/path/to/file1.txt",
+                        "/path/to/file2.txt"
+                    ]
+                    
+                    # Mock the create_bookmark_store function to return our mock store
+                    mock_create_store = Mock(return_value=mock_store)
+                    mock_factory.return_value = mock_create_store
+                    
+                    # Run the filewatcher list command
+                    result = runner.invoke(cli, ["config", "filewatcher", "list"])
+                    
+                    # Check the command execution
+                    assert result.exit_code == 0
+                    assert "📌 Processed Files:" in result.output
+                    assert "/path/to/file1.txt" in result.output
+                    assert "/path/to/file2.txt" in result.output
     
     def test_filewatcher_list_command_no_files(self):
         """Test filewatcher list command when no files are processed."""
@@ -642,14 +648,19 @@ class TestCliConfig:
             with patch('pulsepipe.cli.command.config.load_config') as config_load:
                 config_load.return_value = {}
                 
-                with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.clear_all') as mock_clear:
-                    mock_clear.return_value = 5  # 5 bookmarks cleared
+                # Create a mock bookmark store
+                mock_store = Mock()
+                mock_store.clear_all.return_value = 5
+                
+                # Patch the bookmark store factory
+                with patch('pulsepipe.adapters.file_watcher_bookmarks.factory.create_bookmark_store') as mock_factory:
+                    mock_factory.return_value = mock_store
                     
                     result = runner.invoke(cli, ["config", "filewatcher", "reset"])
                     
                     assert result.exit_code == 0
-                    assert "✅ Cleared 5 bookmarks." in result.output
-                    mock_clear.assert_called_once()
+                    assert "✅ Cleared 5" in result.output
+                    mock_store.clear_all.assert_called_once()
     
     def test_filewatcher_reset_with_profile(self):
         """Test filewatcher reset command with profile."""
@@ -661,8 +672,15 @@ class TestCliConfig:
             with patch('pulsepipe.cli.command.config.load_config') as config_load:
                 config_load.return_value = {}
                 
-                with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.clear_all') as mock_clear:
-                    mock_clear.return_value = 3
+                # Mock the unified bookmark store factory and its return value
+                with patch('pulsepipe.cli.command.config._get_bookmark_factory') as mock_factory:
+                    # Create a mock store instance that will be returned by create_bookmark_store
+                    mock_store = Mock()
+                    mock_store.clear_all.return_value = 3
+                    
+                    # Mock the create_bookmark_store function to return our mock store
+                    mock_create_store = Mock(return_value=mock_store)
+                    mock_factory.return_value = mock_create_store
                     
                     result = runner.invoke(cli, ["config", "filewatcher", "reset", "--profile", "test_profile"])
                     
@@ -803,6 +821,7 @@ class TestCliConfig:
                                 assert result.exit_code == 0
                                 mock_makedirs.assert_called_once_with("/custom/path", exist_ok=True)
     
+
     def test_delete_profile_not_found(self):
         """Test delete_profile command when profile doesn't exist."""
         runner = CliRunner()

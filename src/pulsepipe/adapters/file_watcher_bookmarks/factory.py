@@ -48,7 +48,11 @@ def create_bookmark_store(config: dict):
 
     if store_type == "sqlite":
         db_path = config.get("db_path", "bookmarks.db")
-        dialect = get_sql_dialect(config)
+        
+        # Create SQLite connection and dialect directly for legacy configs
+        from pulsepipe.persistence.database.sqlite_impl import SQLiteConnection, SQLiteDialect
+        connection = SQLiteConnection(db_path)
+        dialect = SQLiteDialect()
         return CommonBookmarkStore(connection, dialect)
 
     elif store_type == "postgres" or store_type == "postgresql":

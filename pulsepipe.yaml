@@ -22,7 +22,7 @@
 # pulsepipe.yaml
 
 persistence:
-  type: postgresql  # sqlite | postgresql | mongodb
+  type: mongodb  # sqlite | postgresql | mongodb
 
   sqlite:
     db_path: .pulsepipe/state/ingestion.sqlite3

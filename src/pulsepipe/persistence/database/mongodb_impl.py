@@ -223,11 +223,16 @@ class MongoDBConnection(DatabaseConnection):
                 if params and len(params) >= 2:
                     # Assume last param is the ID/filter, others are update values
                     update_doc, filter_doc = self._params_to_update(params, operation_type)
-                    result = collection.update_one(filter_doc, update_doc)
+                    # Handle upsert options from the operation descriptor
+                    options = operation.get("options", {})
+                    result = collection.update_one(filter_doc, update_doc, **options)
                 else:
+                    # Handle upsert options from the operation descriptor
+                    options = operation.get("options", {})
                     result = collection.update_one(
                         operation.get("filter", {}),
-                        operation.get("update", {})
+                        operation.get("update", {}),
+                        **options
                     )
                 return DatabaseResult(
                     rows=[],
@@ -469,7 +474,15 @@ class MongoDBConnection(DatabaseConnection):
         if isinstance(params, dict):
             return params
         elif isinstance(params, tuple) and len(params) == 1:
-            return {"id": params[0]}
+            # For bookmark operations, single parameter is typically a path
+            # For other operations, it's typically an id
+            # We need context to distinguish, so we'll use a heuristic:
+            # If it looks like a file path (contains / or .), treat as path
+            param = params[0]
+            if isinstance(param, str) and ('/' in param or '\\' in param or '.' in param):
+                return {"path": param}
+            else:
+                return {"id": param}
         return {}
     
     def _params_to_update(self, params: Union[Tuple, Dict], operation_type: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -477,8 +490,20 @@ class MongoDBConnection(DatabaseConnection):
         if isinstance(params, dict):
             return params.get("update", {}), params.get("filter", {})
         
+        # For bookmark operations (path, status)
+        if len(params) == 2:
+            update_doc = {
+                "$setOnInsert": {
+                    "path": params[0],
+                    "status": params[1],
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+            filter_doc = {"path": params[0]}
+            return update_doc, filter_doc
+        
         # For pipeline run updates
-        if len(params) == 5:  # pipeline_run completion update
+        elif len(params) == 5:  # pipeline_run completion update
             update_doc = {
                 "$set": {
                     "completed_at": params[0],

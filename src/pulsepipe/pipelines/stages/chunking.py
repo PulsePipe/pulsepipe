@@ -79,7 +79,7 @@ class ChunkingStage(PipelineStage):
         import time
         
         # Get chunking tracker
-        chunking_tracker = context.get_ingestion_tracker("chunking")
+        chunking_tracker = context.get_chunking_tracker("chunking")
         stage_start_time = time.time()
 
         # Get chunker configuration
@@ -140,20 +140,22 @@ class ChunkingStage(PipelineStage):
                             all_chunks.extend(chunks)
                             processing_stats["successful_chunks"] += len(chunks)
                             if chunking_tracker:
-                                # Record success for each chunk
-                                for chunk in chunks:
-                                    processing_time_ms = int((time.time() - item_start_time) * 1000)
-                                    chunking_tracker.record_success(
-                                        record_id=chunk.get("id", f"chunk_{i}"),
-                                        record_type=chunk.get("type", "unknown_chunk"),
-                                        processing_time_ms=processing_time_ms,
-                                        data_source="chunking_stage",
-                                        metadata={
-                                            "original_item_type": type(item).__name__,
-                                            "chunk_size": len(str(chunk.get("content", ""))),
-                                            "chunker_type": chunker_type
-                                        }
-                                    )
+                                # Record success for the item (not individual chunks)
+                                processing_time_ms = int((time.time() - item_start_time) * 1000)
+                                total_chars = sum(len(str(chunk.get("content", ""))) for chunk in chunks)
+                                chunking_tracker.record_success(
+                                    record_id=self._extract_record_id(item),
+                                    source_id=getattr(item, 'id', None) or f"item_{i}",
+                                    chunk_type=self._determine_chunk_type(item),
+                                    processing_time_ms=processing_time_ms,
+                                    chunk_count=len(chunks),
+                                    total_chars=total_chars,
+                                    chunker_type=chunker_type,
+                                    metadata={
+                                        "original_item_type": type(item).__name__,
+                                        "avg_chunk_size": total_chars // len(chunks) if chunks else 0
+                                    }
+                                )
                         else:
                             processing_stats["failed_items"] += 1
                             
@@ -173,14 +175,18 @@ class ChunkingStage(PipelineStage):
                         # Record success
                         if chunking_tracker:
                             processing_time_ms = int((time.time() - item_start_time) * 1000)
+                            total_chars = sum(len(str(chunk.get("content", ""))) for chunk in chunks)
                             chunking_tracker.record_success(
                                 record_id=self._extract_record_id(input_data),
-                                record_type=type(input_data).__name__,
+                                source_id=getattr(input_data, 'id', None) or "single_item",
+                                chunk_type=self._determine_chunk_type(input_data),
                                 processing_time_ms=processing_time_ms,
-                                data_source="chunking_stage",
+                                chunk_count=len(chunks),
+                                total_chars=total_chars,
+                                chunker_type=chunker_type,
                                 metadata={
-                                    "chunks_created": len(chunks),
-                                    "chunker_type": chunker_type
+                                    "original_item_type": type(input_data).__name__,
+                                    "avg_chunk_size": total_chars // len(chunks) if chunks else 0
                                 }
                             )
                     else:
@@ -193,13 +199,16 @@ class ChunkingStage(PipelineStage):
                         
                         # Record failure
                         if chunking_tracker:
+                            from pulsepipe.audit.chunking_tracker import ChunkingStage
                             processing_time_ms = int((time.time() - item_start_time) * 1000)
                             chunking_tracker.record_failure(
                                 record_id=self._extract_record_id(input_data),
-                                record_type=type(input_data).__name__,
+                                error=e,
+                                stage=ChunkingStage.SEGMENTATION,
+                                source_id=getattr(input_data, 'id', None) or "single_item",
+                                chunk_type=self._determine_chunk_type(input_data),
                                 processing_time_ms=processing_time_ms,
-                                error_message=str(e),
-                                data_source="chunking_stage"
+                                chunker_type=chunker_type
                             )
                         
                         # Re-raise as ChunkerError for single item failures
@@ -267,13 +276,15 @@ class ChunkingStage(PipelineStage):
             self.logger.error(f"{context.log_prefix} Error during chunking: {str(e)}")
             # Record stage-level failure
             if chunking_tracker:
+                from pulsepipe.audit.chunking_tracker import ChunkingStage
                 total_time_ms = int((time.time() - stage_start_time) * 1000)
                 chunking_tracker.record_failure(
                     record_id=f"chunking_stage_{context.pipeline_id[:8]}",
-                    record_type="ChunkingStage",
+                    error=e,
+                    stage=ChunkingStage.SEGMENTATION,
+                    source_id=context.pipeline_id,
                     processing_time_ms=total_time_ms,
-                    error_message=str(e),
-                    data_source="chunking_stage"
+                    chunker_type=chunker_type
                 )
             raise ChunkerError(
                 f"Error during chunking: {str(e)}",
@@ -322,3 +333,27 @@ class ChunkingStage(PipelineStage):
         except Exception as e:
             self.logger.error(f"Error chunking item of type {type(item).__name__}: {str(e)}")
             return None
+    
+    def _extract_record_id(self, item: Any) -> str:
+        """Extract a record ID from an item."""
+        if hasattr(item, 'id') and item.id:
+            return str(item.id)
+        elif hasattr(item, 'patient') and hasattr(item.patient, 'id') and item.patient.id:
+            return f"patient_{item.patient.id}"
+        elif hasattr(item, '__dict__'):
+            # Try to find any id-like attribute
+            for attr in ['record_id', 'identifier', 'uuid']:
+                if hasattr(item, attr):
+                    val = getattr(item, attr)
+                    if val:
+                        return str(val)
+        return f"unknown_{hash(str(item)) % 10000}"
+    
+    def _determine_chunk_type(self, item: Any) -> str:
+        """Determine the chunk type based on the item."""
+        if isinstance(item, PulseClinicalContent):
+            return "clinical"
+        elif isinstance(item, PulseOperationalContent):
+            return "operational"
+        else:
+            return "unknown"

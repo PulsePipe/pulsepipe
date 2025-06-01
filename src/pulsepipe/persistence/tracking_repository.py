@@ -95,6 +95,90 @@ class QualityMetric:
     timestamp: Optional[datetime] = None
 
 
+@dataclass
+class ChunkingStat:
+    """Individual chunking statistics record."""
+    id: Optional[int]
+    pipeline_run_id: str
+    stage_name: str
+    source_id: Optional[str]
+    record_id: Optional[str]
+    chunk_type: Optional[str]
+    status: ProcessingStatus
+    error_category: Optional[ErrorCategory]
+    error_message: Optional[str]
+    error_details: Optional[Dict[str, Any]]
+    processing_time_ms: Optional[int]
+    chunk_count: Optional[int]
+    total_chars: Optional[int]
+    avg_chunk_size: Optional[int]
+    overlap_chars: Optional[int]
+    chunker_type: Optional[str]
+    timestamp: datetime
+
+
+@dataclass
+class DeidStat:
+    """Individual de-identification statistics record."""
+    id: Optional[int]
+    pipeline_run_id: str
+    stage_name: str
+    source_id: Optional[str]
+    record_id: Optional[str]
+    content_type: Optional[str]
+    status: ProcessingStatus
+    error_category: Optional[ErrorCategory]
+    error_message: Optional[str]
+    error_details: Optional[Dict[str, Any]]
+    processing_time_ms: Optional[int]
+    phi_entities_detected: Optional[int]
+    phi_entities_removed: Optional[int]
+    confidence_scores: Optional[Dict[str, float]]
+    deid_method: Optional[str]
+    timestamp: datetime
+
+
+@dataclass
+class EmbeddingStat:
+    """Individual embedding statistics record."""
+    id: Optional[int]
+    pipeline_run_id: str
+    stage_name: str
+    source_id: Optional[str]
+    record_id: Optional[str]
+    content_type: Optional[str]
+    status: ProcessingStatus
+    error_category: Optional[ErrorCategory]
+    error_message: Optional[str]
+    error_details: Optional[Dict[str, Any]]
+    processing_time_ms: Optional[int]
+    chunk_count: Optional[int]
+    embedding_dimensions: Optional[int]
+    model_name: Optional[str]
+    timestamp: datetime
+
+
+@dataclass
+class VectorDbStat:
+    """Individual vector database statistics record."""
+    id: Optional[int]
+    pipeline_run_id: str
+    stage_name: str
+    source_id: Optional[str]
+    record_id: Optional[str]
+    content_type: Optional[str]
+    status: ProcessingStatus
+    error_category: Optional[ErrorCategory]
+    error_message: Optional[str]
+    error_details: Optional[Dict[str, Any]]
+    processing_time_ms: Optional[int]
+    vector_count: Optional[int]
+    index_name: Optional[str]
+    collection_name: Optional[str]
+    vector_store_type: Optional[str]
+    timestamp: datetime
+
+
 class TrackingRepository:
     """
     Repository for storing and retrieving tracking and audit data.
@@ -356,6 +440,115 @@ class TrackingRepository:
             pipeline_run_id, stage_name, self.dialect.format_datetime(started_at), self.dialect.format_datetime(completed_at),
             duration_ms, records_processed, records_per_second,
             memory_usage_mb, cpu_usage_percent, bottleneck_indicator
+        )
+        
+        result = self.conn.execute(sql, params)
+        self.conn.commit()
+        return result.lastrowid
+    
+    def record_chunking_stat(self, stat: ChunkingStat) -> int:
+        """
+        Record a chunking statistic.
+        
+        Args:
+            stat: ChunkingStat object to record
+            
+        Returns:
+            ID of the inserted record
+        """
+        error_details_data = self.dialect.serialize_json(stat.error_details)
+        confidence_scores_data = self.dialect.serialize_json(stat.confidence_scores if hasattr(stat, 'confidence_scores') else None)
+        
+        sql = self.dialect.get_chunking_stat_insert()
+        params = (
+            stat.pipeline_run_id, stat.stage_name, stat.source_id, stat.record_id,
+            stat.chunk_type, stat.status.value if stat.status else None,
+            stat.error_category.value if stat.error_category else None,
+            stat.error_message, error_details_data, stat.processing_time_ms,
+            stat.chunk_count, stat.total_chars, stat.avg_chunk_size,
+            stat.overlap_chars, stat.chunker_type,
+            self.dialect.format_datetime(stat.timestamp) if stat.timestamp else self.dialect.format_datetime(datetime.now())
+        )
+        
+        result = self.conn.execute(sql, params)
+        self.conn.commit()
+        return result.lastrowid
+    
+    def record_deid_stat(self, stat: DeidStat) -> int:
+        """
+        Record a de-identification statistic.
+        
+        Args:
+            stat: DeidStat object to record
+            
+        Returns:
+            ID of the inserted record
+        """
+        error_details_data = self.dialect.serialize_json(stat.error_details)
+        confidence_scores_data = self.dialect.serialize_json(stat.confidence_scores)
+        
+        sql = self.dialect.get_deid_stat_insert()
+        params = (
+            stat.pipeline_run_id, stat.stage_name, stat.source_id, stat.record_id,
+            stat.content_type, stat.status.value if stat.status else None,
+            stat.error_category.value if stat.error_category else None,
+            stat.error_message, error_details_data, stat.processing_time_ms,
+            stat.phi_entities_detected, stat.phi_entities_removed, confidence_scores_data,
+            stat.deid_method,
+            self.dialect.format_datetime(stat.timestamp) if stat.timestamp else self.dialect.format_datetime(datetime.now())
+        )
+        
+        result = self.conn.execute(sql, params)
+        self.conn.commit()
+        return result.lastrowid
+    
+    def record_embedding_stat(self, stat: EmbeddingStat) -> int:
+        """
+        Record an embedding statistic.
+        
+        Args:
+            stat: EmbeddingStat object to record
+            
+        Returns:
+            ID of the inserted record
+        """
+        error_details_data = self.dialect.serialize_json(stat.error_details)
+        
+        sql = self.dialect.get_embedding_stat_insert()
+        params = (
+            stat.pipeline_run_id, stat.stage_name, stat.source_id, stat.record_id,
+            stat.content_type, stat.status.value if stat.status else None,
+            stat.error_category.value if stat.error_category else None,
+            stat.error_message, error_details_data, stat.processing_time_ms,
+            stat.chunk_count, stat.embedding_dimensions, stat.model_name,
+            self.dialect.format_datetime(stat.timestamp) if stat.timestamp else self.dialect.format_datetime(datetime.now())
+        )
+        
+        result = self.conn.execute(sql, params)
+        self.conn.commit()
+        return result.lastrowid
+    
+    def record_vector_db_stat(self, stat: VectorDbStat) -> int:
+        """
+        Record a vector database statistic.
+        
+        Args:
+            stat: VectorDbStat object to record
+            
+        Returns:
+            ID of the inserted record
+        """
+        error_details_data = self.dialect.serialize_json(stat.error_details)
+        
+        sql = self.dialect.get_vector_db_stat_insert()
+        params = (
+            stat.pipeline_run_id, stat.stage_name, stat.source_id, stat.record_id,
+            stat.content_type, stat.status.value if stat.status else None,
+            stat.error_category.value if stat.error_category else None,
+            stat.error_message, error_details_data, stat.processing_time_ms,
+            stat.vector_count, stat.index_name, stat.collection_name,
+            stat.vector_store_type,
+            self.dialect.format_datetime(stat.timestamp) if stat.timestamp else self.dialect.format_datetime(datetime.now())
         )
         
         result = self.conn.execute(sql, params)

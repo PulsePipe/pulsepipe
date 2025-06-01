@@ -79,7 +79,7 @@ class VectorStoreStage(PipelineStage):
         import time
         
         # Get vectorstore tracker
-        vectorstore_tracker = context.get_ingestion_tracker("vectorstore")
+        vectorstore_tracker = context.get_vector_db_tracker("vectorstore")
         stage_start_time = time.time()
         
         # Get vectorstore configuration
@@ -190,13 +190,21 @@ class VectorStoreStage(PipelineStage):
         except VectorStoreConnectionError as e:
             # Record stage-level failure if tracker is available
             if vectorstore_tracker:
+                from pulsepipe.audit.vector_db_tracker import VectorDbStage
                 total_time_ms = int((time.time() - stage_start_time) * 1000)
                 vectorstore_tracker.record_failure(
                     record_id=f"vectorstore_stage_{context.pipeline_id[:8]}",
-                    record_type="VectorStoreStage",
+                    error=e,
+                    stage=VectorDbStage.CONNECTION,
+                    source_id=context.pipeline_id,
+                    content_type="vectorstore_stage",
                     processing_time_ms=total_time_ms,
-                    error_message=f"Connection failed: {str(e)}",
-                    data_source="vectorstore_stage"
+                    vector_store_type=engine,
+                    metadata={
+                        "error_type": "connection_error",
+                        "host": host,
+                        "port": port
+                    }
                 )
             
             # Log audit event if audit logger is available
@@ -221,13 +229,19 @@ class VectorStoreStage(PipelineStage):
         except Exception as e:
             # Record stage-level failure if tracker is available
             if vectorstore_tracker:
+                from pulsepipe.audit.vector_db_tracker import VectorDbStage
                 total_time_ms = int((time.time() - stage_start_time) * 1000)
                 vectorstore_tracker.record_failure(
                     record_id=f"vectorstore_stage_{context.pipeline_id[:8]}",
-                    record_type="VectorStoreStage",
+                    error=e,
+                    stage=VectorDbStage.VECTOR_INSERTION,
+                    source_id=context.pipeline_id,
+                    content_type="vectorstore_stage",
                     processing_time_ms=total_time_ms,
-                    error_message=str(e),
-                    data_source="vectorstore_stage"
+                    vector_store_type=engine,
+                    metadata={
+                        "error_type": "general_error"
+                    }
                 )
             
             # Log audit event if audit logger is available
@@ -313,9 +327,13 @@ class VectorStoreStage(PipelineStage):
                     processing_time_ms = int((time.time() - collection_start_time) * 1000)
                     vectorstore_tracker.record_success(
                         record_id=f"collection_{namespace}",
-                        record_type="VectorStoreCollection",
+                        source_id=context.pipeline_id,
+                        content_type=chunk_type,
                         processing_time_ms=processing_time_ms,
-                        data_source="vectorstore_stage",
+                        vector_count=len(type_chunks),
+                        index_name=namespace,
+                        collection_name=namespace,
+                        vector_store_type=vectorstore.__class__.__name__,
                         metadata={
                             "namespace": namespace,
                             "chunk_type": chunk_type,
@@ -371,13 +389,21 @@ class VectorStoreStage(PipelineStage):
                 
                 # Record failure for collection upload if tracker is available
                 if vectorstore_tracker:
+                    from pulsepipe.audit.vector_db_tracker import VectorDbStage
                     processing_time_ms = int((time.time() - collection_start_time) * 1000)
                     vectorstore_tracker.record_failure(
                         record_id=f"collection_{namespace}",
-                        record_type="VectorStoreCollection",
+                        error=e,
+                        stage=VectorDbStage.VECTOR_INSERTION,
+                        source_id=context.pipeline_id,
+                        content_type=chunk_type,
                         processing_time_ms=processing_time_ms,
-                        error_message=str(e),
-                        data_source="vectorstore_stage"
+                        vector_store_type=vectorstore.__class__.__name__,
+                        metadata={
+                            "namespace": namespace,
+                            "chunk_type": chunk_type,
+                            "chunk_count": len(type_chunks)
+                        }
                     )
                 
                 # Log audit event for collection upload failure if audit logger is available

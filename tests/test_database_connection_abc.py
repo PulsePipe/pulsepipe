@@ -162,11 +162,17 @@ class TestDatabaseDialectABC:
             'get_pipeline_run_update',
             'get_pipeline_run_select',
             'get_pipeline_runs_list',
+            'get_pipeline_run_count_update',
+            'get_recent_pipeline_runs',
             'get_ingestion_stat_insert',
             'get_failed_record_insert',
             'get_audit_event_insert',
             'get_quality_metric_insert',
             'get_performance_metric_insert',
+            'get_chunking_stat_insert',
+            'get_deid_stat_insert',
+            'get_embedding_stat_insert',
+            'get_vector_db_stat_insert',
             'get_ingestion_summary',
             'get_quality_summary',
             'get_cleanup',
@@ -192,13 +198,17 @@ class TestDatabaseDialectABC:
             def get_pipeline_run_update(self): return ""
             def get_pipeline_run_select(self): return ""
             def get_pipeline_runs_list(self): return ""
-            def get_pipeline_run_count_update(self): return ""  # ADDED: Missing method
-            def get_recent_pipeline_runs(self, limit: int = 10): return ""  # ADDED: Missing method
+            def get_pipeline_run_count_update(self): return ""
+            def get_recent_pipeline_runs(self, limit: int = 10): return ""
             def get_ingestion_stat_insert(self): return ""
             def get_failed_record_insert(self): return ""
             def get_audit_event_insert(self): return ""
             def get_quality_metric_insert(self): return ""
             def get_performance_metric_insert(self): return ""
+            def get_chunking_stat_insert(self): return ""
+            def get_deid_stat_insert(self): return ""
+            def get_embedding_stat_insert(self): return ""
+            def get_vector_db_stat_insert(self): return ""
             def get_ingestion_summary(self, *args): return "", []
             def get_quality_summary(self, *args): return "", []
             def get_cleanup(self, *args): return []

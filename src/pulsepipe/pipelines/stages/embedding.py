@@ -70,7 +70,7 @@ class EmbeddingStage(PipelineStage):
         import time
         
         # Get embedding tracker
-        embedding_tracker = context.get_ingestion_tracker("embedding")
+        embedding_tracker = context.get_embedding_tracker("embedding")
         stage_start_time = time.time()
         
         # Get embedder configuration
@@ -147,16 +147,21 @@ class EmbeddingStage(PipelineStage):
                         # Record success if tracker is available
                         if embedding_tracker:
                             processing_time_ms = int((time.time() - chunk_start_time) * 1000)
+                            embedding_dimensions = len(embedded_chunk.get("embedding", []))
                             embedding_tracker.record_success(
                                 record_id=chunk.get("id", f"chunk_{i}_{j}"),
-                                record_type=chunk.get("type", "unknown_chunk"),
+                                source_id=f"batch_{i}",
+                                content_type=self._determine_content_type(chunk),
                                 processing_time_ms=processing_time_ms,
-                                data_source="embedding_stage",
+                                chunk_count=1,  # Single chunk being processed
+                                embedding_dimensions=embedding_dimensions,
+                                model_name=config.get("model_name", embedder.name),
                                 metadata={
                                     "embedder_type": embedder_type,
                                     "embedder_name": embedder.name,
-                                    "model_name": config.get("model_name", "unknown"),
-                                    "chunk_content_length": len(str(chunk.get("content", "")))
+                                    "chunk_content_length": len(str(chunk.get("content", ""))),
+                                    "batch_index": i,
+                                    "chunk_index": j
                                 }
                             )
                             
@@ -181,13 +186,22 @@ class EmbeddingStage(PipelineStage):
                         
                         # Record failure if tracker is available
                         if embedding_tracker:
+                            from pulsepipe.audit.embedding_tracker import EmbeddingStage
                             processing_time_ms = int((time.time() - chunk_start_time) * 1000)
                             embedding_tracker.record_failure(
                                 record_id=chunk.get("id", f"chunk_{i}_{j}"),
-                                record_type=chunk.get("type", "unknown_chunk"),
+                                error=e,
+                                stage=EmbeddingStage.EMBEDDING_GENERATION,
+                                source_id=f"batch_{i}",
+                                content_type=self._determine_content_type(chunk),
                                 processing_time_ms=processing_time_ms,
-                                error_message=str(e),
-                                data_source="embedding_stage"
+                                model_name=config.get("model_name", embedder.name),
+                                metadata={
+                                    "embedder_type": embedder_type,
+                                    "embedder_name": embedder.name,
+                                    "batch_index": i,
+                                    "chunk_index": j
+                                }
                             )
                             
                         # Log audit event if audit logger is available
@@ -267,13 +281,16 @@ class EmbeddingStage(PipelineStage):
         except Exception as e:
             # Record stage-level failure if tracker is available
             if embedding_tracker:
+                from pulsepipe.audit.embedding_tracker import EmbeddingStage
                 total_time_ms = int((time.time() - stage_start_time) * 1000)
                 embedding_tracker.record_failure(
                     record_id=f"embedding_stage_{context.pipeline_id[:8]}",
-                    record_type="EmbeddingStage",
+                    error=e,
+                    stage=EmbeddingStage.EMBEDDING_GENERATION,
+                    source_id=context.pipeline_id,
                     processing_time_ms=total_time_ms,
-                    error_message=str(e),
-                    data_source="embedding_stage"
+                    model_name=config.get("model_name", "unknown"),
+                    metadata={"embedder_type": embedder_type}
                 )
             
             # Log audit event if audit logger is available
@@ -285,3 +302,15 @@ class EmbeddingStage(PipelineStage):
                 f"Error during embedding: {str(e)}",
                 details={"embedder_type": embedder_type}
             )
+    
+    def _determine_content_type(self, chunk: Dict[str, Any]) -> str:
+        """Determine the content type based on the chunk."""
+        chunk_type = chunk.get("type", "")
+        if "clinical" in chunk_type.lower():
+            return "clinical"
+        elif "operational" in chunk_type.lower():
+            return "operational"
+        elif "narrative" in chunk_type.lower():
+            return "narrative"
+        else:
+            return "unknown"

@@ -96,6 +96,26 @@ class DatabaseDialect(ABC):
         pass
     
     @abstractmethod
+    def get_chunking_stat_insert(self) -> str:
+        """Get database operation for inserting a chunking statistic."""
+        pass
+    
+    @abstractmethod
+    def get_deid_stat_insert(self) -> str:
+        """Get database operation for inserting a de-identification statistic."""
+        pass
+    
+    @abstractmethod
+    def get_embedding_stat_insert(self) -> str:
+        """Get database operation for inserting an embedding statistic."""
+        pass
+    
+    @abstractmethod
+    def get_vector_db_stat_insert(self) -> str:
+        """Get database operation for inserting a vector database statistic."""
+        pass
+    
+    @abstractmethod
     def get_ingestion_summary(self, pipeline_run_id: Optional[str] = None,
                                  start_date: Optional[datetime] = None,
                                  end_date: Optional[datetime] = None) -> Tuple[str, List[Any]]:

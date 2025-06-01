@@ -71,6 +71,41 @@ class PipelineRunner:
         Raises:
             PipelineError: If pipeline execution fails
         """
+        # Log configuration overview at pipeline start
+        logger.info(f"🚀 Starting pipeline '{name}' with configuration:")
+        
+        # Log major configuration sections
+        config_sections = []
+        if 'adapter' in config:
+            adapter_type = config['adapter'].get('type', 'unknown')
+            config_sections.append(f"Adapter: {adapter_type}")
+        
+        if 'ingester' in config:
+            ingester_type = config['ingester'].get('type', 'unknown')
+            config_sections.append(f"Ingester: {ingester_type}")
+        
+        if 'chunker' in config:
+            chunker_type = config['chunker'].get('type', 'unknown')
+            config_sections.append(f"Chunker: {chunker_type}")
+        
+        if 'embedding' in config:
+            embedding_model = config['embedding'].get('model', 'unknown')
+            config_sections.append(f"Embedding: {embedding_model}")
+        
+        if 'vectorstore' in config:
+            vectorstore_type = config['vectorstore'].get('type', 'unknown')
+            config_sections.append(f"Vectorstore: {vectorstore_type}")
+        
+        if 'persistence' in config:
+            persistence_type = config['persistence'].get('type', 'unknown')
+            config_sections.append(f"Persistence: {persistence_type}")
+        
+        if 'data_intelligence' in config:
+            intelligence_enabled = config['data_intelligence'].get('enabled', False)
+            config_sections.append(f"Data Intelligence: {'enabled' if intelligence_enabled else 'disabled'}")
+        
+        logger.info(f"📋 Configuration: {' | '.join(config_sections)}")
+        
         # Create execution context
         context = PipelineContext(
             name=name,

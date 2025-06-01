@@ -22,7 +22,7 @@
 # src/pulsepipe/config/pulsepipe.yaml
 
 persistence:
-  type: postgresql  # sqlite | postgresql | mongodb
+  type: mongodb  # sqlite | postgresql | mongodb
   
   # SQLite configuration (default)
   sqlite:

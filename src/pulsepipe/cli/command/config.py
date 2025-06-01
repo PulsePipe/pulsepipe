@@ -44,6 +44,11 @@ def _get_sqlite_store():
     from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
     return SQLiteBookmarkStore
 
+def _get_bookmark_factory():
+    """Lazy import bookmark factory."""
+    from pulsepipe.adapters.file_watcher_bookmarks.factory import create_bookmark_store
+    return create_bookmark_store
+
 @click.group()
 @click.pass_context
 def config(ctx):
@@ -327,8 +332,6 @@ def filewatcher():
 @click.option("--profile", default=None, help="Optional config profile to load.")
 def list_processed_files(config_path, profile):
     """📋 List all processed files (successes and errors)."""
-    # Lazy load SQLiteBookmarkStore only when function is called
-    SQLiteBookmarkStore = _get_sqlite_store()
     
     if profile:
         config_dir = os.path.dirname(config_path)
@@ -337,18 +340,32 @@ def list_processed_files(config_path, profile):
     else:
         config = load_config(config_path)
 
-    db_path = config.get("persistence", {}).get("sqlite", {}).get(
-        "db_path", ".pulsepipe/state/ingestion.sqlite3"
-    )
+    try:
+        # Try to use the unified bookmark store first
+        create_bookmark_store = _get_bookmark_factory()
+        store = create_bookmark_store(config)
+        bookmarks = store.get_all()
+    except Exception as e:
+        # Fall back to legacy SQLite store if unified store fails
+        click.echo(f"⚠️ Could not use unified bookmark store: {e}")
+        click.echo("📂 Using legacy SQLite bookmark store")
+        
+        # Lazy load SQLiteBookmarkStore as fallback
+        SQLiteBookmarkStore = _get_sqlite_store()
+        
+        db_path = config.get("persistence", {}).get("sqlite", {}).get(
+            "db_path", ".pulsepipe/state/ingestion.sqlite3"
+        )
+        
+        # Ensure the directory exists before opening the database
+        db_dir = os.path.dirname(db_path)
+        # Only try to create directory if there is a directory component
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+        
+        store = SQLiteBookmarkStore(db_path)
+        bookmarks = store.get_all()
     
-    # Ensure the directory exists before opening the database
-    db_dir = os.path.dirname(db_path)
-    # Only try to create directory if there is a directory component
-    if db_dir and not os.path.exists(db_dir):
-        os.makedirs(db_dir, exist_ok=True)
-    
-    store = SQLiteBookmarkStore(db_path)
-    bookmarks = store.get_all()
     if not bookmarks:
         click.echo("📭 No processed files found.")
     else:
@@ -361,8 +378,6 @@ def list_processed_files(config_path, profile):
 @click.option("--profile", default=None, help="Optional config profile to load.")
 def reset_bookmarks(config_path, profile):
     """🧹 Reset (clear) the bookmark cache."""
-    # Lazy load SQLiteBookmarkStore only when function is called
-    SQLiteBookmarkStore = _get_sqlite_store()
     
     if profile:
         config_dir = os.path.dirname(config_path)
@@ -371,19 +386,33 @@ def reset_bookmarks(config_path, profile):
     else:
         config = load_config(config_path)
 
-    db_path = config.get("persistence", {}).get("sqlite", {}).get(
-        "db_path", ".pulsepipe/state/ingestion.sqlite3"
-    )
-    
-    # Ensure the directory exists before opening the database
-    db_dir = os.path.dirname(db_path)
-    # Only try to create directory if there is a directory component
-    if db_dir and not os.path.exists(db_dir):
-        os.makedirs(db_dir, exist_ok=True)
-    
-    store = SQLiteBookmarkStore(db_path)
-    count = store.clear_all()
-    click.echo(f"✅ Cleared {count} bookmarks.")
+    try:
+        # Try to use the unified bookmark store first
+        create_bookmark_store = _get_bookmark_factory()
+        store = create_bookmark_store(config)
+        count = store.clear_all()
+        click.echo(f"✅ Cleared {count} bookmarks.")
+    except Exception as e:
+        # Fall back to legacy SQLite store if unified store fails
+        click.echo(f"⚠️ Could not use unified bookmark store: {e}")
+        click.echo("📂 Falling back to legacy SQLite bookmark store")
+        
+        # Lazy load SQLiteBookmarkStore as fallback
+        SQLiteBookmarkStore = _get_sqlite_store()
+        
+        db_path = config.get("persistence", {}).get("sqlite", {}).get(
+            "db_path", ".pulsepipe/state/ingestion.sqlite3"
+        )
+        
+        # Ensure the directory exists before opening the database
+        db_dir = os.path.dirname(db_path)
+        # Only try to create directory if there is a directory component
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+        
+        store = SQLiteBookmarkStore(db_path)
+        count = store.clear_all()
+        click.echo(f"✅ Cleared {count} bookmarks from legacy store.")
 
 @filewatcher.command("archive")
 @click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")

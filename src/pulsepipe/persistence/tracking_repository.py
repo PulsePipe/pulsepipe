@@ -35,7 +35,7 @@ from dataclasses import dataclass
 
 from pulsepipe.utils.log_factory import LogFactory
 from .models import ProcessingStatus, ErrorCategory
-from .database import DatabaseConnection, SQLDialect
+from .database import DatabaseConnection, DatabaseDialect
 
 logger = LogFactory.get_logger(__name__)
 
@@ -103,7 +103,7 @@ class TrackingRepository:
     while abstracting away the database implementation details.
     """
     
-    def __init__(self, connection: DatabaseConnection, dialect: SQLDialect):
+    def __init__(self, connection: DatabaseConnection, dialect: DatabaseDialect):
         """
         Initialize tracking repository.
         
@@ -113,6 +113,15 @@ class TrackingRepository:
         """
         self.conn = connection
         self.dialect = dialect
+        
+        # Initialize schema if the connection supports it
+        if hasattr(self.conn, 'init_schema'):
+            try:
+                self.conn.init_schema()
+                logger.debug("Database schema initialized successfully")
+            except Exception as e:
+                logger.warning(f"Could not initialize database schema: {e}")
+                # Don't fail - the schema might already exist
     
     # Pipeline Run Management
     
@@ -127,7 +136,7 @@ class TrackingRepository:
         """
         config_data = self.dialect.serialize_json(config_snapshot)
         
-        sql = self.dialect.get_pipeline_run_insert_sql()
+        sql = self.dialect.get_pipeline_run_insert()
         params = (run_id, name, self.dialect.format_datetime(datetime.now()), "running", config_data)
         
         self.conn.execute(sql, params)
@@ -144,7 +153,7 @@ class TrackingRepository:
             status: Final status (completed, failed, cancelled)
             error_message: Optional error message if failed
         """
-        sql = self.dialect.get_pipeline_run_update_sql()
+        sql = self.dialect.get_pipeline_run_update()
         now = self.dialect.format_datetime(datetime.now())
         params = (now, status, error_message, now, run_id)
         
@@ -164,16 +173,10 @@ class TrackingRepository:
             failed: Failed records
             skipped: Skipped records
         """
-        self.conn.execute("""
-            UPDATE pipeline_runs 
-            SET total_records = total_records + ?,
-                successful_records = successful_records + ?,
-                failed_records = failed_records + ?,
-                skipped_records = skipped_records + ?,
-                updated_at = ?
-            WHERE id = ?
-        """, (total, successful, failed, skipped, datetime.now(), run_id))
+        sql = self.dialect.get_pipeline_run_count_update()
+        params = (total, successful, failed, skipped, self.dialect.format_datetime(datetime.now()), run_id)
         
+        self.conn.execute(sql, params)
         self.conn.commit()
     
     def get_pipeline_run(self, run_id: str) -> Optional[PipelineRunSummary]:
@@ -186,7 +189,7 @@ class TrackingRepository:
         Returns:
             PipelineRunSummary or None if not found
         """
-        sql = self.dialect.get_pipeline_run_select_sql()
+        sql = self.dialect.get_pipeline_run_select()
         result = self.conn.execute(sql, (run_id,))
         
         row = result.fetchone()
@@ -220,7 +223,7 @@ class TrackingRepository:
         """
         error_details_data = self.dialect.serialize_json(stat.error_details)
         
-        sql = self.dialect.get_ingestion_stat_insert_sql()
+        sql = self.dialect.get_ingestion_stat_insert()
         params = (
             stat.pipeline_run_id, stat.stage_name, stat.file_path, stat.record_id,
             stat.record_type, stat.status.value if stat.status else None,
@@ -250,15 +253,12 @@ class TrackingRepository:
         Returns:
             ID of the inserted failed record
         """
-        cursor = self.conn.execute("""
-            INSERT INTO failed_records (
-                ingestion_stat_id, original_data, normalized_data,
-                failure_reason, stack_trace
-            ) VALUES (?, ?, ?, ?, ?)
-        """, (ingestion_stat_id, original_data, normalized_data, failure_reason, stack_trace))
+        sql = self.dialect.get_failed_record_insert()
+        params = (ingestion_stat_id, original_data, normalized_data, failure_reason, stack_trace)
         
+        result = self.conn.execute(sql, params)
         self.conn.commit()
-        return cursor.lastrowid
+        return result.lastrowid
     
     # Quality Metrics
     
@@ -272,30 +272,25 @@ class TrackingRepository:
         Returns:
             ID of the inserted record
         """
-        missing_fields_json = json.dumps(metric.missing_fields) if metric.missing_fields else None
-        invalid_fields_json = json.dumps(metric.invalid_fields) if metric.invalid_fields else None
-        outlier_fields_json = json.dumps(metric.outlier_fields) if metric.outlier_fields else None
-        quality_issues_json = json.dumps(metric.quality_issues) if metric.quality_issues else None
-        metrics_details_json = json.dumps(metric.metrics_details) if metric.metrics_details else None
+        missing_fields_json = self.dialect.serialize_json(metric.missing_fields) if metric.missing_fields else None
+        invalid_fields_json = self.dialect.serialize_json(metric.invalid_fields) if metric.invalid_fields else None
+        outlier_fields_json = self.dialect.serialize_json(metric.outlier_fields) if metric.outlier_fields else None
+        quality_issues_json = self.dialect.serialize_json(metric.quality_issues) if metric.quality_issues else None
+        metrics_details_json = self.dialect.serialize_json(metric.metrics_details) if metric.metrics_details else None
         
-        cursor = self.conn.execute("""
-            INSERT INTO quality_metrics (
-                pipeline_run_id, record_id, record_type,
-                completeness_score, consistency_score, validity_score,
-                accuracy_score, overall_score, missing_fields,
-                invalid_fields, outlier_fields, quality_issues,
-                metrics_details, sampled, timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        sql = self.dialect.get_quality_metric_insert()
+        params = (
             metric.pipeline_run_id, metric.record_id, metric.record_type,
             metric.completeness_score, metric.consistency_score, metric.validity_score,
             metric.accuracy_score, metric.overall_score, missing_fields_json,
             invalid_fields_json, outlier_fields_json, quality_issues_json,
-            metrics_details_json, metric.sampled, metric.timestamp or datetime.now()
-        ))
+            metrics_details_json, metric.sampled, 
+            self.dialect.format_datetime(metric.timestamp) if metric.timestamp else self.dialect.format_datetime(datetime.now())
+        )
         
+        result = self.conn.execute(sql, params)
         self.conn.commit()
-        return cursor.lastrowid
+        return result.lastrowid
     
     # Audit Events
     
@@ -318,20 +313,17 @@ class TrackingRepository:
         Returns:
             ID of the inserted audit event
         """
-        details_json = json.dumps(details) if details else None
+        details_json = self.dialect.serialize_json(details) if details else None
         
-        cursor = self.conn.execute("""
-            INSERT INTO audit_events (
-                pipeline_run_id, event_type, stage_name, record_id,
-                event_level, message, details, correlation_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        sql = self.dialect.get_audit_event_insert()
+        params = (
             pipeline_run_id, event_type, stage_name, record_id,
             event_level, message, details_json, correlation_id
-        ))
+        )
         
+        result = self.conn.execute(sql, params)
         self.conn.commit()
-        return cursor.lastrowid
+        return result.lastrowid
     
     # Performance Metrics
     
@@ -359,20 +351,16 @@ class TrackingRepository:
         duration_ms = int((completed_at - started_at).total_seconds() * 1000)
         records_per_second = records_processed / (duration_ms / 1000) if duration_ms > 0 else 0
         
-        cursor = self.conn.execute("""
-            INSERT INTO performance_metrics (
-                pipeline_run_id, stage_name, started_at, completed_at,
-                duration_ms, records_processed, records_per_second,
-                memory_usage_mb, cpu_usage_percent, bottleneck_indicator
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            pipeline_run_id, stage_name, started_at, completed_at,
+        sql = self.dialect.get_performance_metric_insert()
+        params = (
+            pipeline_run_id, stage_name, self.dialect.format_datetime(started_at), self.dialect.format_datetime(completed_at),
             duration_ms, records_processed, records_per_second,
             memory_usage_mb, cpu_usage_percent, bottleneck_indicator
-        ))
+        )
         
+        result = self.conn.execute(sql, params)
         self.conn.commit()
-        return cursor.lastrowid
+        return result.lastrowid
     
     # Analytics and Reporting
     
@@ -390,7 +378,7 @@ class TrackingRepository:
         Returns:
             Dictionary with ingestion summary statistics
         """
-        sql, params = self.dialect.get_ingestion_summary_sql(pipeline_run_id, start_date, end_date)
+        sql, params = self.dialect.get_ingestion_summary(pipeline_run_id, start_date, end_date)
         result = self.conn.execute(sql, params)
         results = result.fetchall()
         
@@ -443,34 +431,32 @@ class TrackingRepository:
         Returns:
             Dictionary with quality summary statistics
         """
-        where_clause = "WHERE pipeline_run_id = ?" if pipeline_run_id else ""
-        params = [pipeline_run_id] if pipeline_run_id else []
+        sql, params = self.dialect.get_quality_summary(pipeline_run_id)
+        result = self.conn.execute(sql, params)
+        results = result.fetchall()
         
-        cursor = self.conn.execute(f"""
-            SELECT 
-                COUNT(*) as total_records,
-                AVG(completeness_score) as avg_completeness,
-                AVG(consistency_score) as avg_consistency,
-                AVG(validity_score) as avg_validity,
-                AVG(accuracy_score) as avg_accuracy,
-                AVG(overall_score) as avg_overall_score,
-                MIN(overall_score) as min_score,
-                MAX(overall_score) as max_score
-            FROM quality_metrics 
-            {where_clause}
-        """, params)
+        if not results:
+            return {
+                "total_records": 0,
+                "avg_completeness_score": None,
+                "avg_consistency_score": None, 
+                "avg_validity_score": None,
+                "avg_accuracy_score": None,
+                "avg_overall_score": None,
+                "min_overall_score": None,
+                "max_overall_score": None
+            }
         
-        row = cursor.fetchone()
-        
+        row = results[0]
         return {
-            "total_records": row['total_records'] or 0,
-            "avg_completeness_score": row['avg_completeness'],
-            "avg_consistency_score": row['avg_consistency'], 
-            "avg_validity_score": row['avg_validity'],
-            "avg_accuracy_score": row['avg_accuracy'],
-            "avg_overall_score": row['avg_overall_score'],
-            "min_overall_score": row['min_score'],
-            "max_overall_score": row['max_score']
+            "total_records": row.get('total_records', 0),
+            "avg_completeness_score": row.get('avg_completeness'),
+            "avg_consistency_score": row.get('avg_consistency'), 
+            "avg_validity_score": row.get('avg_validity'),
+            "avg_accuracy_score": row.get('avg_accuracy'),
+            "avg_overall_score": row.get('avg_overall_score'),
+            "min_overall_score": row.get('min_score'),
+            "max_overall_score": row.get('max_score')
         }
     
     def get_recent_pipeline_runs(self, limit: int = 10) -> List[PipelineRunSummary]:
@@ -483,29 +469,24 @@ class TrackingRepository:
         Returns:
             List of PipelineRunSummary objects
         """
-        cursor = self.conn.execute("""
-            SELECT id, name, started_at, completed_at, status,
-                   total_records, successful_records, failed_records,
-                   skipped_records, error_message
-            FROM pipeline_runs 
-            ORDER BY started_at DESC 
-            LIMIT ?
-        """, (limit,))
+        sql = self.dialect.get_recent_pipeline_runs(limit)
+        result = self.conn.execute(sql, ())
+        results = result.fetchall()
         
         return [
             PipelineRunSummary(
                 id=row['id'],
                 name=row['name'],
-                started_at=datetime.fromisoformat(row['started_at']),
-                completed_at=datetime.fromisoformat(row['completed_at']) if row['completed_at'] else None,
+                started_at=self.dialect.parse_datetime(row['started_at']) if row['started_at'] else datetime.now(),
+                completed_at=self.dialect.parse_datetime(row['completed_at']) if row['completed_at'] else None,
                 status=row['status'],
-                total_records=row['total_records'],
-                successful_records=row['successful_records'],
-                failed_records=row['failed_records'],
-                skipped_records=row['skipped_records'],
+                total_records=row['total_records'] or 0,
+                successful_records=row['successful_records'] or 0,
+                failed_records=row['failed_records'] or 0,
+                skipped_records=row['skipped_records'] or 0,
                 error_message=row['error_message']
             )
-            for row in cursor.fetchall()
+            for row in results
         ]
     
     def cleanup_old_data(self, days_to_keep: int = 30) -> int:
@@ -520,49 +501,23 @@ class TrackingRepository:
         """
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
         
-        # Get pipeline runs to delete
-        # Format datetime for database compatibility
-        cutoff_date_str = self.dialect.format_datetime(cutoff_date)
-        cursor = self.conn.execute(
-            "SELECT id FROM pipeline_runs WHERE started_at < ?",
-            (cutoff_date_str,)
-        )
-        old_run_ids = [row['id'] for row in cursor.fetchall()]
-        
-        if not old_run_ids:
-            return 0
+        # Use dialect-specific cleanup SQL
+        cleanup_statements = self.dialect.get_cleanup(cutoff_date)
         
         total_deleted = 0
         
-        # Delete failed_records first (they reference ingestion_stats)
-        if old_run_ids:
-            placeholders = ','.join('?' * len(old_run_ids))
-            cursor = self.conn.execute(f"""
-                DELETE FROM failed_records 
-                WHERE ingestion_stat_id IN (
-                    SELECT id FROM ingestion_stats 
-                    WHERE pipeline_run_id IN ({placeholders})
-                )
-            """, old_run_ids)
-            total_deleted += cursor.rowcount
-        
-        # Delete other related data (due to foreign key constraints)
-        for table in ["system_metrics", "performance_metrics", "quality_metrics", 
-                     "audit_events", "ingestion_stats"]:
-            placeholders = ','.join('?' * len(old_run_ids))
-            cursor = self.conn.execute(
-                f"DELETE FROM {table} WHERE pipeline_run_id IN ({placeholders})",
-                old_run_ids
-            )
-            total_deleted += cursor.rowcount
-        
-        # Delete pipeline runs
-        placeholders = ','.join('?' * len(old_run_ids))
-        cursor = self.conn.execute(
-            f"DELETE FROM pipeline_runs WHERE id IN ({placeholders})",
-            old_run_ids
-        )
-        total_deleted += cursor.rowcount
+        # Execute each cleanup statement in order
+        for sql, params in cleanup_statements:
+            try:
+                result = self.conn.execute(sql, params)
+                # Only count positive rowcounts to avoid negative totals from failed operations
+                if result.rowcount > 0:
+                    total_deleted += result.rowcount
+                    logger.debug(f"Deleted {result.rowcount} rows from cleanup SQL: {sql[:50]}...")
+            except Exception as e:
+                logger.error(f"Error executing cleanup SQL: {sql[:100]}... Error: {e}")
+                # Continue with other statements even if one fails
+                continue
         
         self.conn.commit()
         logger.info(f"Cleaned up {total_deleted} old tracking records older than {days_to_keep} days")

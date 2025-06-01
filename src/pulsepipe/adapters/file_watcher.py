@@ -31,6 +31,7 @@ from typing import Set, Dict, Any, List, Optional
 from .base import Adapter
 from pulsepipe.persistence.factory import get_database_connection
 from .file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
+from .file_watcher_bookmarks.factory import create_bookmark_store
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import FileWatcherError, FileSystemError
 
@@ -80,9 +81,22 @@ class FileWatcherAdapter(Adapter):
                 })()
                 self.logger.info(f"Using simple bookmark store for testing with {self.bookmark_file}")
             else:
-                # Normal operation mode - use separate bookmark database to avoid conflicts
-                bookmark_db_path = ".pulsepipe/state/bookmarks.sqlite3"
-                self.bookmarks = SQLiteBookmarkStore(bookmark_db_path)
+                # Normal operation mode - try to use unified bookmark store if persistence config exists
+                try:
+                    # Check if we have persistence configuration in the config (passed from pipeline)
+                    if "persistence" in config:
+                        self.bookmarks = create_bookmark_store(config)
+                        self.logger.info("Using unified bookmark store with persistence configuration")
+                    else:
+                        # Fall back to legacy SQLite bookmark store
+                        bookmark_db_path = ".pulsepipe/state/bookmarks.sqlite3"
+                        self.bookmarks = SQLiteBookmarkStore(bookmark_db_path)
+                        self.logger.info("Using legacy SQLite bookmark store (no persistence config found)")
+                except Exception as e:
+                    # Fall back to legacy SQLite store if unified store fails
+                    self.logger.warning(f"Failed to create unified bookmark store, falling back to SQLite: {e}")
+                    bookmark_db_path = ".pulsepipe/state/bookmarks.sqlite3"
+                    self.bookmarks = SQLiteBookmarkStore(bookmark_db_path)
             
             # Track existing files to detect new ones
             self._known_files: Set[str] = set()

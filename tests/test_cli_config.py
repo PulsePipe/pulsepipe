@@ -785,11 +785,18 @@ class TestCliConfig:
                     }
                 }
                 
-                with patch('os.path.exists', return_value=False):
-                    with patch('os.makedirs') as mock_makedirs:
-                        with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.__init__', return_value=None):
-                            with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore.get_all') as mock_get_all:
-                                mock_get_all.return_value = []
+                # Force the unified bookmark store to fail so it falls back to legacy SQLite
+                with patch('pulsepipe.cli.command.config._get_bookmark_factory') as mock_factory:
+                    mock_factory.side_effect = Exception("Unified store failed")
+                    
+                    # Mock the specific os imports in the config module
+                    with patch('pulsepipe.cli.command.config.os.path.exists', return_value=False):
+                        with patch('pulsepipe.cli.command.config.os.makedirs') as mock_makedirs:
+                            # Mock SQLiteBookmarkStore operations
+                            with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore') as mock_store_class:
+                                mock_store_instance = MagicMock()
+                                mock_store_instance.get_all.return_value = []
+                                mock_store_class.return_value = mock_store_instance
                                 
                                 result = runner.invoke(cli, ["config", "filewatcher", "list"])
                                 

@@ -55,21 +55,13 @@ class TestBookmarkStoreFactory:
         assert isinstance(bookmark_store, SQLiteBookmarkStore)
         assert bookmark_store.db_path == "bookmarks.db"
     
-    def test_create_bookmark_store_postgres_not_implemented(self):
-        config = {"type": "postgres"}
+    def test_create_bookmark_store_mssql_not_implemented(self):
+        config = {"type": "mssql"}
         
         with pytest.raises(NotImplementedError) as excinfo:
             create_bookmark_store(config)
         
-        assert "PostgreSQL bookmark store is only available in PulsePilot Enterprise" in str(excinfo.value)
-    
-    def test_create_bookmark_store_redis_not_implemented(self):
-        config = {"type": "redis"}
-        
-        with pytest.raises(NotImplementedError) as excinfo:
-            create_bookmark_store(config)
-        
-        assert "Redis-based bookmark tracking is available in PulsePilot Pro" in str(excinfo.value)
+        assert "🔒 MS SQL Server bookmark tracking is available in PulsePipe Enterprise" in str(excinfo.value)
     
     def test_create_bookmark_store_s3_not_implemented(self):
         config = {"type": "s3"}
@@ -77,7 +69,7 @@ class TestBookmarkStoreFactory:
         with pytest.raises(NotImplementedError) as excinfo:
             create_bookmark_store(config)
         
-        assert "S3 + DynamoDB scalable bookmark store is available in PulsePilot Enterprise" in str(excinfo.value)
+        assert "🔒 S3 + DynamoDB scalable bookmark store is available in PulsePilot Enterprise" in str(excinfo.value)
     
     def test_create_bookmark_store_unsupported_type(self):
         config = {"type": "unsupported_type"}

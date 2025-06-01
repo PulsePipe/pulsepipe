@@ -161,10 +161,11 @@ class TestIngestionStage:
         # Execute the stage
         await self.ingestion_stage.execute(self.context)
         
-        # Verify adapter was created with single_scan=True
+        # Verify adapter was created with single_scan=True and full_config
         self.mock_create_adapter.assert_called_once_with(
             self.context.config["adapter"], 
-            single_scan=True
+            single_scan=True,
+            full_config=self.context.config
         )
 
     @pytest.mark.asyncio

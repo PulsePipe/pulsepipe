@@ -342,94 +342,94 @@ class TestSQLiteDialect:
         """Create a SQLiteDialect instance."""
         return SQLiteDialect()
     
-    def test_get_pipeline_run_insert_sql(self, dialect):
+    def test_get_pipeline_run_insert(self, dialect):
         """Test pipeline run insert SQL generation."""
-        sql = dialect.get_pipeline_run_insert_sql()
+        sql = dialect.get_pipeline_run_insert()
         
         assert "INSERT INTO pipeline_runs" in sql
         assert "id, name, started_at, status, config_snapshot" in sql
         assert "VALUES (?, ?, ?, ?, ?)" in sql
     
-    def test_get_pipeline_run_update_sql(self, dialect):
+    def test_get_pipeline_run_update(self, dialect):
         """Test pipeline run update SQL generation."""
-        sql = dialect.get_pipeline_run_update_sql()
+        sql = dialect.get_pipeline_run_update()
         
         assert "UPDATE pipeline_runs" in sql
         assert "completed_at = ?" in sql
         assert "WHERE id = ?" in sql
     
-    def test_get_pipeline_run_select_sql(self, dialect):
+    def test_get_pipeline_run_select(self, dialect):
         """Test pipeline run select SQL generation."""
-        sql = dialect.get_pipeline_run_select_sql()
+        sql = dialect.get_pipeline_run_select()
         
         assert "SELECT" in sql
         assert "FROM pipeline_runs" in sql
         assert "WHERE id = ?" in sql
     
-    def test_get_pipeline_runs_list_sql(self, dialect):
+    def test_get_pipeline_runs_list(self, dialect):
         """Test pipeline runs list SQL generation."""
-        sql = dialect.get_pipeline_runs_list_sql()
+        sql = dialect.get_pipeline_runs_list()
         
         assert "SELECT" in sql
         assert "FROM pipeline_runs" in sql
         assert "ORDER BY started_at DESC" in sql
         assert "LIMIT ?" in sql
     
-    def test_get_ingestion_stat_insert_sql(self, dialect):
+    def test_get_ingestion_stat_insert(self, dialect):
         """Test ingestion stat insert SQL generation."""
-        sql = dialect.get_ingestion_stat_insert_sql()
+        sql = dialect.get_ingestion_stat_insert()
         
         assert "INSERT INTO ingestion_stats" in sql
         assert "pipeline_run_id" in sql
         assert "stage_name" in sql
     
-    def test_get_failed_record_insert_sql(self, dialect):
+    def test_get_failed_record_insert(self, dialect):
         """Test failed record insert SQL generation."""
-        sql = dialect.get_failed_record_insert_sql()
+        sql = dialect.get_failed_record_insert()
         
         assert "INSERT INTO failed_records" in sql
         assert "ingestion_stat_id" in sql
         assert "original_data" in sql
     
-    def test_get_audit_event_insert_sql(self, dialect):
+    def test_get_audit_event_insert(self, dialect):
         """Test audit event insert SQL generation."""
-        sql = dialect.get_audit_event_insert_sql()
+        sql = dialect.get_audit_event_insert()
         
         assert "INSERT INTO audit_events" in sql
         assert "pipeline_run_id" in sql
         assert "event_type" in sql
     
-    def test_get_quality_metric_insert_sql(self, dialect):
+    def test_get_quality_metric_insert(self, dialect):
         """Test quality metric insert SQL generation."""
-        sql = dialect.get_quality_metric_insert_sql()
+        sql = dialect.get_quality_metric_insert()
         
         assert "INSERT INTO quality_metrics" in sql
         assert "pipeline_run_id" in sql
         assert "completeness_score" in sql
     
-    def test_get_performance_metric_insert_sql(self, dialect):
+    def test_get_performance_metric_insert(self, dialect):
         """Test performance metric insert SQL generation."""
-        sql = dialect.get_performance_metric_insert_sql()
+        sql = dialect.get_performance_metric_insert()
         
         assert "INSERT INTO performance_metrics" in sql
         assert "pipeline_run_id" in sql
         assert "stage_name" in sql
     
-    def test_get_ingestion_summary_sql_no_filters(self, dialect):
+    def test_get_ingestion_summary_no_filters(self, dialect):
         """Test ingestion summary SQL without filters."""
-        sql, params = dialect.get_ingestion_summary_sql()
+        sql, params = dialect.get_ingestion_summary()
         
         assert "SELECT" in sql
         assert "FROM ingestion_stats" in sql
         assert "GROUP BY status, error_category" in sql
         assert len(params) == 0
     
-    def test_get_ingestion_summary_sql_with_filters(self, dialect):
+    def test_get_ingestion_summary_with_filters(self, dialect):
         """Test ingestion summary SQL with filters."""
         start_date = datetime.now() - timedelta(days=7)
         end_date = datetime.now()
         
-        sql, params = dialect.get_ingestion_summary_sql(
+        sql, params = dialect.get_ingestion_summary(
             pipeline_run_id="test-123",
             start_date=start_date,
             end_date=end_date
@@ -442,27 +442,27 @@ class TestSQLiteDialect:
         assert len(params) == 3
         assert params[0] == "test-123"
     
-    def test_get_quality_summary_sql_no_filter(self, dialect):
+    def test_get_quality_summary_no_filter(self, dialect):
         """Test quality summary SQL without filter."""
-        sql, params = dialect.get_quality_summary_sql()
+        sql, params = dialect.get_quality_summary()
         
         assert "SELECT" in sql
         assert "FROM quality_metrics" in sql
         assert "AVG(completeness_score)" in sql
         assert len(params) == 0
     
-    def test_get_quality_summary_sql_with_filter(self, dialect):
+    def test_get_quality_summary_with_filter(self, dialect):
         """Test quality summary SQL with filter."""
-        sql, params = dialect.get_quality_summary_sql(pipeline_run_id="test-123")
+        sql, params = dialect.get_quality_summary(pipeline_run_id="test-123")
         
         assert "WHERE pipeline_run_id = ?" in sql
         assert len(params) == 1
         assert params[0] == "test-123"
     
-    def test_get_cleanup_sql(self, dialect):
+    def test_get_cleanup(self, dialect):
         """Test cleanup SQL generation."""
         cutoff_date = datetime.now() - timedelta(days=30)
-        statements = dialect.get_cleanup_sql(cutoff_date)
+        statements = dialect.get_cleanup(cutoff_date)
         
         assert isinstance(statements, list)
         assert len(statements) > 0

@@ -152,7 +152,7 @@ class TestGetDatabaseConnection:
         assert "Unsupported database type: unsupported_db" in str(exc_info.value)
 
 
-class TestGetSQLDialect:
+class TestGetDatabaseDialect:
     """Test get_sql_dialect function."""
     
     def test_sqlite_dialect_default(self):

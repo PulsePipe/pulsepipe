@@ -22,7 +22,7 @@
 # src/pulsepipe/config/pulsepipe.yaml
 
 persistence:
-  type: sqlite  # sqlite | postgresql | mongodb
+  type: postgresql  # sqlite | postgresql | mongodb
   
   # SQLite configuration (default)
   sqlite:
@@ -33,16 +33,16 @@ persistence:
   postgresql:
     host: localhost
     port: 5432
-    database: pulsepipe_audit
-    username: pulsepipe_user
-    password: pulsepipe_password
+    database: pulsepipe
+    username: ${PULSEPIPE_DB_LOGIN}
+    password: ${PULSEPIPE_DB_PASSWORD}
     pool_size: 5
     max_overflow: 10
   
   # MongoDB configuration (optional)
   mongodb:
-    connection_string: mongodb://localhost:27017/
-    database: pulsepipe_audit
+    connection_string: mongodb://172.17.14.126:27017/
+    database: pulsepipe
     collection_prefix: audit_
     username: ""
     password: ""

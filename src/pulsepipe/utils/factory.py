@@ -47,7 +47,15 @@ def create_adapter(config: dict, **kwargs):
     if adapter_type == "file_watcher":
         # Lazy load adapter classes only when creating
         FileWatcherAdapter = _get_adapter_classes()
-        adapter = FileWatcherAdapter(config)
+        
+        # Merge adapter config with full pipeline config for unified bookmark store
+        full_pipeline_config = kwargs.get('full_config', {})
+        # Start with adapter config, then add persistence from full config if available
+        adapter_config = config.copy()
+        if 'persistence' in full_pipeline_config:
+            adapter_config['persistence'] = full_pipeline_config['persistence']
+        
+        adapter = FileWatcherAdapter(adapter_config)
         
         # Check for special flags 
         if kwargs.get('single_scan'):

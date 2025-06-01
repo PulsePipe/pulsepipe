@@ -204,7 +204,11 @@ class TestMongoDBConnection:
             {"_id": "1", "name": "test1"},
             {"_id": "2", "name": "test2"}
         ])
+        
+        # Set up method chaining - each method returns the cursor itself
         mock_cursor.sort.return_value = mock_cursor
+        mock_cursor.skip.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
         
         mock_collection = MagicMock()
         mock_collection.find.return_value = mock_cursor
@@ -216,7 +220,7 @@ class TestMongoDBConnection:
         mock_client.__getitem__.return_value = mock_database
         mock_mongo_client.return_value = mock_client
         
-        conn = MongoDBConnection("mongodb://localhost:27017/", "test")
+        conn = MongoDBConnection("mongodb://172.17.14.126:27017/", "test")
         
         operation = {
             "collection": "test_collection",
@@ -233,12 +237,15 @@ class TestMongoDBConnection:
         assert isinstance(result, DatabaseResult)
         assert len(result.rows) == 2
         
+        # Verify the find() method was called with filter and projection only
         mock_collection.find.assert_called_once_with(
             {"active": True},
-            {"name": 1},
-            limit=10,
-            skip=5
+            {"name": 1}
         )
+        
+        # Verify the chained method calls
+        mock_cursor.skip.assert_called_once_with(5)
+        mock_cursor.limit.assert_called_once_with(10)
         mock_cursor.sort.assert_called_once_with([["name", 1]])
         
         conn.close()
@@ -664,18 +671,18 @@ class TestMongoDBAdapter:
         """Test adapter initialization."""
         assert adapter.collection_prefix == "test_"
     
-    def test_get_pipeline_run_insert_sql(self, adapter):
+    def test_get_pipeline_run_insert(self, adapter):
         """Test pipeline run insert operation generation."""
-        operation_json = adapter.get_pipeline_run_insert_sql()
+        operation_json = adapter.get_pipeline_run_insert()
         operation = json.loads(operation_json)
         
         assert operation["collection"] == "test_pipeline_runs"
         assert operation["operation"] == "insert_one"
         assert "document" in operation
     
-    def test_get_pipeline_run_update_sql(self, adapter):
+    def test_get_pipeline_run_update(self, adapter):
         """Test pipeline run update operation generation."""
-        operation_json = adapter.get_pipeline_run_update_sql()
+        operation_json = adapter.get_pipeline_run_update()
         operation = json.loads(operation_json)
         
         assert operation["collection"] == "test_pipeline_runs"
@@ -683,18 +690,18 @@ class TestMongoDBAdapter:
         assert "filter" in operation
         assert "update" in operation
     
-    def test_get_pipeline_run_select_sql(self, adapter):
+    def test_get_pipeline_run_select(self, adapter):
         """Test pipeline run select operation generation."""
-        operation_json = adapter.get_pipeline_run_select_sql()
+        operation_json = adapter.get_pipeline_run_select()
         operation = json.loads(operation_json)
         
         assert operation["collection"] == "test_pipeline_runs"
         assert operation["operation"] == "find_one"
         assert "filter" in operation
     
-    def test_get_pipeline_runs_list_sql(self, adapter):
+    def test_get_pipeline_runs_list(self, adapter):
         """Test pipeline runs list operation generation."""
-        operation_json = adapter.get_pipeline_runs_list_sql()
+        operation_json = adapter.get_pipeline_runs_list()
         operation = json.loads(operation_json)
         
         assert operation["collection"] == "test_pipeline_runs"
@@ -703,9 +710,9 @@ class TestMongoDBAdapter:
         assert operation["sort"] == [["started_at", -1]]
         assert "limit" in operation
     
-    def test_get_ingestion_summary_sql_no_filters(self, adapter):
+    def test_get_ingestion_summary_no_filters(self, adapter):
         """Test ingestion summary aggregation without filters."""
-        operation_json, params = adapter.get_ingestion_summary_sql()
+        operation_json, params = adapter.get_ingestion_summary()
         operation = json.loads(operation_json)
         
         assert operation["collection"] == "test_ingestion_stats"
@@ -716,12 +723,12 @@ class TestMongoDBAdapter:
         pipeline = operation["pipeline"]
         assert any("$group" in stage for stage in pipeline)
     
-    def test_get_ingestion_summary_sql_with_filters(self, adapter):
+    def test_get_ingestion_summary_with_filters(self, adapter):
         """Test ingestion summary aggregation with filters."""
         start_date = datetime.now() - timedelta(days=7)
         end_date = datetime.now()
         
-        operation_json, params = adapter.get_ingestion_summary_sql(
+        operation_json, params = adapter.get_ingestion_summary(
             pipeline_run_id="test-123",
             start_date=start_date,
             end_date=end_date
@@ -741,9 +748,9 @@ class TestMongoDBAdapter:
         # Should still have $group stage
         assert any("$group" in stage for stage in pipeline)
     
-    def test_get_quality_summary_sql_no_filter(self, adapter):
+    def test_get_quality_summary_no_filter(self, adapter):
         """Test quality summary aggregation without filter."""
-        operation_json, params = adapter.get_quality_summary_sql()
+        operation_json, params = adapter.get_quality_summary()
         operation = json.loads(operation_json)
         
         assert operation["collection"] == "test_quality_metrics"
@@ -755,9 +762,9 @@ class TestMongoDBAdapter:
         assert len(pipeline) == 1
         assert "$group" in pipeline[0]
     
-    def test_get_quality_summary_sql_with_filter(self, adapter):
+    def test_get_quality_summary_with_filter(self, adapter):
         """Test quality summary aggregation with filter."""
-        operation_json, params = adapter.get_quality_summary_sql(pipeline_run_id="test-123")
+        operation_json, params = adapter.get_quality_summary(pipeline_run_id="test-123")
         operation = json.loads(operation_json)
         
         pipeline = operation["pipeline"]
@@ -766,10 +773,10 @@ class TestMongoDBAdapter:
         assert pipeline[0]["$match"]["pipeline_run_id"] == "test-123"
         assert "$group" in pipeline[1]
     
-    def test_get_cleanup_sql(self, adapter):
+    def test_get_cleanup(self, adapter):
         """Test cleanup operations generation."""
         cutoff_date = datetime.now() - timedelta(days=30)
-        operations = adapter.get_cleanup_sql(cutoff_date)
+        operations = adapter.get_cleanup(cutoff_date)
         
         assert isinstance(operations, list)
         assert len(operations) > 0

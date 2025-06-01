@@ -91,8 +91,8 @@ class IngestionStage(PipelineStage):
             # Check if we want a non-continuous processing mode
             single_scan = context.config.get("single_scan", False)
             
-            # Create adapter with appropriate flags
-            adapter = create_adapter(adapter_config, single_scan=single_scan)
+            # Create adapter with appropriate flags and full config for unified bookmark store
+            adapter = create_adapter(adapter_config, single_scan=single_scan, full_config=context.config)
             
             # Create ingester
             ingester = create_ingester(ingester_config)

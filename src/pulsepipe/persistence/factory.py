@@ -27,7 +27,7 @@ from .models import ProcessingStatus, ErrorCategory
 from .tracking_repository import TrackingRepository
 from .database import (
     DatabaseConnection,
-    SQLDialect,
+    DatabaseDialect,
     ConfigurationError
 )
 from .database.sqlite_impl import SQLiteConnection, SQLiteDialect
@@ -90,21 +90,38 @@ def get_database_connection(config: dict) -> DatabaseConnection:
                 "MongoDB configuration requires 'connection_string' and 'database'"
             )
         
+        # Build MongoDB connection options, filtering out empty values
+        connection_options = {}
+        
+        # Handle authentication
+        username = mongo_config.get("username")
+        password = mongo_config.get("password")
+        if username and password:
+            connection_options["username"] = username
+            connection_options["password"] = password
+        
+        # Handle replica set (correct parameter name for pymongo)
+        replica_set = mongo_config.get("replica_set")
+        if replica_set:
+            connection_options["replicaset"] = replica_set
+        
+        # Handle read preference
+        read_preference = mongo_config.get("read_preference")
+        if read_preference:
+            connection_options["readPreference"] = read_preference
+        
         return MongoDBConnection(
             connection_string=connection_string,
             database=database,
             collection_prefix=mongo_config.get("collection_prefix", "audit_"),
-            username=mongo_config.get("username"),
-            password=mongo_config.get("password"),
-            replica_set=mongo_config.get("replica_set"),
-            read_preference=mongo_config.get("read_preference")
+            **connection_options
         )
     
     else:
         raise ConfigurationError(f"Unsupported database type: {db_type}")
 
 
-def get_sql_dialect(config: dict) -> SQLDialect:
+def get_sql_dialect(config: dict) -> DatabaseDialect:
     """
     Create a SQL dialect based on configuration.
     
@@ -112,7 +129,7 @@ def get_sql_dialect(config: dict) -> SQLDialect:
         config: Configuration dictionary
         
     Returns:
-        SQLDialect instance for the configured database type
+        DatabaseDialect instance for the configured database type
         
     Raises:
         ConfigurationError: If database configuration is invalid

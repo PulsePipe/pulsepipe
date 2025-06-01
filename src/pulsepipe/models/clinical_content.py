@@ -111,7 +111,9 @@ class PulseClinicalContent(BaseModel):
     appointments: List[AppointmentInfo] = []
     # TODO: Remove claims from clinical content - they should be in operational content
     claims: List = []  # Type will be resolved at runtime - TEMPORARY until routing fixed
-
+    
+    # De-identification status
+    deidentified: bool = False
 
     """
     PulseClinicalContent summary method implementation

@@ -32,9 +32,20 @@ persistence:
 #     password: ""
 #     replica_set: ""
 #     read_preference: primaryPreferred
-  type: sqlite  # sqlite | postgresql | mongodb
-  sqlite:
-      db_path: .pulsepipe/state/ingestion.sqlite3
+
+  type: postgresql  # sqlite | postgresql | mongodb
+  postgresql:
+    host: localhost
+    port: 5432
+    database: pulsepipe
+    username: ${PULSEPIPE_DB_LOGIN}
+    password: ${PULSEPIPE_DB_PASSWORD}
+    pool_size: 5
+    max_overflow: 10
+
+  # type: sqlite  # sqlite | postgresql | mongodb
+  # sqlite:
+  #     db_path: .pulsepipe/state/ingestion.sqlite3
 
 logging:
   type: text                      # rich | json | text | none

@@ -76,6 +76,12 @@ class VectorStoreStage(PipelineStage):
             VectorStoreError: If vector store operation fails
             ConfigurationError: If vector store configuration is invalid
         """
+        import time
+        
+        # Get vectorstore tracker
+        vectorstore_tracker = context.get_ingestion_tracker("vectorstore")
+        stage_start_time = time.time()
+        
         # Get vectorstore configuration
         config = self.get_stage_config(context)
         
@@ -117,6 +123,14 @@ class VectorStoreStage(PipelineStage):
         
         self.logger.info(f"{context.log_prefix} Using vector store: {engine} at {host}")
         
+        processing_stats = {
+            "total_chunks": len(embedded_chunks),
+            "successful_uploads": 0,
+            "failed_uploads": 0,
+            "collections_created": 0,
+            "processing_errors": []
+        }
+        
         try:
             # Validate configuration
             if engine not in self.vectorstore_registry:
@@ -137,13 +151,63 @@ class VectorStoreStage(PipelineStage):
                 vectorstore=vectorstore,
                 chunks=embedded_chunks,
                 namespace_prefix=namespace_prefix,
-                context=context
+                context=context,
+                processing_stats=processing_stats,
+                vectorstore_tracker=vectorstore_tracker
             )
             
+            # Update pipeline run totals
+            if context.tracking_repository:
+                context.tracking_repository.update_pipeline_run_counts(
+                    run_id=context.pipeline_id,
+                    total=processing_stats["total_chunks"],
+                    successful=processing_stats["successful_uploads"],
+                    failed=processing_stats["failed_uploads"],
+                    skipped=0
+                )
+            
+            total_time_ms = int((time.time() - stage_start_time) * 1000)
             self.logger.info(f"{context.log_prefix} Vector store upload complete: {result_summary}")
+            
+            # Log audit event if audit logger is available
+            if context.audit_logger:
+                context.audit_logger.log_stage_completed(
+                    "vectorstore",
+                    details={
+                        "engine": engine,
+                        "host": host,
+                        "namespace_prefix": namespace_prefix,
+                        "total_chunks": processing_stats["total_chunks"],
+                        "successful_uploads": processing_stats["successful_uploads"],
+                        "failed_uploads": processing_stats["failed_uploads"],
+                        "collections_created": processing_stats["collections_created"],
+                        "processing_time_ms": total_time_ms
+                    }
+                )
+            
             return result_summary
             
         except VectorStoreConnectionError as e:
+            # Record stage-level failure if tracker is available
+            if vectorstore_tracker:
+                total_time_ms = int((time.time() - stage_start_time) * 1000)
+                vectorstore_tracker.record_failure(
+                    record_id=f"vectorstore_stage_{context.pipeline_id[:8]}",
+                    record_type="VectorStoreStage",
+                    processing_time_ms=total_time_ms,
+                    error_message=f"Connection failed: {str(e)}",
+                    data_source="vectorstore_stage"
+                )
+            
+            # Log audit event if audit logger is available
+            if context.audit_logger:
+                context.audit_logger.log_stage_failed("vectorstore", e, details={
+                    "engine": engine,
+                    "host": host,
+                    "port": port,
+                    "error_type": "connection_error"
+                })
+            
             self.logger.error(f"{context.log_prefix} Failed to connect to vector store: {str(e)}")
             raise VectorStoreError(
                 f"Failed to connect to {engine} at {host}:{port}",
@@ -155,6 +219,21 @@ class VectorStoreStage(PipelineStage):
                 cause=e
             )
         except Exception as e:
+            # Record stage-level failure if tracker is available
+            if vectorstore_tracker:
+                total_time_ms = int((time.time() - stage_start_time) * 1000)
+                vectorstore_tracker.record_failure(
+                    record_id=f"vectorstore_stage_{context.pipeline_id[:8]}",
+                    record_type="VectorStoreStage",
+                    processing_time_ms=total_time_ms,
+                    error_message=str(e),
+                    data_source="vectorstore_stage"
+                )
+            
+            # Log audit event if audit logger is available
+            if context.audit_logger:
+                context.audit_logger.log_stage_failed("vectorstore", e, details={"engine": engine})
+            
             self.logger.error(f"{context.log_prefix} Error during vector store operation: {str(e)}")
             raise VectorStoreError(
                 f"Error during vector store operation: {str(e)}",
@@ -165,7 +244,9 @@ class VectorStoreStage(PipelineStage):
                             vectorstore: VectorStore,
                             chunks: List[Dict[str, Any]],
                             namespace_prefix: str,
-                            context: PipelineContext) -> Dict[str, Any]:
+                            context: PipelineContext,
+                            processing_stats: Dict[str, Any] = None,
+                            vectorstore_tracker: Optional[Any] = None) -> Dict[str, Any]:
         """
         Upload chunks to the vector store.
         
@@ -174,10 +255,23 @@ class VectorStoreStage(PipelineStage):
             chunks: Embedded chunks to upload
             namespace_prefix: Prefix for collection/index names
             context: Pipeline context
+            processing_stats: Statistics tracking dictionary
+            vectorstore_tracker: Tracker for vectorstore operations
             
         Returns:
             Summary information about the upload operation
         """
+        import time
+        
+        if processing_stats is None:
+            processing_stats = {
+                "total_chunks": len(chunks),
+                "successful_uploads": 0,
+                "failed_uploads": 0,
+                "collections_created": 0,
+                "processing_errors": []
+            }
+        
         # Group chunks by type
         groups = {}
         for chunk in chunks:
@@ -190,10 +284,10 @@ class VectorStoreStage(PipelineStage):
         
         # Upload each group as a separate collection
         upload_results = {}
-        upload_count = 0
         
         for chunk_type, type_chunks in groups.items():
             namespace = f"{namespace_prefix}_{chunk_type}"
+            collection_start_time = time.time()
             
             # Add upload IDs if not present
             for i, chunk in enumerate(type_chunks):
@@ -201,27 +295,107 @@ class VectorStoreStage(PipelineStage):
                     # Generate a deterministic ID based on content
                     chunk_id = str(uuid.uuid5(uuid.NAMESPACE_OID, f"{chunk_type}_{i}_{str(chunk.get('content', ''))}"))
                     chunk["id"] = chunk_id
-                    self.logger.info(f"CHUNK!: {chunk}")
             
             try:
-                
                 self.logger.info(f"{context.log_prefix} Uploading {len(type_chunks)} chunks to {namespace}")
                 vectorstore.upsert(namespace, type_chunks)
+                
+                processing_stats["successful_uploads"] += len(type_chunks)
+                processing_stats["collections_created"] += 1
+                
                 upload_results[chunk_type] = {
                     "success": True,
                     "count": len(type_chunks)
                 }
-                upload_count += len(type_chunks)
+                
+                # Record success for collection upload if tracker is available
+                if vectorstore_tracker:
+                    processing_time_ms = int((time.time() - collection_start_time) * 1000)
+                    vectorstore_tracker.record_success(
+                        record_id=f"collection_{namespace}",
+                        record_type="VectorStoreCollection",
+                        processing_time_ms=processing_time_ms,
+                        data_source="vectorstore_stage",
+                        metadata={
+                            "namespace": namespace,
+                            "chunk_type": chunk_type,
+                            "chunk_count": len(type_chunks),
+                            "vectorstore_engine": vectorstore.__class__.__name__
+                        }
+                    )
+                
+                # Log audit event for collection upload if audit logger is available
+                if context.audit_logger:
+                    context.audit_logger.log_record_processed(
+                        stage_name="vectorstore",
+                        record_id=f"collection_{namespace}",
+                        record_type="VectorStoreCollection",
+                        processing_time_ms=int((time.time() - collection_start_time) * 1000),
+                        details={
+                            "namespace": namespace,
+                            "chunk_type": chunk_type,
+                            "chunk_count": len(type_chunks),
+                            "vectorstore_engine": vectorstore.__class__.__name__
+                        }
+                    )
+                
+                # Log individual chunk uploads for detailed tracking
+                for chunk in type_chunks:
+                    chunk_id = chunk.get("id", "unknown")
+                    
+                    # Log audit event for each chunk if audit logger is available
+                    if context.audit_logger:
+                        context.audit_logger.log_record_processed(
+                            stage_name="vectorstore",
+                            record_id=chunk_id,
+                            record_type=f"VectorStoreChunk_{chunk_type}",
+                            processing_time_ms=1,  # Approximate since we don't track individual timing
+                            details={
+                                "namespace": namespace,
+                                "chunk_type": chunk_type,
+                                "has_embedding": "embedding" in chunk,
+                                "vectorstore_engine": vectorstore.__class__.__name__
+                            }
+                        )
+                
             except Exception as e:
+                processing_stats["failed_uploads"] += len(type_chunks)
+                processing_stats["processing_errors"].append(str(e))
+                
                 self.logger.error(f"{context.log_prefix} Error uploading to {namespace}: {str(e)}")
                 upload_results[chunk_type] = {
                     "success": False,
                     "error": str(e),
                     "count": 0
                 }
+                
+                # Record failure for collection upload if tracker is available
+                if vectorstore_tracker:
+                    processing_time_ms = int((time.time() - collection_start_time) * 1000)
+                    vectorstore_tracker.record_failure(
+                        record_id=f"collection_{namespace}",
+                        record_type="VectorStoreCollection",
+                        processing_time_ms=processing_time_ms,
+                        error_message=str(e),
+                        data_source="vectorstore_stage"
+                    )
+                
+                # Log audit event for collection upload failure if audit logger is available
+                if context.audit_logger:
+                    context.audit_logger.log_record_failed(
+                        stage_name="vectorstore",
+                        record_id=f"collection_{namespace}",
+                        error=e,
+                        details={
+                            "namespace": namespace,
+                            "chunk_type": chunk_type,
+                            "chunk_count": len(type_chunks),
+                            "vectorstore_engine": vectorstore.__class__.__name__
+                        }
+                    )
         
         return {
-            "total_uploaded": upload_count,
+            "total_uploaded": processing_stats["successful_uploads"],
             "total_chunks": len(chunks),
             "collections": list(upload_results.keys()),
             "details": upload_results

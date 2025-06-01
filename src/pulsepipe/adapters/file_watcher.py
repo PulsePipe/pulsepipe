@@ -80,9 +80,9 @@ class FileWatcherAdapter(Adapter):
                 })()
                 self.logger.info(f"Using simple bookmark store for testing with {self.bookmark_file}")
             else:
-                # Normal operation mode
-                db_conn = get_database_connection({})
-                self.bookmarks = SQLiteBookmarkStore(db_conn)
+                # Normal operation mode - use separate bookmark database to avoid conflicts
+                bookmark_db_path = ".pulsepipe/state/bookmarks.sqlite3"
+                self.bookmarks = SQLiteBookmarkStore(bookmark_db_path)
             
             # Track existing files to detect new ones
             self._known_files: Set[str] = set()

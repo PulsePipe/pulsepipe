@@ -206,4 +206,7 @@ class ExplanationOfBenefitMapper(BaseFHIRMapper):
                     organization_id=None
                 )
                 
+                # TODO: Route to operational content instead of clinical content
+                if not hasattr(content, "claims"):
+                    setattr(content, "claims", [])
                 content.claims.append(new_claim)

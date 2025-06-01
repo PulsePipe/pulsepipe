@@ -27,7 +27,7 @@ share/python-wheels/
 MANIFEST
 
 #PulsePipe related:
-.pulsepipe/state/ingestion.sqlite3
+.pulsepipe/*
 incoming/*
 config/*
 output/*
@@ -38,6 +38,8 @@ synthea/*
 test_data/*
 src/pulsepilot/*
 .claude/*
+pipeline_logs.txt
+.pulsepipe/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

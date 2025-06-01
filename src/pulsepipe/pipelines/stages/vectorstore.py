@@ -201,8 +201,10 @@ class VectorStoreStage(PipelineStage):
                     # Generate a deterministic ID based on content
                     chunk_id = str(uuid.uuid5(uuid.NAMESPACE_OID, f"{chunk_type}_{i}_{str(chunk.get('content', ''))}"))
                     chunk["id"] = chunk_id
+                    self.logger.info(f"CHUNK!: {chunk}")
             
             try:
+                
                 self.logger.info(f"{context.log_prefix} Uploading {len(type_chunks)} chunks to {namespace}")
                 vectorstore.upsert(namespace, type_chunks)
                 upload_results[chunk_type] = {

@@ -170,9 +170,10 @@ class ClaimMapper(BaseFHIRMapper):
             organization_id=None,
         )
         
-        # Store claim in a hypothetical claims field that PulseClinicalContent might not have yet
-        # We'll need to add this to the model if it doesn't exist
+        # FHIR Claims should be routed to operational content, not clinical content
+        # For now, we need to create a way to signal that this should be operational data
+        # TODO: Implement proper operational content routing for FHIR Claims
+        # As a temporary solution, we'll add it to clinical but mark it for operational processing
         if not hasattr(content, "claims"):
             setattr(content, "claims", [])
-        
         content.claims.append(claim)

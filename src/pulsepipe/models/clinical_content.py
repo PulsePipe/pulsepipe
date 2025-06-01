@@ -109,7 +109,8 @@ class PulseClinicalContent(BaseModel):
     practitioners: List[Practitioner] = []
     practitioner_roles: List[PractitionerRole] = []
     appointments: List[AppointmentInfo] = []
-    claims: List = []  # Type will be resolved at runtime
+    # TODO: Remove claims from clinical content - they should be in operational content
+    claims: List = []  # Type will be resolved at runtime - TEMPORARY until routing fixed
 
 
     """

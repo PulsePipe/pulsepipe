@@ -76,6 +76,12 @@ class ChunkingStage(PipelineStage):
             ChunkerError: If chunking fails
             ConfigurationError: If chunking configuration is invalid
         """
+        import time
+        
+        # Get chunking tracker
+        chunking_tracker = context.get_ingestion_tracker("chunking")
+        stage_start_time = time.time()
+
         # Get chunker configuration
         config = self.get_stage_config(context)
         if not config:
@@ -112,28 +118,96 @@ class ChunkingStage(PipelineStage):
         
         all_chunks = []
         
+        processing_stats = {
+            "total_items": 0,
+            "successful_chunks": 0,
+            "failed_items": 0,
+            "processing_errors": []
+        }
+
         try:
             # Process input based on type (single item or list)
             if isinstance(input_data, list):
+
+                processing_stats["total_items"] = len(input_data)
                 # Process a batch of items
                 for i, item in enumerate(input_data):
                     self.logger.info(f"{context.log_prefix} Processing batch item {i+1} of type {type(item).__name__}")
-                    chunks = self._chunk_item(item, chunker_type, include_metadata)
-                    if chunks:
-                        all_chunks.extend(chunks)
-                        self.logger.info(f"{context.log_prefix} Item {i+1}: Chunked into {len(chunks)} sections")
-                    else:
-                        self.logger.warning(f"{context.log_prefix} Item {i+1}: No chunks generated")
+                    item_start_time = time.time()
+                    try:
+                        chunks = self._chunk_item(item, chunker_type, include_metadata)
+                        if chunks:
+                            all_chunks.extend(chunks)
+                            processing_stats["successful_chunks"] += len(chunks)
+                            if chunking_tracker:
+                                # Record success for each chunk
+                                for chunk in chunks:
+                                    processing_time_ms = int((time.time() - item_start_time) * 1000)
+                                    chunking_tracker.record_success(
+                                        record_id=chunk.get("id", f"chunk_{i}"),
+                                        record_type=chunk.get("type", "unknown_chunk"),
+                                        processing_time_ms=processing_time_ms,
+                                        data_source="chunking_stage",
+                                        metadata={
+                                            "original_item_type": type(item).__name__,
+                                            "chunk_size": len(str(chunk.get("content", ""))),
+                                            "chunker_type": chunker_type
+                                        }
+                                    )
+                        else:
+                            processing_stats["failed_items"] += 1
+                            
+                    except Exception as e:
+                        processing_stats["failed_items"] += 1
+                        processing_stats["processing_errors"].append(str(e))
             else:
                 # Process a single item
-                self.logger.info(f"{context.log_prefix} Processing single item of type {type(input_data).__name__}")
-                chunks = self._chunk_item(input_data, chunker_type, include_metadata)
-                if chunks:
-                    all_chunks.extend(chunks)
-                    self.logger.info(f"{context.log_prefix} Chunked into {len(chunks)} sections")
-                else:
-                    self.logger.warning(f"{context.log_prefix} No chunks generated for input data")
-                
+                try:
+                    self.logger.info(f"{context.log_prefix} Processing single item of type {type(input_data).__name__}")
+                    chunks = self._chunk_item(input_data, chunker_type, include_metadata)
+                    processing_stats["total_items"] = 1
+                    item_start_time = time.time()
+                    if chunks:
+                        all_chunks.extend(chunks)
+                        self.logger.info(f"{context.log_prefix} Chunked into {len(chunks)} sections")
+                        # Record success
+                        if chunking_tracker:
+                            processing_time_ms = int((time.time() - item_start_time) * 1000)
+                            chunking_tracker.record_success(
+                                record_id=self._extract_record_id(input_data),
+                                record_type=type(input_data).__name__,
+                                processing_time_ms=processing_time_ms,
+                                data_source="chunking_stage",
+                                metadata={
+                                    "chunks_created": len(chunks),
+                                    "chunker_type": chunker_type
+                                }
+                            )
+                    else:
+                        self.logger.warning(f"{context.log_prefix} No chunks generated for input data")
+                        processing_stats["failed_items"] = 1
+        
+                except Exception as e:
+                        processing_stats["failed_items"] = 1
+                        processing_stats["processing_errors"].append(str(e))
+                        
+                        # Record failure
+                        if chunking_tracker:
+                            processing_time_ms = int((time.time() - item_start_time) * 1000)
+                            chunking_tracker.record_failure(
+                                record_id=self._extract_record_id(input_data),
+                                record_type=type(input_data).__name__,
+                                processing_time_ms=processing_time_ms,
+                                error_message=str(e),
+                                data_source="chunking_stage"
+                            )
+                        
+                        # Re-raise as ChunkerError for single item failures
+                        raise ChunkerError(
+                            f"Error chunking single item: {str(e)}",
+                            details={"item_type": type(input_data).__name__}
+                        )
+    
             # Export chunks if requested format is specified
             if export_format and all_chunks:
                 self.logger.info(f"{context.log_prefix} Exporting {len(all_chunks)} chunks to {export_format}")
@@ -174,13 +248,33 @@ class ChunkingStage(PipelineStage):
                 
                 else:
                     context.add_warning("chunking", f"Unsupported export format: {export_format}")
-            
+
+            # Update pipeline run totals
+            if context.tracking_repository:
+                context.tracking_repository.update_pipeline_run_counts(
+                    run_id=context.pipeline_id,
+                    total=processing_stats["total_items"],
+                    successful=processing_stats["successful_chunks"],
+                    failed=processing_stats["failed_items"],
+                    skipped=0
+                )
+            total_time_ms = int((time.time() - stage_start_time) * 1000)
             # Always log the result summary
-            self.logger.info(f"{context.log_prefix} Chunking complete. Generated {len(all_chunks)} chunks total")
+            self.logger.info(f"{context.log_prefix} Chunking complete: {processing_stats['successful_chunks']} chunks from {processing_stats['total_items']} items in {total_time_ms}ms")
             return all_chunks
             
         except Exception as e:
             self.logger.error(f"{context.log_prefix} Error during chunking: {str(e)}")
+            # Record stage-level failure
+            if chunking_tracker:
+                total_time_ms = int((time.time() - stage_start_time) * 1000)
+                chunking_tracker.record_failure(
+                    record_id=f"chunking_stage_{context.pipeline_id[:8]}",
+                    record_type="ChunkingStage",
+                    processing_time_ms=total_time_ms,
+                    error_message=str(e),
+                    data_source="chunking_stage"
+                )
             raise ChunkerError(
                 f"Error during chunking: {str(e)}",
                 details={"chunker_type": chunker_type}

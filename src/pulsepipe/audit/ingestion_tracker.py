@@ -614,7 +614,7 @@ class IngestionTracker:
                 data_source=record.data_source,
                 timestamp=record.timestamp
             )
-            
+            #logger.debug(f"STATS: {stat}")
             self.repository.record_ingestion_stat(stat)
         except Exception as e:
             logger.error(f"Failed to persist ingestion record: {e}")

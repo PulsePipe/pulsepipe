@@ -32,6 +32,20 @@ class ClinicalSectionChunker:
         self.logger = LogFactory.get_logger(__name__)
         self.logger.info("📁 Initializing ClinicalSectionChunker")
 
+    def _serialize_item(self, item):
+        """Safely serialize a single item to dict"""
+        if hasattr(item, 'model_dump'):
+            return item.model_dump()
+        elif hasattr(item, 'dict'):
+            return item.dict()
+        elif isinstance(item, dict):
+            return item  # Already a dict
+        elif hasattr(item, '__dict__'):
+            return item.__dict__
+        else:
+            # For primitive types or unsupported objects
+            return item
+
     def chunk(self, content: PulseClinicalContent) -> List[Dict[str, Any]]:
         chunks = []
 
@@ -40,16 +54,24 @@ class ClinicalSectionChunker:
 
         for field_name, value in content.__dict__.items():
             if isinstance(value, list) and value:
-                chunk = {
-                    "type": field_name,
-                    "content": [v.model_dump() for v in value]
-                }
-                if self.include_metadata:
-                    chunk["metadata"] = {
-                        "patient_id": patient_id,
-                        "encounter_id": encounter_id
+                try:
+                    chunk = {
+                        "type": field_name,
+                        "content": [self._serialize_item(v) for v in value]
                     }
-                chunks.append(chunk)
+                    if self.include_metadata:
+                        chunk["metadata"] = {
+                            "patient_id": patient_id,
+                            "encounter_id": encounter_id
+                        }
+                    
+                    chunks.append(chunk)
+                except Exception as e:
+                    self.logger.error(f"Error serializing field {field_name}: {e}")
+                    self.logger.error(f"Value type: {type(value)}, First item type: {type(value[0]) if value else 'N/A'}")
+                    # Skip this field if serialization fails
+                    # ToDo: Log this error for audit metrics
+                    continue
 
-        self.logger.info(f"🧩 ClinicalSectionChunker produced {len(chunks)} chunks 🧠 (patient_id={patient_id}, encounter_id={encounter_id})")
+        self.logger.info(f"[PIPE] 🧩 Created {len(chunks)} clinical chunks from {len(content.__dict__.items())} FHIR entries 🧠 (patient_id={patient_id}, encounter_id={encounter_id})")
         return chunks

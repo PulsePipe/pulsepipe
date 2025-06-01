@@ -220,6 +220,12 @@ class DeidentificationStage(PipelineStage):
             DeidentificationError: If de-identification fails
             ConfigurationError: If de-identification configuration is invalid
         """
+        import time
+        
+        # Get deid tracker
+        deid_tracker = context.get_ingestion_tracker("deid")
+        stage_start_time = time.time()
+        
         # Get deid configuration
         config = self.get_stage_config(context)
         if not config:
@@ -251,29 +257,208 @@ class DeidentificationStage(PipelineStage):
         
         self.logger.info(f"{context.log_prefix} Starting de-identification process")
         
+        processing_stats = {
+            "total_items": 0,
+            "successful_items": 0,
+            "failed_items": 0,
+            "processing_errors": []
+        }
+        
         # Process input based on data type
         try:
             if isinstance(input_data, list):
                 # Handle a batch of items
                 self.logger.info(f"{context.log_prefix} Processing batch of {len(input_data)} items")
+                processing_stats["total_items"] = len(input_data)
                 
                 deid_results = []
                 for i, item in enumerate(input_data):
                     self.logger.info(f"{context.log_prefix} De-identifying item {i+1} of type {type(item).__name__}")
-                    deid_item = self._deid_item(item, config)
-                    deid_results.append(deid_item)
+                    item_start_time = time.time()
+                    
+                    try:
+                        deid_item = self._deid_item(item, config)
+                        deid_results.append(deid_item)
+                        processing_stats["successful_items"] += 1
+                        
+                        # Record success if tracker is available
+                        if deid_tracker:
+                            processing_time_ms = int((time.time() - item_start_time) * 1000)
+                            deid_tracker.record_success(
+                                record_id=self._extract_record_id(item),
+                                record_type=type(item).__name__,
+                                processing_time_ms=processing_time_ms,
+                                data_source="deid_stage",
+                                metadata={
+                                    "deid_method": config.get("method", "safe_harbor"),
+                                    "patient_id_strategy": config.get("patient_id_strategy", "hash"),
+                                    "geographic_precision": config.get("geographic_precision", "state")
+                                }
+                            )
+                            
+                        # Log audit event if audit logger is available
+                        if context.audit_logger:
+                            context.audit_logger.log_record_processed(
+                                stage_name="deid",
+                                record_id=self._extract_record_id(item),
+                                record_type=type(item).__name__,
+                                processing_time_ms=int((time.time() - item_start_time) * 1000),
+                                details={
+                                    "deid_method": config.get("method", "safe_harbor"),
+                                    "patient_id_strategy": config.get("patient_id_strategy", "hash")
+                                }
+                            )
+                            
+                    except Exception as e:
+                        processing_stats["failed_items"] += 1
+                        processing_stats["processing_errors"].append(str(e))
+                        
+                        # Record failure if tracker is available
+                        if deid_tracker:
+                            processing_time_ms = int((time.time() - item_start_time) * 1000)
+                            deid_tracker.record_failure(
+                                record_id=self._extract_record_id(item),
+                                record_type=type(item).__name__,
+                                processing_time_ms=processing_time_ms,
+                                error_message=str(e),
+                                data_source="deid_stage"
+                            )
+                            
+                        # Log audit event if audit logger is available
+                        if context.audit_logger:
+                            context.audit_logger.log_record_failed(
+                                stage_name="deid",
+                                record_id=self._extract_record_id(item),
+                                error=e,
+                                details={
+                                    "deid_method": config.get("method", "safe_harbor"),
+                                    "item_index": i
+                                }
+                            )
+                        
+                        # For batch processing, continue with other items
+                        self.logger.warning(f"{context.log_prefix} Failed to de-identify item {i+1}: {str(e)}")
+                    
+                # Update pipeline run totals
+                if context.tracking_repository:
+                    context.tracking_repository.update_pipeline_run_counts(
+                        run_id=context.pipeline_id,
+                        total=processing_stats["total_items"],
+                        successful=processing_stats["successful_items"],
+                        failed=processing_stats["failed_items"],
+                        skipped=0
+                    )
                     
                 self.logger.info(f"{context.log_prefix} Completed de-identification of {len(deid_results)} items")
                 return deid_results
             else:
                 # Handle a single item
+                processing_stats["total_items"] = 1
                 self.logger.info(f"{context.log_prefix} De-identifying single item of type {type(input_data).__name__}")
-                result = self._deid_item(input_data, config)
+                item_start_time = time.time()
                 
-                self.logger.info(f"{context.log_prefix} De-identification complete")
-                return result
+                try:
+                    result = self._deid_item(input_data, config)
+                    processing_stats["successful_items"] = 1
+                    
+                    # Record success if tracker is available
+                    if deid_tracker:
+                        processing_time_ms = int((time.time() - item_start_time) * 1000)
+                        deid_tracker.record_success(
+                            record_id=self._extract_record_id(input_data),
+                            record_type=type(input_data).__name__,
+                            processing_time_ms=processing_time_ms,
+                            data_source="deid_stage",
+                            metadata={
+                                "deid_method": config.get("method", "safe_harbor"),
+                                "patient_id_strategy": config.get("patient_id_strategy", "hash"),
+                                "geographic_precision": config.get("geographic_precision", "state")
+                            }
+                        )
+                        
+                    # Log audit event if audit logger is available
+                    if context.audit_logger:
+                        context.audit_logger.log_record_processed(
+                            stage_name="deid",
+                            record_id=self._extract_record_id(input_data),
+                            record_type=type(input_data).__name__,
+                            processing_time_ms=int((time.time() - item_start_time) * 1000),
+                            details={
+                                "deid_method": config.get("method", "safe_harbor"),
+                                "patient_id_strategy": config.get("patient_id_strategy", "hash")
+                            }
+                        )
+                    
+                    # Update pipeline run totals
+                    if context.tracking_repository:
+                        context.tracking_repository.update_pipeline_run_counts(
+                            run_id=context.pipeline_id,
+                            total=1,
+                            successful=1,
+                            failed=0,
+                            skipped=0
+                        )
+                    
+                    self.logger.info(f"{context.log_prefix} De-identification complete")
+                    return result
+                    
+                except Exception as e:
+                    processing_stats["failed_items"] = 1
+                    processing_stats["processing_errors"].append(str(e))
+                    
+                    # Record failure if tracker is available
+                    if deid_tracker:
+                        processing_time_ms = int((time.time() - item_start_time) * 1000)
+                        deid_tracker.record_failure(
+                            record_id=self._extract_record_id(input_data),
+                            record_type=type(input_data).__name__,
+                            processing_time_ms=processing_time_ms,
+                            error_message=str(e),
+                            data_source="deid_stage"
+                        )
+                        
+                    # Log audit event if audit logger is available
+                    if context.audit_logger:
+                        context.audit_logger.log_record_failed(
+                            stage_name="deid",
+                            record_id=self._extract_record_id(input_data),
+                            error=e,
+                            details={
+                                "deid_method": config.get("method", "safe_harbor")
+                            }
+                        )
+                    
+                    # Update pipeline run totals
+                    if context.tracking_repository:
+                        context.tracking_repository.update_pipeline_run_counts(
+                            run_id=context.pipeline_id,
+                            total=1,
+                            successful=0,
+                            failed=1,
+                            skipped=0
+                        )
+                    
+                    raise DeidentificationError(
+                        f"Error during de-identification: {str(e)}",
+                        details={"deid_method": config.get("method", "safe_harbor")}
+                    )
                 
         except Exception as e:
+            # Record stage-level failure if tracker is available
+            if deid_tracker:
+                total_time_ms = int((time.time() - stage_start_time) * 1000)
+                deid_tracker.record_failure(
+                    record_id=f"deid_stage_{context.pipeline_id[:8]}",
+                    record_type="DeidStage",
+                    processing_time_ms=total_time_ms,
+                    error_message=str(e),
+                    data_source="deid_stage"
+                )
+            
+            # Log audit event if audit logger is available
+            if context.audit_logger:
+                context.audit_logger.log_stage_failed("deid", e, details={"deid_method": config.get("method", "safe_harbor")})
+            
             self.logger.error(f"{context.log_prefix} Error during de-identification: {str(e)}")
             raise DeidentificationError(
                 f"Error during de-identification: {str(e)}",
@@ -1042,3 +1227,22 @@ class DeidentificationStage(PipelineStage):
             redacted_text = zip_pattern.sub('[REDACTED-ZIP]', redacted_text)
         
         return redacted_text
+    
+    def _extract_record_id(self, item: Any) -> Optional[str]:
+        """
+        Extract a record ID from an item.
+        
+        Args:
+            item: The item to extract record ID from
+            
+        Returns:
+            Record ID if available, otherwise None
+        """
+        if hasattr(item, 'patient') and hasattr(item.patient, 'id'):
+            return item.patient.id
+        elif hasattr(item, 'id'):
+            return str(item.id)
+        elif hasattr(item, 'patient_id'):
+            return item.patient_id
+        else:
+            return None

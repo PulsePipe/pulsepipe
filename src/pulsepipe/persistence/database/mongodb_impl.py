@@ -43,7 +43,7 @@ except ImportError:
     PYMONGO_AVAILABLE = False
 
 from .connection import DatabaseConnection, DatabaseResult
-from .dialect import SQLDialect
+from .dialect import DatabaseDialect
 from .exceptions import (
     ConnectionError,
     QueryError,
@@ -161,7 +161,7 @@ class MongoDBConnection(DatabaseConnection):
         This method translates SQL-like operations to MongoDB operations.
         The query parameter should be a MongoDB operation descriptor.
         """
-        if not self._database:
+        if self._database is None:
             raise ConnectionError("Database connection is not established")
         
         try:
@@ -177,7 +177,13 @@ class MongoDBConnection(DatabaseConnection):
             collection = self._database[collection_name]
             
             if operation_type == "insert_one":
-                result = collection.insert_one(operation.get("document", {}))
+                # For insert operations, params should be the document to insert
+                if params:
+                    document = self._params_to_document(params, operation_type)
+                else:
+                    document = operation.get("document", {})
+                
+                result = collection.insert_one(document)
                 return DatabaseResult(
                     rows=[],
                     lastrowid=str(result.inserted_id),
@@ -185,17 +191,27 @@ class MongoDBConnection(DatabaseConnection):
                 )
             
             elif operation_type == "find_one":
-                doc = collection.find_one(operation.get("filter", {}))
+                # For find_one, params might be filter criteria
+                filter_criteria = self._params_to_filter(params) if params else operation.get("filter", {})
+                doc = collection.find_one(filter_criteria)
                 rows = [self._convert_objectid_to_str(doc)] if doc else []
                 return DatabaseResult(rows=rows)
             
             elif operation_type == "find":
                 cursor = collection.find(
                     operation.get("filter", {}),
-                    operation.get("projection"),
-                    limit=operation.get("limit"),
-                    skip=operation.get("skip")
+                    operation.get("projection")
                 )
+                
+                # Apply skip only if specified and not None
+                if operation.get("skip") is not None:
+                    cursor = cursor.skip(operation["skip"])
+                
+                # Apply limit only if specified and not None/0
+                if operation.get("limit") is not None and operation.get("limit") > 0:
+                    cursor = cursor.limit(operation["limit"])
+                
+                # Apply sort if specified
                 if operation.get("sort"):
                     cursor = cursor.sort(operation["sort"])
                 
@@ -203,10 +219,16 @@ class MongoDBConnection(DatabaseConnection):
                 return DatabaseResult(rows=rows)
             
             elif operation_type == "update_one":
-                result = collection.update_one(
-                    operation.get("filter", {}),
-                    operation.get("update", {})
-                )
+                # For update operations, we need to construct filter and update from params
+                if params and len(params) >= 2:
+                    # Assume last param is the ID/filter, others are update values
+                    update_doc, filter_doc = self._params_to_update(params, operation_type)
+                    result = collection.update_one(filter_doc, update_doc)
+                else:
+                    result = collection.update_one(
+                        operation.get("filter", {}),
+                        operation.get("update", {})
+                    )
                 return DatabaseResult(
                     rows=[],
                     rowcount=result.modified_count
@@ -285,7 +307,7 @@ class MongoDBConnection(DatabaseConnection):
     
     def is_connected(self) -> bool:
         """Check if the connection is still active."""
-        if not self._client or not self._database:
+        if self._client is None or self._database is None:
             return False
         
         try:
@@ -348,6 +370,142 @@ class MongoDBConnection(DatabaseConnection):
         
         return converted
     
+    def _params_to_document(self, params: Union[Tuple, Dict], operation_type: str) -> Dict[str, Any]:
+        """Convert parameters to MongoDB document for insert operations."""
+        if isinstance(params, dict):
+            return params
+        
+        # For tuple parameters, we need to map them to field names based on operation type
+        if operation_type == "insert_one":
+            # Map based on collection type - this is specific to the tracking repository schema
+            if len(params) == 5:  # pipeline_run insert
+                return {
+                    "id": params[0],
+                    "name": params[1], 
+                    "started_at": params[2],
+                    "status": params[3],
+                    "config_snapshot": params[4],
+                    "total_records": 0,
+                    "successful_records": 0,
+                    "failed_records": 0,
+                    "skipped_records": 0,
+                    "completed_at": None,
+                    "error_message": None,
+                    "updated_at": params[2]  # started_at
+                }
+            elif len(params) == 13:  # ingestion_stat insert
+                return {
+                    "pipeline_run_id": params[0],
+                    "stage_name": params[1],
+                    "file_path": params[2],
+                    "record_id": params[3],
+                    "record_type": params[4],
+                    "status": params[5],
+                    "error_category": params[6],
+                    "error_message": params[7],
+                    "error_details": params[8],
+                    "processing_time_ms": params[9],
+                    "record_size_bytes": params[10],
+                    "data_source": params[11],
+                    "timestamp": params[12]
+                }
+            elif len(params) == 8:  # audit_event insert
+                return {
+                    "pipeline_run_id": params[0],
+                    "event_type": params[1],
+                    "stage_name": params[2],
+                    "record_id": params[3],
+                    "event_level": params[4],
+                    "message": params[5],
+                    "details": params[6],
+                    "correlation_id": params[7],
+                    "timestamp": datetime.now().isoformat()
+                }
+            elif len(params) == 10:  # performance_metric insert
+                return {
+                    "pipeline_run_id": params[0],
+                    "stage_name": params[1],
+                    "started_at": params[2],
+                    "completed_at": params[3],
+                    "duration_ms": params[4],
+                    "records_processed": params[5],
+                    "records_per_second": params[6],
+                    "memory_usage_mb": params[7],
+                    "cpu_usage_percent": params[8],
+                    "bottleneck_indicator": params[9]
+                }
+            elif len(params) == 15:  # quality_metric insert
+                return {
+                    "pipeline_run_id": params[0],
+                    "record_id": params[1],
+                    "record_type": params[2],
+                    "completeness_score": params[3],
+                    "consistency_score": params[4],
+                    "validity_score": params[5],
+                    "accuracy_score": params[6],
+                    "overall_score": params[7],
+                    "missing_fields": params[8],
+                    "invalid_fields": params[9],
+                    "outlier_fields": params[10],
+                    "quality_issues": params[11],
+                    "metrics_details": params[12],
+                    "sampled": params[13],
+                    "timestamp": params[14]
+                }
+            elif len(params) == 5:  # failed_record insert
+                return {
+                    "ingestion_stat_id": params[0],
+                    "original_data": params[1],
+                    "normalized_data": params[2],
+                    "failure_reason": params[3],
+                    "stack_trace": params[4],
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        return {}
+    
+    def _params_to_filter(self, params: Union[Tuple, Dict]) -> Dict[str, Any]:
+        """Convert parameters to MongoDB filter criteria."""
+        if isinstance(params, dict):
+            return params
+        elif isinstance(params, tuple) and len(params) == 1:
+            return {"id": params[0]}
+        return {}
+    
+    def _params_to_update(self, params: Union[Tuple, Dict], operation_type: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Convert parameters to MongoDB update document and filter."""
+        if isinstance(params, dict):
+            return params.get("update", {}), params.get("filter", {})
+        
+        # For pipeline run updates
+        if len(params) == 5:  # pipeline_run completion update
+            update_doc = {
+                "$set": {
+                    "completed_at": params[0],
+                    "status": params[1],
+                    "error_message": params[2],
+                    "updated_at": params[3]
+                }
+            }
+            filter_doc = {"id": params[4]}
+            return update_doc, filter_doc
+        elif len(params) == 6:  # pipeline_run count update
+            update_doc = {
+                "$inc": {
+                    "total_records": params[0],
+                    "successful_records": params[1],
+                    "failed_records": params[2],
+                    "skipped_records": params[3]
+                },
+                "$set": {
+                    "updated_at": params[4]
+                }
+            }
+            filter_doc = {"id": params[5]}
+            return update_doc, filter_doc
+            
+        return {}, {}
+    
     def get_raw_client(self) -> MongoClient:
         """
         Get the underlying pymongo client for advanced operations.
@@ -366,12 +524,12 @@ class MongoDBConnection(DatabaseConnection):
         Returns:
             pymongo Database object
         """
-        if not self._database:
+        if self._database is None:
             raise ConnectionError("Database connection is not established")
         return self._database
 
 
-class MongoDBAdapter(SQLDialect):
+class MongoDBAdapter(DatabaseDialect):
     """
     MongoDB adapter that translates SQL-like operations to MongoDB operations.
     
@@ -388,7 +546,7 @@ class MongoDBAdapter(SQLDialect):
         """
         self.collection_prefix = collection_prefix
     
-    def get_pipeline_run_insert_sql(self) -> str:
+    def get_pipeline_run_insert(self) -> str:
         """Get MongoDB operation for inserting a pipeline run record."""
         return json.dumps({
             "collection": f"{self.collection_prefix}pipeline_runs",
@@ -396,7 +554,7 @@ class MongoDBAdapter(SQLDialect):
             "document": {}  # Will be filled by parameters
         })
     
-    def get_pipeline_run_update_sql(self) -> str:
+    def get_pipeline_run_update(self) -> str:
         """Get MongoDB operation for updating a pipeline run record."""
         return json.dumps({
             "collection": f"{self.collection_prefix}pipeline_runs",
@@ -405,7 +563,7 @@ class MongoDBAdapter(SQLDialect):
             "update": {}   # Will be filled by parameters
         })
     
-    def get_pipeline_run_select_sql(self) -> str:
+    def get_pipeline_run_select(self) -> str:
         """Get MongoDB operation for selecting a pipeline run by ID."""
         return json.dumps({
             "collection": f"{self.collection_prefix}pipeline_runs",
@@ -413,7 +571,7 @@ class MongoDBAdapter(SQLDialect):
             "filter": {}  # Will be filled by parameters
         })
     
-    def get_pipeline_runs_list_sql(self) -> str:
+    def get_pipeline_runs_list(self) -> str:
         """Get MongoDB operation for listing recent pipeline runs."""
         return json.dumps({
             "collection": f"{self.collection_prefix}pipeline_runs",
@@ -423,7 +581,7 @@ class MongoDBAdapter(SQLDialect):
             "limit": 0  # Will be filled by parameters
         })
     
-    def get_ingestion_stat_insert_sql(self) -> str:
+    def get_ingestion_stat_insert(self) -> str:
         """Get MongoDB operation for inserting an ingestion statistic."""
         return json.dumps({
             "collection": f"{self.collection_prefix}ingestion_stats",
@@ -431,7 +589,7 @@ class MongoDBAdapter(SQLDialect):
             "document": {}
         })
     
-    def get_failed_record_insert_sql(self) -> str:
+    def get_failed_record_insert(self) -> str:
         """Get MongoDB operation for inserting a failed record."""
         return json.dumps({
             "collection": f"{self.collection_prefix}failed_records",
@@ -439,7 +597,7 @@ class MongoDBAdapter(SQLDialect):
             "document": {}
         })
     
-    def get_audit_event_insert_sql(self) -> str:
+    def get_audit_event_insert(self) -> str:
         """Get MongoDB operation for inserting an audit event."""
         return json.dumps({
             "collection": f"{self.collection_prefix}audit_events",
@@ -447,7 +605,7 @@ class MongoDBAdapter(SQLDialect):
             "document": {}
         })
     
-    def get_quality_metric_insert_sql(self) -> str:
+    def get_quality_metric_insert(self) -> str:
         """Get MongoDB operation for inserting a quality metric."""
         return json.dumps({
             "collection": f"{self.collection_prefix}quality_metrics",
@@ -455,7 +613,7 @@ class MongoDBAdapter(SQLDialect):
             "document": {}
         })
     
-    def get_performance_metric_insert_sql(self) -> str:
+    def get_performance_metric_insert(self) -> str:
         """Get MongoDB operation for inserting a performance metric."""
         return json.dumps({
             "collection": f"{self.collection_prefix}performance_metrics",
@@ -463,7 +621,26 @@ class MongoDBAdapter(SQLDialect):
             "document": {}
         })
     
-    def get_ingestion_summary_sql(self, pipeline_run_id: Optional[str] = None,
+    def get_pipeline_run_count_update(self) -> str:
+        """Get MongoDB operation for updating pipeline run counts."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}pipeline_runs",
+            "operation": "update_one",
+            "filter": {},  # Will be filled by parameters
+            "update": {}   # Will be filled by parameters
+        })
+    
+    def get_recent_pipeline_runs(self, limit: int = 10) -> str:
+        """Get MongoDB operation for recent pipeline runs."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}pipeline_runs",
+            "operation": "find",
+            "filter": {},
+            "sort": [["started_at", -1]],
+            "limit": limit
+        })
+    
+    def get_ingestion_summary(self, pipeline_run_id: Optional[str] = None,
                                  start_date: Optional[datetime] = None,
                                  end_date: Optional[datetime] = None) -> Tuple[str, List[Any]]:
         """Get MongoDB aggregation for ingestion summary with optional filters."""
@@ -516,7 +693,7 @@ class MongoDBAdapter(SQLDialect):
         
         return operation, []
     
-    def get_quality_summary_sql(self, pipeline_run_id: Optional[str] = None) -> Tuple[str, List[Any]]:
+    def get_quality_summary(self, pipeline_run_id: Optional[str] = None) -> Tuple[str, List[Any]]:
         """Get MongoDB aggregation for quality summary with optional filters."""
         match_stage = {}
         if pipeline_run_id:
@@ -548,7 +725,7 @@ class MongoDBAdapter(SQLDialect):
         
         return operation, []
     
-    def get_cleanup_sql(self, cutoff_date: datetime) -> List[Tuple[str, List[Any]]]:
+    def get_cleanup(self, cutoff_date: datetime) -> List[Tuple[str, List[Any]]]:
         """Get MongoDB operations for cleaning up old data."""
         # For MongoDB, we'll delete documents older than cutoff_date
         cleanup_operations = []
@@ -624,3 +801,50 @@ class MongoDBAdapter(SQLDialect):
             "horizontal_scaling"
         }
         return feature in mongodb_features
+    
+    # Bookmark Store Methods
+    
+    def get_bookmark_table_create(self) -> str:
+        """Get MongoDB operation for creating bookmarks collection."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}bookmarks",
+            "operation": "create_index",
+            "keys": [["path", 1]],
+            "options": {"unique": True}
+        })
+    
+    def get_bookmark_check(self) -> str:
+        """Get MongoDB operation for checking if a bookmark exists."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}bookmarks",
+            "operation": "find_one",
+            "filter": {}  # Will be filled by parameters
+        })
+    
+    def get_bookmark_insert(self) -> str:
+        """Get MongoDB operation for inserting a bookmark."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}bookmarks",
+            "operation": "update_one",
+            "filter": {},  # Will be filled by parameters
+            "update": {"$setOnInsert": {}},  # Will be filled by parameters
+            "options": {"upsert": True}
+        })
+    
+    def get_bookmark_list(self) -> str:
+        """Get MongoDB operation for listing all bookmarks."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}bookmarks",
+            "operation": "find",
+            "filter": {},
+            "sort": [["path", 1]],
+            "projection": {"path": 1, "_id": 0}
+        })
+    
+    def get_bookmark_clear(self) -> str:
+        """Get MongoDB operation for clearing all bookmarks."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}bookmarks",
+            "operation": "delete_many",
+            "filter": {}
+        })

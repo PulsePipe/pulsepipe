@@ -416,7 +416,7 @@ class TestClinicalSectionChunker:
         chunk_log_call = mock_logger.info.call_args_list[1]
         log_message = chunk_log_call[0][0]
         
-        assert "ClinicalSectionChunker produced 1 chunks" in log_message
+        assert "[PIPE] 🧩 Created 1 clinical chunks from" in log_message
         assert "patient_id=patient-123" in log_message
         assert "encounter_id=encounter-456" in log_message
 
@@ -436,7 +436,7 @@ class TestClinicalSectionChunker:
         chunk_log_call = mock_logger.info.call_args_list[1]
         log_message = chunk_log_call[0][0]
         
-        assert "ClinicalSectionChunker produced 1 chunks" in log_message
+        assert "[PIPE] 🧩 Created 1 clinical chunks from" in log_message
         assert "patient_id=None" in log_message
         assert "encounter_id=None" in log_message
 
@@ -454,7 +454,7 @@ class TestClinicalSectionChunker:
         chunk_log_call = mock_logger.info.call_args_list[1]
         log_message = chunk_log_call[0][0]
         
-        assert "ClinicalSectionChunker produced 0 chunks" in log_message
+        assert "[PIPE] 🧩 Created 0 clinical chunks from" in log_message
         assert "patient_id=None" in log_message
         assert "encounter_id=None" in log_message
 

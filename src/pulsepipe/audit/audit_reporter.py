@@ -556,7 +556,7 @@ class AuditReporter:
                     "Review network connectivity and implement retry mechanisms."
                 )
         
-        if not recommendations:
+        if not recommendations and processing_summary.total_records > 0:
             recommendations.append("Pipeline performance is within expected parameters.")
         
         return recommendations

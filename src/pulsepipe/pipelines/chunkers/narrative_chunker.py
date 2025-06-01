@@ -319,7 +319,7 @@ class NarrativeChunker:
                     
                 chunks.append(chunk)
         
-        self.logger.info(f"🧩 Created {len(chunks)} chunks from text of length {len(text)}")
+        self.logger.info(f"🧩 Created {len(chunks)} chunks from text of length {len(text)} and {len(sections)} entries")
         return chunks
     
     def _split_by_sections(self, text: str) -> List[str]:

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulsePipe Database Architecture</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .architecture-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .layer {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 5px solid;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .layer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+            transform: translateX(-100%);
+            transition: transform 0.5s ease;
+        }
+        
+        .layer:hover::before {
+            transform: translateX(100%);
+        }
+        
+        .layer:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .business-layer {
+            border-left-color: #e74c3c;
+        }
+        
+        .abstraction-layer {
+            border-left-color: #3498db;
+        }
+        
+        .implementation-layer {
+            border-left-color: #2ecc71;
+        }
+        
+        .layer h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 1.4em;
+        }
+        
+        .components {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .component {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .component:hover {
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
+        .component h4 {
+            margin: 0 0 10px 0;
+            color: #34495e;
+            font-size: 1.1em;
+        }
+        
+        .component p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .data-flow {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .data-flow h3 {
+            margin: 0 0 20px 0;
+            font-size: 1.6em;
+        }
+        
+        .flow-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .flow-step {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            flex: 1;
+            min-width: 150px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .flow-step h4 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+        }
+        
+        .flow-step p {
+            margin: 0;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .arrow {
+            font-size: 1.5em;
+            color: rgba(255, 255, 255, 0.7);
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .arrow {
+                display: block;
+            }
+        }
+        
+        .benefits {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        
+        .benefits h3 {
+            margin: 0 0 20px 0;
+            font-size: 1.6em;
+            text-align: center;
+        }
+        
+        .benefit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .benefit-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .benefit-item h4 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+        }
+        
+        .benefit-item p {
+            margin: 0;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PulsePipe Database Abstraction Architecture</h1>
+        
+        <div class="architecture-layers">
+            <div class="layer business-layer">
+                <h3>🏥 Business Logic Layer</h3>
+                <p>Healthcare data pipeline operations that need to track execution, audit events, and quality metrics</p>
+                <div class="components">
+                    <div class="component">
+                        <h4>Pipeline Tracking</h4>
+                        <p>Monitor data ingestion pipelines from HL7, FHIR, CDA sources</p>
+                    </div>
+                    <div class="component">
+                        <h4>Audit & Compliance</h4>
+                        <p>Track all data access and transformations for healthcare compliance</p>
+                    </div>
+                    <div class="component">
+                        <h4>Quality Metrics</h4>
+                        <p>Monitor data quality, completeness, and processing accuracy</p>
+                    </div>
+                    <div class="component">
+                        <h4>Performance Monitoring</h4>
+                        <p>Track processing times, throughput, and system resource usage</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layer abstraction-layer">
+                <h3>🔗 Abstraction Layer</h3>
+                <p>Database-agnostic interfaces that allow business logic to work with any backend</p>
+                <div class="components">
+                    <div class="component">
+                        <h4>DatabaseConnection (ABC)</h4>
+                        <p>Common interface for executing queries, managing transactions</p>
+                    </div>
+                    <div class="component">
+                        <h4>DatabaseDialect (ABC)</h4>
+                        <p>SQL generation and data type mapping abstraction</p>
+                    </div>
+                    <div class="component">
+                        <h4>DatabaseResult</h4>
+                        <p>Unified result format across all database backends</p>
+                    </div>
+                    <div class="component">
+                        <h4>Exception Hierarchy</h4>
+                        <p>Common error handling across all implementations</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layer implementation-layer">
+                <h3>⚙️ Implementation Layer</h3>
+                <p>Concrete database implementations optimized for different deployment scenarios</p>
+                <div class="components">
+                    <div class="component">
+                        <h4>SQLite Implementation</h4>
+                        <p>Lightweight, file-based storage for development and small deployments</p>
+                    </div>
+                    <div class="component">
+                        <h4>PostgreSQL Implementation</h4>
+                        <p>Production-ready with connection pooling, JSON support, advanced indexing</p>
+                    </div>
+                    <div class="component">
+                        <h4>MongoDB Implementation</h4>
+                        <p>Document-based storage with flexible schema for varying data structures</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="data-flow">
+            <h3>🔄 Data Flow Through the Abstraction</h3>
+            <div class="flow-steps">
+                <div class="flow-step">
+                    <h4>1. Business Logic</h4>
+                    <p>TrackingRepository needs to store pipeline data</p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="flow-step">
+                    <h4>2. Abstract Interface</h4>
+                    <p>Calls DatabaseConnection.execute() with SQL from DatabaseDialect</p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="flow-step">
+                    <h4>3. Implementation</h4>
+                    <p>SQLite/PostgreSQL/MongoDB handles the actual storage</p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="flow-step">
+                    <h4>4. Result</h4>
+                    <p>Returns standardized DatabaseResult object</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="benefits">
+            <h3>✨ Architecture Benefits</h3>
+            <div class="benefit-grid">
+                <div class="benefit-item">
+                    <h4>🔄 Database Agnostic</h4>
+                    <p>Switch between SQLite, PostgreSQL, MongoDB without changing business logic</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>🏥 Healthcare Focused</h4>
+                    <p>Built-in support for audit trails, compliance tracking, and data quality metrics</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>📈 Scalable</h4>
+                    <p>Start with SQLite for development, scale to PostgreSQL for production</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>🔧 Extensible</h4>
+                    <p>Easy to add new database backends by implementing the abstract interfaces</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>🛡️ Robust Error Handling</h4>
+                    <p>Comprehensive exception hierarchy with database-specific error mapping</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>⚡ Production Ready</h4>
+                    <p>Includes connection pooling, transaction management, and schema initialization</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

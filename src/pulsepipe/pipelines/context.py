@@ -37,6 +37,11 @@ from typing import Dict, Any, Optional, List, Union
 
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import ConfigurationError
+from pulsepipe.utils.config_loader import load_config
+from pulsepipe.config.data_intelligence_config import load_data_intelligence_config
+from pulsepipe.persistence.factory import get_tracking_repository
+from pulsepipe.audit.audit_logger import AuditLogger
+from pulsepipe.audit.ingestion_tracker import IngestionTracker
 
 logger = LogFactory.get_logger(__name__)
 
@@ -101,7 +106,77 @@ class PipelineContext:
         # Initialize the logger prefix for consistent logging
         self.log_prefix = f"[{self.name}:{self.pipeline_id[:8]}]"
         
+        # Initialize data intelligence and audit logging
+        self.audit_logger = None
+        self.tracking_repository = None
+        self.stage_trackers = {}  # Store stage-specific trackers
+        self._init_data_intelligence()
+        
         logger.info(f"{self.log_prefix} Pipeline context initialized")
+    
+    def _init_data_intelligence(self) -> None:
+        """Initialize data intelligence and audit logging components."""
+        try:
+            # Load data intelligence configuration from the pipeline config
+            logger.debug(f"{self.log_prefix} Loading data intelligence config from pipeline config...")
+            di_config = load_data_intelligence_config(self.config)
+            logger.debug(f"{self.log_prefix} Data intelligence config loaded: enabled={di_config.enabled}")
+            
+            # Check if audit trail is enabled
+            audit_enabled = di_config.is_feature_enabled('audit_trail')
+            logger.debug(f"{self.log_prefix} Audit trail feature enabled check: {audit_enabled}")
+            
+            if audit_enabled:
+                logger.info(f"{self.log_prefix} Initializing audit logging (enabled)")
+                
+                # Initialize database connection and tracking repository
+                logger.debug(f"{self.log_prefix} Creating tracking repository...")
+                self.tracking_repository = get_tracking_repository(self.config)
+                logger.debug(f"{self.log_prefix} Tracking repository created successfully")
+                
+                # Initialize database schema
+                if hasattr(self.tracking_repository.conn, 'init_schema'):
+                    logger.debug(f"{self.log_prefix} Initializing database schema...")
+                    self.tracking_repository.conn.init_schema()
+                    logger.debug(f"{self.log_prefix} Database schema initialized")
+                
+                # Start pipeline run tracking
+                logger.debug(f"{self.log_prefix} Starting pipeline run tracking...")
+                self.tracking_repository.start_pipeline_run(
+                    run_id=self.pipeline_id,
+                    name=self.name,
+                    config_snapshot=self.config
+                )
+                logger.debug(f"{self.log_prefix} Pipeline run tracking started")
+                
+                # Initialize audit logger
+                logger.debug(f"{self.log_prefix} Creating audit logger...")
+                self.audit_logger = AuditLogger(
+                    pipeline_run_id=self.pipeline_id,
+                    config=di_config,
+                    repository=self.tracking_repository
+                )
+                logger.debug(f"{self.log_prefix} Audit logger created")
+                
+                # Store data intelligence config for later use by stage trackers
+                self.data_intelligence_config = di_config
+                logger.debug(f"{self.log_prefix} Data intelligence config stored for stage trackers")
+                
+                # Log pipeline started event
+                logger.debug(f"{self.log_prefix} Logging pipeline started event...")
+                self.audit_logger.log_pipeline_started(self.name, self.config)
+                logger.debug(f"{self.log_prefix} Pipeline started event logged")
+                
+                logger.info(f"{self.log_prefix} Data intelligence initialized successfully")
+            else:
+                logger.info(f"{self.log_prefix} Audit logging disabled in configuration")
+                
+        except Exception as e:
+            logger.warning(f"{self.log_prefix} Failed to initialize data intelligence: {e}")
+            # Continue without audit logging rather than failing the pipeline
+            self.audit_logger = None
+            self.tracking_repository = None
+            self.data_intelligence_config = None
     
     def start_stage(self, stage_name: str) -> None:
         """Mark the start of a pipeline stage for timing purposes."""
@@ -111,6 +186,36 @@ class PipelineContext:
             'end': None,
             'duration': None
         }
+        
+        # Log stage started event to audit trail
+        if self.audit_logger:
+            self.audit_logger.log_stage_started(stage_name)
+        
+        # Create stage-specific ingestion tracker for ingestion stages
+        if stage_name == "ingestion" and self.data_intelligence_config and self.tracking_repository:
+            if self.data_intelligence_config.is_feature_enabled('ingestion_tracking'):
+                try:
+                    self.stage_trackers[stage_name] = IngestionTracker(
+                        pipeline_run_id=self.pipeline_id,
+                        stage_name=stage_name,
+                        config=self.data_intelligence_config,
+                        repository=self.tracking_repository
+                    )
+                    logger.debug(f"{self.log_prefix} Created ingestion tracker for stage: {stage_name}")
+                except Exception as e:
+                    logger.warning(f"{self.log_prefix} Failed to create ingestion tracker for {stage_name}: {e}")
+    
+    def get_ingestion_tracker(self, stage_name: str) -> Optional[IngestionTracker]:
+        """
+        Get the ingestion tracker for a specific stage.
+        
+        Args:
+            stage_name: Name of the stage
+            
+        Returns:
+            IngestionTracker instance or None if not available
+        """
+        return self.stage_trackers.get(stage_name)
     
     def end_stage(self, stage_name: str, result: Any = None) -> None:
         """
@@ -121,6 +226,7 @@ class PipelineContext:
             result: Result data from the stage execution
         """
         end_time = datetime.now()
+        duration = 0.0  # Default duration for untracked stages
         
         if stage_name in self.stage_timings:
             self.stage_timings[stage_name]['end'] = end_time
@@ -154,6 +260,10 @@ class PipelineContext:
         
         # Record that this stage was executed
         self.executed_stages.append(stage_name)
+        
+        # Log stage completed event to audit trail
+        if self.audit_logger:
+            self.audit_logger.log_stage_completed(stage_name, duration)
     
     def add_error(self, stage: str, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -172,6 +282,10 @@ class PipelineContext:
         }
         self.errors.append(error)
         logger.error(f"{self.log_prefix} Error in {stage}: {message}")
+        
+        # Log error event to audit trail
+        if self.audit_logger:
+            self.audit_logger.log_error(stage, message, details)
     
     def add_warning(self, stage: str, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -190,6 +304,10 @@ class PipelineContext:
         }
         self.warnings.append(warning)
         logger.warning(f"{self.log_prefix} Warning in {stage}: {message}")
+        
+        # Log warning event to audit trail
+        if self.audit_logger:
+            self.audit_logger.log_warning(stage, message, details)
     
 
     def get_stage_config(self, stage_name: str) -> Dict[str, Any]:
@@ -359,6 +477,23 @@ class PipelineContext:
                 result_counts["chunked"] = len(self.chunked_data)
             else:
                 result_counts["chunked"] = 1
+        
+        # Log pipeline completion to audit trail
+        if self.audit_logger:
+            if self.errors:
+                self.audit_logger.log_pipeline_failed(self.name, f"Pipeline completed with {len(self.errors)} errors")
+            else:
+                self.audit_logger.log_pipeline_completed(self.name, total_duration)
+        
+        # Complete pipeline run tracking
+        if self.tracking_repository:
+            status = "failed" if self.errors else "completed"
+            error_message = f"Pipeline completed with {len(self.errors)} errors" if self.errors else None
+            self.tracking_repository.complete_pipeline_run(
+                run_id=self.pipeline_id,
+                status=status,
+                error_message=error_message
+            )
         
         # Build summary
         return {

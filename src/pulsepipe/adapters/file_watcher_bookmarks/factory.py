@@ -20,23 +20,68 @@
 # ------------------------------------------------------------------------------
 
 from .sqlite_store import SQLiteBookmarkStore
+from .common_store import CommonBookmarkStore
+from pulsepipe.persistence.factory import get_database_connection, get_sql_dialect
+
 
 def create_bookmark_store(config: dict):
+    """
+    Create a bookmark store based on configuration.
+    
+    Now supports all database backends through the unified adapter system.
+    """
+    # Check if we should use the new common store
+    persistence_config = config.get("persistence", {})
+    
+    # If persistence config exists, use the common store with database adapters
+    if persistence_config:
+        try:
+            connection = get_database_connection(config)
+            dialect = get_sql_dialect(config)
+            return CommonBookmarkStore(connection, dialect)
+        except Exception:
+            # Fall back to legacy SQLite store if there's an issue
+            pass
+    
+    # Legacy store creation for backward compatibility
     store_type = config.get("type", "sqlite")
 
     if store_type == "sqlite":
         db_path = config.get("db_path", "bookmarks.db")
-        return SQLiteBookmarkStore(db_path)
+        
+        # Create SQLite connection and dialect directly for legacy configs
+        from pulsepipe.persistence.database.sqlite_impl import SQLiteConnection, SQLiteDialect
+        connection = SQLiteConnection(db_path)
+        dialect = SQLiteDialect()
+        return CommonBookmarkStore(connection, dialect)
 
-    elif store_type == "postgres":
-        raise NotImplementedError(
-            "🔒 PostgreSQL bookmark store is only available in PulsePilot Enterprise."
-            "\n👉 Learn more at https://pulsepipe.io/pilot"
-        )
+    elif store_type == "postgres" or store_type == "postgresql":
+        # Now supported through the common store
+        try:
+            connection = get_database_connection(config)
+            dialect = get_sql_dialect(config)
+            return CommonBookmarkStore(connection, dialect)
+        except Exception as e:
+            raise NotImplementedError(
+                f"🔒 PostgreSQL bookmark store configuration error: {e}"
+                "\n👉 Check your persistence configuration"
+            )
 
-    elif store_type == "redis":
+    elif store_type == "mongodb":
+        # Now supported through the common store
+        try:
+            connection = get_database_connection(config)
+            dialect = get_sql_dialect(config)
+            return CommonBookmarkStore(connection, dialect)
+        except Exception as e:
+            raise NotImplementedError(
+                f"🔒 MongoDB bookmark store configuration error: {e}"
+                "\n👉 Check your persistence configuration"
+            )
+
+    elif store_type == "mssql":
         raise NotImplementedError(
-            "🔒 Redis-based bookmark tracking is available in PulsePilot Pro."
+            "🔒 MS SQL Server bookmark tracking is available in PulsePipe Enterprise"
             "\n👉 Upgrade at https://pulsepipe.io/pilot"
         )
 

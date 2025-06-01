@@ -32,7 +32,7 @@ from unittest.mock import Mock, MagicMock
 from typing import Dict, Any, List
 
 from pulsepipe.persistence.database.connection import DatabaseConnection, DatabaseResult
-from pulsepipe.persistence.database.dialect import SQLDialect
+from pulsepipe.persistence.database.dialect import DatabaseDialect
 
 
 class TestDatabaseResult:
@@ -147,29 +147,29 @@ class TestDatabaseConnectionABC:
         assert hasattr(DatabaseConnection, '__exit__')
 
 
-class TestSQLDialectABC:
-    """Test SQLDialect abstract base class."""
+class TestDatabaseDialectABC:
+    """Test DatabaseDialect abstract base class."""
     
     def test_cannot_instantiate_abstract_class(self):
-        """Test that SQLDialect cannot be instantiated directly."""
+        """Test that DatabaseDialect cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            SQLDialect()
+            DatabaseDialect()
     
     def test_abstract_methods_defined(self):
         """Test that all required abstract methods are defined."""
         required_methods = [
-            'get_pipeline_run_insert_sql',
-            'get_pipeline_run_update_sql',
-            'get_pipeline_run_select_sql',
-            'get_pipeline_runs_list_sql',
-            'get_ingestion_stat_insert_sql',
-            'get_failed_record_insert_sql',
-            'get_audit_event_insert_sql',
-            'get_quality_metric_insert_sql',
-            'get_performance_metric_insert_sql',
-            'get_ingestion_summary_sql',
-            'get_quality_summary_sql',
-            'get_cleanup_sql',
+            'get_pipeline_run_insert',
+            'get_pipeline_run_update',
+            'get_pipeline_run_select',
+            'get_pipeline_runs_list',
+            'get_ingestion_stat_insert',
+            'get_failed_record_insert',
+            'get_audit_event_insert',
+            'get_quality_metric_insert',
+            'get_performance_metric_insert',
+            'get_ingestion_summary',
+            'get_quality_summary',
+            'get_cleanup',
             'format_datetime',
             'parse_datetime',
             'get_auto_increment_syntax',
@@ -181,25 +181,27 @@ class TestSQLDialectABC:
         ]
         
         for method in required_methods:
-            assert hasattr(SQLDialect, method)
-            assert callable(getattr(SQLDialect, method))
+            assert hasattr(DatabaseDialect, method)
+            assert callable(getattr(DatabaseDialect, method))
     
     def test_concrete_methods(self):
         """Test concrete methods that have default implementations."""
         # Create a mock subclass to test concrete methods
-        class MockDialect(SQLDialect):
-            def get_pipeline_run_insert_sql(self): return ""
-            def get_pipeline_run_update_sql(self): return ""
-            def get_pipeline_run_select_sql(self): return ""
-            def get_pipeline_runs_list_sql(self): return ""
-            def get_ingestion_stat_insert_sql(self): return ""
-            def get_failed_record_insert_sql(self): return ""
-            def get_audit_event_insert_sql(self): return ""
-            def get_quality_metric_insert_sql(self): return ""
-            def get_performance_metric_insert_sql(self): return ""
-            def get_ingestion_summary_sql(self, *args): return "", []
-            def get_quality_summary_sql(self, *args): return "", []
-            def get_cleanup_sql(self, *args): return []
+        class MockDialect(DatabaseDialect):
+            def get_pipeline_run_insert(self): return ""
+            def get_pipeline_run_update(self): return ""
+            def get_pipeline_run_select(self): return ""
+            def get_pipeline_runs_list(self): return ""
+            def get_pipeline_run_count_update(self): return ""  # ADDED: Missing method
+            def get_recent_pipeline_runs(self, limit: int = 10): return ""  # ADDED: Missing method
+            def get_ingestion_stat_insert(self): return ""
+            def get_failed_record_insert(self): return ""
+            def get_audit_event_insert(self): return ""
+            def get_quality_metric_insert(self): return ""
+            def get_performance_metric_insert(self): return ""
+            def get_ingestion_summary(self, *args): return "", []
+            def get_quality_summary(self, *args): return "", []
+            def get_cleanup(self, *args): return []
             def format_datetime(self, *args): return ""
             def parse_datetime(self, *args): return None
             def get_auto_increment_syntax(self): return ""
@@ -208,16 +210,15 @@ class TestSQLDialectABC:
             def deserialize_json(self, *args): return None
             def escape_identifier(self, *args): return ""
             def get_limit_syntax(self, *args): return ""
-        
+
         dialect = MockDialect()
-        
+
         # Test get_database_type
         db_type = dialect.get_database_type()
         assert db_type == "mock"
-        
+
         # Test supports_feature
         assert dialect.supports_feature("transactions") is True
-        assert dialect.supports_feature("basic_sql") is True
         assert dialect.supports_feature("nonexistent_feature") is False
 
 

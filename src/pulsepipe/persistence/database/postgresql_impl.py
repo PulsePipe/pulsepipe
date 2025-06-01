@@ -42,7 +42,7 @@ except ImportError:
     PSYCOPG2_AVAILABLE = False
 
 from .connection import DatabaseConnection, DatabaseResult
-from .dialect import SQLDialect
+from .dialect import DatabaseDialect
 from .exceptions import (
     ConnectionError,
     QueryError,
@@ -256,16 +256,194 @@ class PostgreSQLConnection(DatabaseConnection):
         if not self._connection:
             raise ConnectionError("Database connection is not established")
         return self._connection
+    
+    def init_schema(self) -> None:
+        """
+        Initialize database schema for tracking and audit data.
+        
+        Creates all necessary tables for pipeline tracking, ingestion statistics,
+        audit events, quality metrics, and performance data.
+        """
+        schema_sql = [
+            # Pipeline runs table
+            """
+            CREATE TABLE IF NOT EXISTS pipeline_runs (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                status TEXT NOT NULL DEFAULT 'running',
+                total_records INTEGER DEFAULT 0,
+                successful_records INTEGER DEFAULT 0,
+                failed_records INTEGER DEFAULT 0,
+                skipped_records INTEGER DEFAULT 0,
+                error_message TEXT,
+                config_snapshot JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            
+            # Ingestion statistics table
+            """
+            CREATE TABLE IF NOT EXISTS ingestion_stats (
+                id SERIAL PRIMARY KEY,
+                pipeline_run_id TEXT NOT NULL,
+                stage_name TEXT NOT NULL,
+                file_path TEXT,
+                record_id TEXT,
+                record_type TEXT,
+                status TEXT NOT NULL,
+                error_category TEXT,
+                error_message TEXT,
+                error_details JSONB,
+                processing_time_ms INTEGER,
+                record_size_bytes INTEGER,
+                data_source TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (pipeline_run_id) REFERENCES pipeline_runs(id) ON DELETE CASCADE
+            )
+            """,
+            
+            # Failed records table
+            """
+            CREATE TABLE IF NOT EXISTS failed_records (
+                id SERIAL PRIMARY KEY,
+                ingestion_stat_id INTEGER NOT NULL,
+                original_data TEXT,
+                normalized_data TEXT,
+                failure_reason TEXT,
+                stack_trace TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (ingestion_stat_id) REFERENCES ingestion_stats(id) ON DELETE CASCADE
+            )
+            """,
+            
+            # Audit events table
+            """
+            CREATE TABLE IF NOT EXISTS audit_events (
+                id SERIAL PRIMARY KEY,
+                pipeline_run_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                stage_name TEXT,
+                record_id TEXT,
+                event_level TEXT DEFAULT 'INFO',
+                message TEXT,
+                details JSONB,
+                correlation_id TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (pipeline_run_id) REFERENCES pipeline_runs(id) ON DELETE CASCADE
+            )
+            """,
+            
+            # Quality metrics table
+            """
+            CREATE TABLE IF NOT EXISTS quality_metrics (
+                id SERIAL PRIMARY KEY,
+                pipeline_run_id TEXT NOT NULL,
+                record_id TEXT,
+                record_type TEXT,
+                completeness_score REAL,
+                consistency_score REAL,
+                validity_score REAL,
+                accuracy_score REAL,
+                overall_score REAL,
+                missing_fields JSONB,
+                invalid_fields JSONB,
+                outlier_fields JSONB,
+                quality_issues JSONB,
+                metrics_details JSONB,
+                sampled BOOLEAN DEFAULT FALSE,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (pipeline_run_id) REFERENCES pipeline_runs(id) ON DELETE CASCADE
+            )
+            """,
+            
+            # Performance metrics table
+            """
+            CREATE TABLE IF NOT EXISTS performance_metrics (
+                id SERIAL PRIMARY KEY,
+                pipeline_run_id TEXT NOT NULL,
+                stage_name TEXT NOT NULL,
+                started_at TIMESTAMP NOT NULL,
+                completed_at TIMESTAMP NOT NULL,
+                duration_ms INTEGER NOT NULL,
+                records_processed INTEGER,
+                records_per_second REAL,
+                memory_usage_mb REAL,
+                cpu_usage_percent REAL,
+                bottleneck_indicator TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (pipeline_run_id) REFERENCES pipeline_runs(id) ON DELETE CASCADE
+            )
+            """,
+            
+            # System metrics table
+            """
+            CREATE TABLE IF NOT EXISTS system_metrics (
+                id SERIAL PRIMARY KEY,
+                pipeline_run_id TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                cpu_usage_percent REAL,
+                memory_usage_mb REAL,
+                memory_usage_percent REAL,
+                disk_usage_mb REAL,
+                disk_io_read_mb REAL,
+                disk_io_write_mb REAL,
+                network_io_sent_mb REAL,
+                network_io_received_mb REAL,
+                active_threads INTEGER,
+                process_count INTEGER,
+                FOREIGN KEY (pipeline_run_id) REFERENCES pipeline_runs(id) ON DELETE CASCADE
+            )
+            """
+        ]
+        
+        # Create indexes for better performance
+        index_sql = [
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_runs_started_at ON pipeline_runs(started_at)",
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status ON pipeline_runs(status)",
+            "CREATE INDEX IF NOT EXISTS idx_ingestion_stats_pipeline_run_id ON ingestion_stats(pipeline_run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ingestion_stats_status ON ingestion_stats(status)",
+            "CREATE INDEX IF NOT EXISTS idx_ingestion_stats_timestamp ON ingestion_stats(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_events_pipeline_run_id ON audit_events(pipeline_run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_events_timestamp ON audit_events(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_quality_metrics_pipeline_run_id ON quality_metrics(pipeline_run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_performance_metrics_pipeline_run_id ON performance_metrics(pipeline_run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_system_metrics_pipeline_run_id ON system_metrics(pipeline_run_id)"
+        ]
+        
+        try:
+            # Execute schema creation
+            for sql in schema_sql:
+                with self._connection.cursor() as cursor:
+                    cursor.execute(sql)
+            
+            # Create indexes
+            for sql in index_sql:
+                with self._connection.cursor() as cursor:
+                    cursor.execute(sql)
+            
+            # Commit changes
+            self._connection.commit()
+            
+        except psycopg2.Error as e:
+            self._connection.rollback()
+            raise wrap_database_error(
+                e,
+                "Failed to initialize PostgreSQL database schema",
+                {"host": self.host, "database": self.database}
+            )
 
 
-class PostgreSQLDialect(SQLDialect):
+class PostgreSQLDialect(DatabaseDialect):
     """
     PostgreSQL implementation of SQL dialect.
     
     Provides PostgreSQL-specific SQL generation and data handling.
     """
     
-    def get_pipeline_run_insert_sql(self) -> str:
+    def get_pipeline_run_insert(self) -> str:
         """Get SQL for inserting a pipeline run record."""
         return """
             INSERT INTO pipeline_runs (
@@ -273,7 +451,7 @@ class PostgreSQLDialect(SQLDialect):
             ) VALUES (%s, %s, %s, %s, %s)
         """
     
-    def get_pipeline_run_update_sql(self) -> str:
+    def get_pipeline_run_update(self) -> str:
         """Get SQL for updating a pipeline run record."""
         return """
             UPDATE pipeline_runs 
@@ -281,7 +459,16 @@ class PostgreSQLDialect(SQLDialect):
             WHERE id = %s
         """
     
-    def get_pipeline_run_select_sql(self) -> str:
+    def get_pipeline_run_count_update(self) -> str:
+        """Get SQL for updating pipeline run counts."""
+        return """
+            UPDATE pipeline_runs 
+            SET total_records = %s, successful_records = %s, failed_records = %s, 
+                skipped_records = %s, updated_at = %s
+            WHERE id = %s
+        """
+    
+    def get_pipeline_run_select(self) -> str:
         """Get SQL for selecting a pipeline run by ID."""
         return """
             SELECT id, name, started_at, completed_at, status,
@@ -291,7 +478,7 @@ class PostgreSQLDialect(SQLDialect):
             WHERE id = %s
         """
     
-    def get_pipeline_runs_list_sql(self) -> str:
+    def get_pipeline_runs_list(self) -> str:
         """Get SQL for listing recent pipeline runs."""
         return """
             SELECT id, name, started_at, completed_at, status,
@@ -302,7 +489,18 @@ class PostgreSQLDialect(SQLDialect):
             LIMIT %s
         """
     
-    def get_ingestion_stat_insert_sql(self) -> str:
+    def get_recent_pipeline_runs(self, limit: int = 10) -> str:
+        """Get SQL for recent pipeline runs."""
+        return f"""
+            SELECT id, name, started_at, completed_at, status,
+                   total_records, successful_records, failed_records,
+                   skipped_records, error_message
+            FROM pipeline_runs 
+            ORDER BY started_at DESC 
+            LIMIT {limit}
+        """
+    
+    def get_ingestion_stat_insert(self) -> str:
         """Get SQL for inserting an ingestion statistic."""
         return """
             INSERT INTO ingestion_stats (
@@ -313,7 +511,7 @@ class PostgreSQLDialect(SQLDialect):
             RETURNING id
         """
     
-    def get_failed_record_insert_sql(self) -> str:
+    def get_failed_record_insert(self) -> str:
         """Get SQL for inserting a failed record."""
         return """
             INSERT INTO failed_records (
@@ -323,7 +521,7 @@ class PostgreSQLDialect(SQLDialect):
             RETURNING id
         """
     
-    def get_audit_event_insert_sql(self) -> str:
+    def get_audit_event_insert(self) -> str:
         """Get SQL for inserting an audit event."""
         return """
             INSERT INTO audit_events (
@@ -333,7 +531,7 @@ class PostgreSQLDialect(SQLDialect):
             RETURNING id
         """
     
-    def get_quality_metric_insert_sql(self) -> str:
+    def get_quality_metric_insert(self) -> str:
         """Get SQL for inserting a quality metric."""
         return """
             INSERT INTO quality_metrics (
@@ -346,7 +544,7 @@ class PostgreSQLDialect(SQLDialect):
             RETURNING id
         """
     
-    def get_performance_metric_insert_sql(self) -> str:
+    def get_performance_metric_insert(self) -> str:
         """Get SQL for inserting a performance metric."""
         return """
             INSERT INTO performance_metrics (
@@ -357,7 +555,7 @@ class PostgreSQLDialect(SQLDialect):
             RETURNING id
         """
     
-    def get_ingestion_summary_sql(self, pipeline_run_id: Optional[str] = None,
+    def get_ingestion_summary(self, pipeline_run_id: Optional[str] = None,
                                  start_date: Optional[datetime] = None,
                                  end_date: Optional[datetime] = None) -> Tuple[str, List[Any]]:
         """Get SQL for ingestion summary with optional filters."""
@@ -392,7 +590,7 @@ class PostgreSQLDialect(SQLDialect):
         
         return sql, params
     
-    def get_quality_summary_sql(self, pipeline_run_id: Optional[str] = None) -> Tuple[str, List[Any]]:
+    def get_quality_summary(self, pipeline_run_id: Optional[str] = None) -> Tuple[str, List[Any]]:
         """Get SQL for quality summary with optional filters."""
         where_clause = "WHERE pipeline_run_id = %s" if pipeline_run_id else ""
         params = [pipeline_run_id] if pipeline_run_id else []
@@ -413,31 +611,50 @@ class PostgreSQLDialect(SQLDialect):
         
         return sql, params
     
-    def get_cleanup_sql(self, cutoff_date: datetime) -> List[Tuple[str, List[Any]]]:
+    def get_cleanup(self, cutoff_date: datetime) -> List[Tuple[str, List[Any]]]:
         """Get SQL statements for cleaning up old data."""
-        # Delete statements in dependency order
-        cleanup_statements = [
-            # Delete failed_records first (they reference ingestion_stats)
-            ("""
-                DELETE FROM failed_records 
-                WHERE ingestion_stat_id IN (
-                    SELECT id FROM ingestion_stats 
-                    WHERE pipeline_run_id IN (
-                        SELECT id FROM pipeline_runs WHERE started_at < %s
-                    )
-                )
-            """, [cutoff_date]),
-            
-            # Delete other related data
-            ("DELETE FROM system_metrics WHERE pipeline_run_id IN (SELECT id FROM pipeline_runs WHERE started_at < %s)", [cutoff_date]),
-            ("DELETE FROM performance_metrics WHERE pipeline_run_id IN (SELECT id FROM pipeline_runs WHERE started_at < %s)", [cutoff_date]),
-            ("DELETE FROM quality_metrics WHERE pipeline_run_id IN (SELECT id FROM pipeline_runs WHERE started_at < %s)", [cutoff_date]),
-            ("DELETE FROM audit_events WHERE pipeline_run_id IN (SELECT id FROM pipeline_runs WHERE started_at < %s)", [cutoff_date]),
-            ("DELETE FROM ingestion_stats WHERE pipeline_run_id IN (SELECT id FROM pipeline_runs WHERE started_at < %s)", [cutoff_date]),
-            
-            # Delete pipeline runs last
-            ("DELETE FROM pipeline_runs WHERE started_at < %s", [cutoff_date])
+        # Use a simpler approach that's more resilient to missing tables
+        cleanup_statements = []
+        
+        # Simple cleanup statements that won't fail if tables don't exist
+        table_cleanup = [
+            "failed_records",
+            "system_metrics", 
+            "performance_metrics",
+            "quality_metrics",
+            "audit_events",
+            "ingestion_stats",
+            "pipeline_runs"
         ]
+        
+        for table in table_cleanup:
+            if table == "failed_records":
+                # Handle failed_records with JOIN instead of nested subquery
+                sql = """
+                    DELETE FROM failed_records 
+                    WHERE EXISTS (
+                        SELECT 1 FROM ingestion_stats 
+                        WHERE ingestion_stats.id = failed_records.ingestion_stat_id 
+                        AND EXISTS (
+                            SELECT 1 FROM pipeline_runs 
+                            WHERE pipeline_runs.id = ingestion_stats.pipeline_run_id 
+                            AND pipeline_runs.started_at < %s
+                        )
+                    )
+                """
+            elif table == "pipeline_runs":
+                sql = f"DELETE FROM {table} WHERE started_at < %s"
+            else:
+                sql = f"""
+                    DELETE FROM {table} 
+                    WHERE EXISTS (
+                        SELECT 1 FROM pipeline_runs 
+                        WHERE pipeline_runs.id = {table}.pipeline_run_id 
+                        AND pipeline_runs.started_at < %s
+                    )
+                """
+            
+            cleanup_statements.append((sql, [cutoff_date]))
         
         return cleanup_statements
     
@@ -445,9 +662,16 @@ class PostgreSQLDialect(SQLDialect):
         """Format datetime for PostgreSQL storage."""
         return dt.isoformat()
     
-    def parse_datetime(self, dt_str: str) -> datetime:
+    def parse_datetime(self, dt_input: Union[str, datetime]) -> datetime:
         """Parse datetime from PostgreSQL storage format."""
-        return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+        if isinstance(dt_input, datetime):
+            # Already a datetime object, return as-is
+            return dt_input
+        elif isinstance(dt_input, str):
+            # String representation, parse it
+            return datetime.fromisoformat(dt_input.replace('Z', '+00:00'))
+        else:
+            raise ValueError(f"Cannot parse datetime from type {type(dt_input)}: {dt_input}")
     
     def get_auto_increment_syntax(self) -> str:
         """Get PostgreSQL auto-increment syntax."""
@@ -494,3 +718,35 @@ class PostgreSQLDialect(SQLDialect):
             "materialized_views"
         }
         return feature in postgresql_features
+    
+    # Bookmark Store SQL Methods
+    
+    def get_bookmark_table_create(self) -> str:
+        """Get SQL for creating bookmarks table."""
+        return """
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                path TEXT PRIMARY KEY,
+                status TEXT,
+                processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+    
+    def get_bookmark_check(self) -> str:
+        """Get SQL for checking if a bookmark exists."""
+        return "SELECT 1 FROM bookmarks WHERE path = %s"
+    
+    def get_bookmark_insert(self) -> str:
+        """Get SQL for inserting a bookmark."""
+        return """
+            INSERT INTO bookmarks (path, status) 
+            VALUES (%s, %s) 
+            ON CONFLICT (path) DO NOTHING
+        """
+    
+    def get_bookmark_list(self) -> str:
+        """Get SQL for listing all bookmarks."""
+        return "SELECT path FROM bookmarks ORDER BY path"
+    
+    def get_bookmark_clear(self) -> str:
+        """Get SQL for clearing all bookmarks."""
+        return "DELETE FROM bookmarks"

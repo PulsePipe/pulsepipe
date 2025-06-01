@@ -22,9 +22,28 @@
 # pulsepipe.yaml
 
 persistence:
-  db_type: sqlite
+  type: postgresql  # sqlite | postgresql | mongodb
+
   sqlite:
     db_path: .pulsepipe/state/ingestion.sqlite3
+
+  mongodb:
+    connection_string: mongodb://172.17.14.126:27017/
+    database: pulsepipe
+    collection_prefix: audit_
+    username: ""
+    password: ""
+    replica_set: ""
+    read_preference: primaryPreferred
+
+  postgresql:
+    host: localhost
+    port: 5432
+    database: pulsepipe
+    username: ${PULSEPIPE_DB_LOGIN}
+    password: ${PULSEPIPE_DB_PASSWORD}
+    pool_size: 5
+    max_overflow: 10
 
 logging:
   type: text                      # rich | json | text | none
@@ -33,3 +52,27 @@ logging:
   file_path: logs/pulse.log       # relative or absolute path to the log directory
   show_banner: false              # shows the PulsePipe banner in the CLI
   include_emoji: false            # disable emoji for Windows compatibility
+
+# Data Intelligence & Quality Assurance Framework
+  data_intelligence:
+    # Master enable/disable for all intelligence features
+    enabled: true
+
+    # Performance modes control the trade-off between insights and speed    
+    performance_mode: standard      # fast | standard | comprehensive       
+
+    # Granular feature controls
+    features:
+      # Audit trail and reporting
+      audit_trail:
+        enabled: true
+        detail_level: standard    # minimal | standard | comprehensive
+        record_level_tracking: true
+        structured_errors: true
+
+      # Core tracking and auditing
+      ingestion_tracking:
+        enabled: true
+        store_failed_records: true
+        export_metrics: true
+        export_formats: ["json", "csv"]

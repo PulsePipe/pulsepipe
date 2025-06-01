@@ -22,7 +22,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from pulsepipe.adapters.file_watcher_bookmarks.factory import create_bookmark_store
-from pulsepipe.adapters.file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
+from pulsepipe.adapters.file_watcher_bookmarks.common_store import CommonBookmarkStore
 
 class TestBookmarkStoreFactory:
     def test_create_bookmark_store_sqlite_default(self):
@@ -31,45 +31,43 @@ class TestBookmarkStoreFactory:
         
         bookmark_store = create_bookmark_store(config)
         
-        assert isinstance(bookmark_store, SQLiteBookmarkStore)
-        assert bookmark_store.db_path == "bookmarks.db"
-    
+        # Factory now returns CommonBookmarkStore using SQLite backend
+        assert isinstance(bookmark_store, CommonBookmarkStore)
+        assert bookmark_store.conn.get_connection_info()["database_type"] == "sqlite"
+        assert bookmark_store.conn.get_connection_info()["db_path"] == "bookmarks.db"
+
     def test_create_bookmark_store_sqlite_custom_path(self):
         # Test with custom db_path
         config = {
             "type": "sqlite",
-            "db_path": "custom_bookmarks.db"  # Use a relative path that's writable in the test environment
+            "db_path": "custom_bookmarks.db"
         }
         
         bookmark_store = create_bookmark_store(config)
         
-        assert isinstance(bookmark_store, SQLiteBookmarkStore)
-        assert bookmark_store.db_path == "custom_bookmarks.db"
-    
+        # Factory now returns CommonBookmarkStore using SQLite backend
+        assert isinstance(bookmark_store, CommonBookmarkStore)
+        assert bookmark_store.conn.get_connection_info()["database_type"] == "sqlite"
+        assert bookmark_store.conn.get_connection_info()["db_path"] == "custom_bookmarks.db"
+
     def test_create_bookmark_store_default_type(self):
         # Test without specifying a type (should default to sqlite)
         config = {}
         
         bookmark_store = create_bookmark_store(config)
         
-        assert isinstance(bookmark_store, SQLiteBookmarkStore)
-        assert bookmark_store.db_path == "bookmarks.db"
+        # Factory now returns CommonBookmarkStore using SQLite backend
+        assert isinstance(bookmark_store, CommonBookmarkStore)
+        assert bookmark_store.conn.get_connection_info()["database_type"] == "sqlite"
+        assert bookmark_store.conn.get_connection_info()["db_path"] == "bookmarks.db"
     
-    def test_create_bookmark_store_postgres_not_implemented(self):
-        config = {"type": "postgres"}
+    def test_create_bookmark_store_mssql_not_implemented(self):
+        config = {"type": "mssql"}
         
         with pytest.raises(NotImplementedError) as excinfo:
             create_bookmark_store(config)
         
-        assert "PostgreSQL bookmark store is only available in PulsePilot Enterprise" in str(excinfo.value)
-    
-    def test_create_bookmark_store_redis_not_implemented(self):
-        config = {"type": "redis"}
-        
-        with pytest.raises(NotImplementedError) as excinfo:
-            create_bookmark_store(config)
-        
-        assert "Redis-based bookmark tracking is available in PulsePilot Pro" in str(excinfo.value)
+        assert "🔒 MS SQL Server bookmark tracking is available in PulsePipe Enterprise" in str(excinfo.value)
     
     def test_create_bookmark_store_s3_not_implemented(self):
         config = {"type": "s3"}
@@ -77,7 +75,7 @@ class TestBookmarkStoreFactory:
         with pytest.raises(NotImplementedError) as excinfo:
             create_bookmark_store(config)
         
-        assert "S3 + DynamoDB scalable bookmark store is available in PulsePilot Enterprise" in str(excinfo.value)
+        assert "🔒 S3 + DynamoDB scalable bookmark store is available in PulsePilot Enterprise" in str(excinfo.value)
     
     def test_create_bookmark_store_unsupported_type(self):
         config = {"type": "unsupported_type"}

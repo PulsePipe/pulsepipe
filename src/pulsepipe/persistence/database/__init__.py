@@ -29,7 +29,7 @@ for SQLite, PostgreSQL, and MongoDB backends.
 """
 
 from .connection import DatabaseConnection
-from .dialect import SQLDialect
+from .dialect import DatabaseDialect
 from .exceptions import (
     DatabaseError,
     ConnectionError,
@@ -61,7 +61,7 @@ def init_data_intelligence_db(connection: DatabaseConnection) -> None:
 
 __all__ = [
     "DatabaseConnection",
-    "SQLDialect", 
+    "DatabaseDialect", 
     "DatabaseError",
     "ConnectionError",
     "QueryError",

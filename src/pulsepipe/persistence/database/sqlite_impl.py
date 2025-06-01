@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from contextlib import contextmanager
 
 from .connection import DatabaseConnection, DatabaseResult
-from .dialect import SQLDialect
+from .dialect import DatabaseDialect
 from .exceptions import (
     ConnectionError,
     QueryError,
@@ -388,14 +388,14 @@ class SQLiteConnection(DatabaseConnection):
             )
 
 
-class SQLiteDialect(SQLDialect):
+class SQLiteDialect(DatabaseDialect):
     """
     SQLite implementation of SQL dialect.
     
     Provides SQLite-specific SQL generation and data handling.
     """
     
-    def get_pipeline_run_insert_sql(self) -> str:
+    def get_pipeline_run_insert(self) -> str:
         """Get SQL for inserting a pipeline run record."""
         return """
             INSERT INTO pipeline_runs (
@@ -403,7 +403,7 @@ class SQLiteDialect(SQLDialect):
             ) VALUES (?, ?, ?, ?, ?)
         """
     
-    def get_pipeline_run_update_sql(self) -> str:
+    def get_pipeline_run_update(self) -> str:
         """Get SQL for updating a pipeline run record."""
         return """
             UPDATE pipeline_runs 
@@ -411,7 +411,7 @@ class SQLiteDialect(SQLDialect):
             WHERE id = ?
         """
     
-    def get_pipeline_run_select_sql(self) -> str:
+    def get_pipeline_run_select(self) -> str:
         """Get SQL for selecting a pipeline run by ID."""
         return """
             SELECT id, name, started_at, completed_at, status,
@@ -421,7 +421,7 @@ class SQLiteDialect(SQLDialect):
             WHERE id = ?
         """
     
-    def get_pipeline_runs_list_sql(self) -> str:
+    def get_pipeline_runs_list(self) -> str:
         """Get SQL for listing recent pipeline runs."""
         return """
             SELECT id, name, started_at, completed_at, status,
@@ -432,7 +432,30 @@ class SQLiteDialect(SQLDialect):
             LIMIT ?
         """
     
-    def get_ingestion_stat_insert_sql(self) -> str:
+    def get_pipeline_run_count_update(self) -> str:
+        """Get SQL for updating pipeline run counts incrementally."""
+        return """
+            UPDATE pipeline_runs 
+            SET total_records = total_records + ?, 
+                successful_records = successful_records + ?, 
+                failed_records = failed_records + ?, 
+                skipped_records = skipped_records + ?, 
+                updated_at = ?
+            WHERE id = ?
+        """
+    
+    def get_recent_pipeline_runs(self, limit: int = 10) -> str:
+        """Get SQL for recent pipeline runs."""
+        return f"""
+            SELECT id, name, started_at, completed_at, status,
+                   total_records, successful_records, failed_records,
+                   skipped_records, error_message
+            FROM pipeline_runs 
+            ORDER BY started_at DESC 
+            LIMIT {limit}
+        """
+    
+    def get_ingestion_stat_insert(self) -> str:
         """Get SQL for inserting an ingestion statistic."""
         return """
             INSERT INTO ingestion_stats (
@@ -442,7 +465,7 @@ class SQLiteDialect(SQLDialect):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
     
-    def get_failed_record_insert_sql(self) -> str:
+    def get_failed_record_insert(self) -> str:
         """Get SQL for inserting a failed record."""
         return """
             INSERT INTO failed_records (
@@ -451,7 +474,7 @@ class SQLiteDialect(SQLDialect):
             ) VALUES (?, ?, ?, ?, ?)
         """
     
-    def get_audit_event_insert_sql(self) -> str:
+    def get_audit_event_insert(self) -> str:
         """Get SQL for inserting an audit event."""
         return """
             INSERT INTO audit_events (
@@ -460,7 +483,7 @@ class SQLiteDialect(SQLDialect):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
     
-    def get_quality_metric_insert_sql(self) -> str:
+    def get_quality_metric_insert(self) -> str:
         """Get SQL for inserting a quality metric."""
         return """
             INSERT INTO quality_metrics (
@@ -472,7 +495,7 @@ class SQLiteDialect(SQLDialect):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
     
-    def get_performance_metric_insert_sql(self) -> str:
+    def get_performance_metric_insert(self) -> str:
         """Get SQL for inserting a performance metric."""
         return """
             INSERT INTO performance_metrics (
@@ -482,7 +505,7 @@ class SQLiteDialect(SQLDialect):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
     
-    def get_ingestion_summary_sql(self, pipeline_run_id: Optional[str] = None,
+    def get_ingestion_summary(self, pipeline_run_id: Optional[str] = None,
                                  start_date: Optional[datetime] = None,
                                  end_date: Optional[datetime] = None) -> Tuple[str, List[Any]]:
         """Get SQL for ingestion summary with optional filters."""
@@ -495,11 +518,11 @@ class SQLiteDialect(SQLDialect):
         
         if start_date:
             where_conditions.append("timestamp >= ?")
-            params.append(start_date)
+            params.append(self.format_datetime(start_date))
         
         if end_date:
             where_conditions.append("timestamp <= ?")
-            params.append(end_date)
+            params.append(self.format_datetime(end_date))
         
         where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         
@@ -517,7 +540,7 @@ class SQLiteDialect(SQLDialect):
         
         return sql, params
     
-    def get_quality_summary_sql(self, pipeline_run_id: Optional[str] = None) -> Tuple[str, List[Any]]:
+    def get_quality_summary(self, pipeline_run_id: Optional[str] = None) -> Tuple[str, List[Any]]:
         """Get SQL for quality summary with optional filters."""
         where_clause = "WHERE pipeline_run_id = ?" if pipeline_run_id else ""
         params = [pipeline_run_id] if pipeline_run_id else []
@@ -538,7 +561,7 @@ class SQLiteDialect(SQLDialect):
         
         return sql, params
     
-    def get_cleanup_sql(self, cutoff_date: datetime) -> List[Tuple[str, List[Any]]]:
+    def get_cleanup(self, cutoff_date: datetime) -> List[Tuple[str, List[Any]]]:
         """Get SQL statements for cleaning up old data."""
         # First get the pipeline run IDs to delete
         get_runs_sql = "SELECT id FROM pipeline_runs WHERE started_at < ?"
@@ -613,3 +636,31 @@ class SQLiteDialect(SQLDialect):
             "full_text_search"
         }
         return feature in sqlite_features
+    
+    # Bookmark Store SQL Methods
+    
+    def get_bookmark_table_create(self) -> str:
+        """Get SQL for creating bookmarks table."""
+        return """
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                path TEXT PRIMARY KEY,
+                status TEXT,
+                processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+    
+    def get_bookmark_check(self) -> str:
+        """Get SQL for checking if a bookmark exists."""
+        return "SELECT 1 FROM bookmarks WHERE path = ?"
+    
+    def get_bookmark_insert(self) -> str:
+        """Get SQL for inserting a bookmark."""
+        return "INSERT OR IGNORE INTO bookmarks (path, status) VALUES (?, ?)"
+    
+    def get_bookmark_list(self) -> str:
+        """Get SQL for listing all bookmarks."""
+        return "SELECT path FROM bookmarks ORDER BY path"
+    
+    def get_bookmark_clear(self) -> str:
+        """Get SQL for clearing all bookmarks."""
+        return "DELETE FROM bookmarks"

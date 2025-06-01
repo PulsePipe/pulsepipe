@@ -67,6 +67,12 @@ class EmbeddingStage(PipelineStage):
             EmbedderError: If embedding fails
             ConfigurationError: If embedding configuration is invalid
         """
+        import time
+        
+        # Get embedding tracker
+        embedding_tracker = context.get_ingestion_tracker("embedding")
+        stage_start_time = time.time()
+        
         # Get embedder configuration
         config = self.get_stage_config(context)
         if not config:
@@ -91,6 +97,13 @@ class EmbeddingStage(PipelineStage):
         embedder_type = config.get("type", "clinical")
         
         self.logger.info(f"{context.log_prefix} Embedding data with type: {embedder_type}")
+        
+        processing_stats = {
+            "total_chunks": len(chunked_data),
+            "successful_chunks": 0,
+            "failed_chunks": 0,
+            "processing_errors": []
+        }
         
         try:
             # Select embedder type
@@ -123,17 +136,88 @@ class EmbeddingStage(PipelineStage):
                 
                 # Process each chunk in the batch
                 batch_results = []
-                for chunk in batch:
+                for j, chunk in enumerate(batch):
+                    chunk_start_time = time.time()
                     try:
                         # Embed chunk
                         embedded_chunk = embedder.embed_chunk(chunk)
                         batch_results.append(embedded_chunk)
+                        processing_stats["successful_chunks"] += 1
+                        
+                        # Record success if tracker is available
+                        if embedding_tracker:
+                            processing_time_ms = int((time.time() - chunk_start_time) * 1000)
+                            embedding_tracker.record_success(
+                                record_id=chunk.get("id", f"chunk_{i}_{j}"),
+                                record_type=chunk.get("type", "unknown_chunk"),
+                                processing_time_ms=processing_time_ms,
+                                data_source="embedding_stage",
+                                metadata={
+                                    "embedder_type": embedder_type,
+                                    "embedder_name": embedder.name,
+                                    "model_name": config.get("model_name", "unknown"),
+                                    "chunk_content_length": len(str(chunk.get("content", "")))
+                                }
+                            )
+                            
+                        # Log audit event if audit logger is available
+                        if context.audit_logger:
+                            context.audit_logger.log_record_processed(
+                                stage_name="embedding",
+                                record_id=chunk.get("id", f"chunk_{i}_{j}"),
+                                record_type=chunk.get("type", "unknown_chunk"),
+                                processing_time_ms=int((time.time() - chunk_start_time) * 1000),
+                                details={
+                                    "embedder_type": embedder_type,
+                                    "embedder_name": embedder.name,
+                                    "model_name": config.get("model_name", "unknown"),
+                                    "chunk_content_length": len(str(chunk.get("content", "")))
+                                }
+                            )
+                            
                     except Exception as e:
+                        processing_stats["failed_chunks"] += 1
+                        processing_stats["processing_errors"].append(str(e))
+                        
+                        # Record failure if tracker is available
+                        if embedding_tracker:
+                            processing_time_ms = int((time.time() - chunk_start_time) * 1000)
+                            embedding_tracker.record_failure(
+                                record_id=chunk.get("id", f"chunk_{i}_{j}"),
+                                record_type=chunk.get("type", "unknown_chunk"),
+                                processing_time_ms=processing_time_ms,
+                                error_message=str(e),
+                                data_source="embedding_stage"
+                            )
+                            
+                        # Log audit event if audit logger is available
+                        if context.audit_logger:
+                            context.audit_logger.log_record_failed(
+                                stage_name="embedding",
+                                record_id=chunk.get("id", f"chunk_{i}_{j}"),
+                                error=e,
+                                details={
+                                    "embedder_type": embedder_type,
+                                    "batch_index": i,
+                                    "chunk_index": j
+                                }
+                            )
+                        
                         self.logger.error(f"{context.log_prefix} Error embedding chunk: {str(e)}")
                         # Continue with other chunks
                 
                 result_chunks.extend(batch_results)
                 self.logger.info(f"{context.log_prefix} Completed batch {i//batch_size + 1}")
+            
+            # Update pipeline run totals
+            if context.tracking_repository:
+                context.tracking_repository.update_pipeline_run_counts(
+                    run_id=context.pipeline_id,
+                    total=processing_stats["total_chunks"],
+                    successful=processing_stats["successful_chunks"],
+                    failed=processing_stats["failed_chunks"],
+                    skipped=0
+                )
             
             # Export embeddings if requested
             export_format = config.get("export_embeddings_to")
@@ -176,10 +260,26 @@ class EmbeddingStage(PipelineStage):
                 else:
                     context.add_warning("embedding", f"Unsupported export format: {export_format}")
             
-            self.logger.info(f"{context.log_prefix} Embedding complete. Processed {len(result_chunks)} chunks")
+            total_time_ms = int((time.time() - stage_start_time) * 1000)
+            self.logger.info(f"{context.log_prefix} Embedding complete: {processing_stats['successful_chunks']} chunks embedded from {processing_stats['total_chunks']} total in {total_time_ms}ms")
             return result_chunks
             
         except Exception as e:
+            # Record stage-level failure if tracker is available
+            if embedding_tracker:
+                total_time_ms = int((time.time() - stage_start_time) * 1000)
+                embedding_tracker.record_failure(
+                    record_id=f"embedding_stage_{context.pipeline_id[:8]}",
+                    record_type="EmbeddingStage",
+                    processing_time_ms=total_time_ms,
+                    error_message=str(e),
+                    data_source="embedding_stage"
+                )
+            
+            # Log audit event if audit logger is available
+            if context.audit_logger:
+                context.audit_logger.log_stage_failed("embedding", e, details={"embedder_type": embedder_type})
+            
             self.logger.error(f"{context.log_prefix} Error during embedding: {str(e)}")
             raise EmbedderError(
                 f"Error during embedding: {str(e)}",

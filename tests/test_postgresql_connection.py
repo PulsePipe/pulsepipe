@@ -24,7 +24,7 @@
 """
 Simple unit tests for PostgreSQL database connection implementation.
 
-Tests PostgreSQLDialect only since connection requires psycopg2.
+Tests PostgreDatabaseDialect only since connection requires psycopg2.
 """
 
 import pytest
@@ -44,41 +44,41 @@ class TestPostgreSQLDialect:
         """Create a PostgreSQLDialect instance."""
         return PostgreSQLDialect()
     
-    def test_get_pipeline_run_insert_sql(self, dialect):
+    def test_get_pipeline_run_insert(self, dialect):
         """Test pipeline run insert SQL uses PostgreSQL parameters."""
-        sql = dialect.get_pipeline_run_insert_sql()
+        sql = dialect.get_pipeline_run_insert()
         
         assert "INSERT INTO pipeline_runs" in sql
         assert "%s" in sql  # PostgreSQL parameter style
         assert "?" not in sql  # SQLite parameter style
     
-    def test_get_pipeline_run_update_sql(self, dialect):
+    def test_get_pipeline_run_update(self, dialect):
         """Test pipeline run update SQL uses PostgreSQL parameters."""
-        sql = dialect.get_pipeline_run_update_sql()
+        sql = dialect.get_pipeline_run_update()
         
         assert "UPDATE pipeline_runs" in sql
         assert "%s" in sql
     
-    def test_get_ingestion_stat_insert_sql(self, dialect):
+    def test_get_ingestion_stat_insert(self, dialect):
         """Test ingestion stat insert SQL has RETURNING clause."""
-        sql = dialect.get_ingestion_stat_insert_sql()
+        sql = dialect.get_ingestion_stat_insert()
         
         assert "INSERT INTO ingestion_stats" in sql
         assert "RETURNING id" in sql
     
-    def test_get_failed_record_insert_sql(self, dialect):
+    def test_get_failed_record_insert(self, dialect):
         """Test failed record insert SQL has RETURNING clause."""
-        sql = dialect.get_failed_record_insert_sql()
+        sql = dialect.get_failed_record_insert()
         
         assert "INSERT INTO failed_records" in sql
         assert "RETURNING id" in sql
     
-    def test_get_ingestion_summary_sql_with_filters(self, dialect):
+    def test_get_ingestion_summary_with_filters(self, dialect):
         """Test ingestion summary SQL with PostgreSQL parameters."""
         start_date = datetime.now() - timedelta(days=7)
         end_date = datetime.now()
         
-        sql, params = dialect.get_ingestion_summary_sql(
+        sql, params = dialect.get_ingestion_summary(
             pipeline_run_id="test-123",
             start_date=start_date,
             end_date=end_date
@@ -129,72 +129,72 @@ class TestPostgreSQLDialect:
         db_type = dialect.get_database_type()
         assert db_type == "postgresql"
     
-    def test_get_pipeline_run_select_sql(self, dialect):
+    def test_get_pipeline_run_select(self, dialect):
         """Test pipeline run select SQL."""
-        sql = dialect.get_pipeline_run_select_sql()
+        sql = dialect.get_pipeline_run_select()
         assert "SELECT" in sql
         assert "FROM pipeline_runs" in sql
         assert "WHERE id = %s" in sql
     
-    def test_get_pipeline_runs_list_sql(self, dialect):
+    def test_get_pipeline_runs_list(self, dialect):
         """Test pipeline runs list SQL."""
-        sql = dialect.get_pipeline_runs_list_sql()
+        sql = dialect.get_pipeline_runs_list()
         assert "SELECT" in sql
         assert "ORDER BY started_at DESC" in sql
         assert "LIMIT %s" in sql
     
-    def test_get_audit_event_insert_sql(self, dialect):
+    def test_get_audit_event_insert(self, dialect):
         """Test audit event insert SQL."""
-        sql = dialect.get_audit_event_insert_sql()
+        sql = dialect.get_audit_event_insert()
         assert "INSERT INTO audit_events" in sql
         assert "RETURNING id" in sql
     
-    def test_get_quality_metric_insert_sql(self, dialect):
+    def test_get_quality_metric_insert(self, dialect):
         """Test quality metric insert SQL."""
-        sql = dialect.get_quality_metric_insert_sql()
+        sql = dialect.get_quality_metric_insert()
         assert "INSERT INTO quality_metrics" in sql
         assert "RETURNING id" in sql
     
-    def test_get_performance_metric_insert_sql(self, dialect):
+    def test_get_performance_metric_insert(self, dialect):
         """Test performance metric insert SQL."""
-        sql = dialect.get_performance_metric_insert_sql()
+        sql = dialect.get_performance_metric_insert()
         assert "INSERT INTO performance_metrics" in sql
         assert "RETURNING id" in sql
     
-    def test_get_ingestion_summary_sql_no_filters(self, dialect):
+    def test_get_ingestion_summary_no_filters(self, dialect):
         """Test ingestion summary SQL without filters."""
-        sql, params = dialect.get_ingestion_summary_sql()
+        sql, params = dialect.get_ingestion_summary()
         assert "SELECT" in sql
         assert "GROUP BY status, error_category" in sql
         assert len(params) == 0
         assert "WHERE" not in sql
     
-    def test_get_ingestion_summary_sql_single_filter(self, dialect):
+    def test_get_ingestion_summary_single_filter(self, dialect):
         """Test ingestion summary SQL with single filter."""
-        sql, params = dialect.get_ingestion_summary_sql(pipeline_run_id="test-123")
+        sql, params = dialect.get_ingestion_summary(pipeline_run_id="test-123")
         assert "WHERE pipeline_run_id = %s" in sql
         assert len(params) == 1
         assert params[0] == "test-123"
     
-    def test_get_quality_summary_sql_with_filter(self, dialect):
+    def test_get_quality_summary_with_filter(self, dialect):
         """Test quality summary SQL with filter."""
-        sql, params = dialect.get_quality_summary_sql(pipeline_run_id="test-123")
+        sql, params = dialect.get_quality_summary(pipeline_run_id="test-123")
         assert "WHERE pipeline_run_id = %s" in sql
         assert len(params) == 1
         assert params[0] == "test-123"
     
-    def test_get_quality_summary_sql_no_filter(self, dialect):
+    def test_get_quality_summary_no_filter(self, dialect):
         """Test quality summary SQL without filter."""
-        sql, params = dialect.get_quality_summary_sql()
+        sql, params = dialect.get_quality_summary()
         assert "SELECT" in sql
         assert "AVG(" in sql
         assert len(params) == 0
         assert "WHERE" not in sql
     
-    def test_get_cleanup_sql(self, dialect):
+    def test_get_cleanup(self, dialect):
         """Test cleanup SQL statements."""
         cutoff_date = datetime.now() - timedelta(days=30)
-        statements = dialect.get_cleanup_sql(cutoff_date)
+        statements = dialect.get_cleanup(cutoff_date)
         
         assert len(statements) == 7  # Should have 7 delete statements
         assert all(isinstance(stmt, tuple) and len(stmt) == 2 for stmt in statements)

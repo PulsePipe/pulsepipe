@@ -57,6 +57,9 @@ class PulseOperationalContent(BaseModel):
     adjustments: List[Adjustment] = []
     prior_authorizations: List[PriorAuthorization] = []
     
+    # De-identification status
+    deidentified: bool = False
+    
     def summary(self) -> str:
         """
         Generate a human-friendly summary of the operational content.

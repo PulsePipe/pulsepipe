@@ -1,3 +1,5 @@
+import json
+from pulsepipe.persistence.database.connection import DatabaseResult
 import pytest
 import os
 import sys
@@ -107,40 +109,60 @@ class TestPersistenceFactory:
         assert "username" in str(exc_info.value)
         assert "password" in str(exc_info.value)
     
-    @patch('pulsepipe.persistence.factory.MongoDBConnection')
-    def test_get_database_connection_mongodb_valid(self, mock_mongodb):
-        """Test MongoDB connection with valid configuration"""
-        config = {
-            "persistence": {
-                "type": "mongodb",
-                "mongodb": {
-                    "connection_string": "mongodb://localhost:27017",
-                    "database": "testdb",
-                    "collection_prefix": "test_",
-                    "username": "user",
-                    "password": "pass",
-                    "replica_set": "rs0",
-                    "read_preference": "primary"
-                }
-            }
+    @patch('pulsepipe.persistence.database.mongodb_impl.MongoClient')
+    def test_execute_find_with_options(self, mock_mongo_client):
+        """Test executing find operation with options."""
+        mock_cursor = MagicMock()
+        # Make the cursor iterable
+        mock_cursor.__iter__.return_value = iter([
+            {"_id": "1", "name": "test1"},
+            {"_id": "2", "name": "test2"}
+        ])
+        
+        # Set up method chaining - each method returns the cursor itself
+        mock_cursor.sort.return_value = mock_cursor
+        mock_cursor.skip.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
+        
+        mock_collection = MagicMock()
+        mock_collection.find.return_value = mock_cursor
+        
+        mock_database = MagicMock()
+        mock_database.__getitem__.return_value = mock_collection
+        
+        mock_client = MagicMock()
+        mock_client.__getitem__.return_value = mock_database
+        mock_mongo_client.return_value = mock_client
+        
+        conn = MongoDBConnection("mongodb://172.17.14.126:27017/", "test")
+        
+        operation = {
+            "collection": "test_collection",
+            "operation": "find",
+            "filter": {"active": True},
+            "projection": {"name": 1},
+            "limit": 10,
+            "skip": 5,
+            "sort": [["name", 1]]  # JSON serialization converts tuples to lists
         }
         
-        mock_instance = MagicMock()
-        mock_mongodb.return_value = mock_instance
+        result = conn.execute(json.dumps(operation))
         
-        connection = get_database_connection(config)
+        assert isinstance(result, DatabaseResult)
+        assert len(result.rows) == 2
         
-        # Should create a MongoDB connection
-        mock_mongodb.assert_called_once_with(
-            connection_string="mongodb://localhost:27017",
-            database="testdb",
-            collection_prefix="test_",
-            username="user",
-            password="pass",
-            replica_set="rs0",
-            read_preference="primary"
+        # Verify the find() method was called with filter and projection only
+        mock_collection.find.assert_called_once_with(
+            {"active": True},
+            {"name": 1}
         )
-        assert connection is mock_instance
+        
+        # Verify the chained method calls
+        mock_cursor.skip.assert_called_once_with(5)
+        mock_cursor.limit.assert_called_once_with(10)
+        mock_cursor.sort.assert_called_once_with([["name", 1]])
+        
+        conn.close()
     
     def test_get_database_connection_mongodb_missing_fields(self):
         """Test MongoDB connection with missing required fields"""

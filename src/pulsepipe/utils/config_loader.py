@@ -25,10 +25,53 @@ import os
 import yaml
 from pathlib import Path
 import sys
-from typing import Optional
+import re
+from typing import Optional, Any, Dict
 from pulsepipe.utils.log_factory import LogFactory
 
 logger = LogFactory.get_logger(__name__)
+
+
+def expand_environment_variables(config: Any) -> Any:
+    """
+    Recursively expand environment variables in configuration values.
+    
+    Supports ${VAR_NAME} and ${VAR_NAME:-default_value} syntax.
+    
+    Args:
+        config: Configuration object (dict, list, str, or other)
+        
+    Returns:
+        Configuration object with environment variables expanded
+    """
+    if isinstance(config, dict):
+        return {key: expand_environment_variables(value) for key, value in config.items()}
+    elif isinstance(config, list):
+        return [expand_environment_variables(item) for item in config]
+    elif isinstance(config, str):
+        # Pattern to match ${VAR_NAME} or ${VAR_NAME:-default}
+        pattern = r'\$\{([^}]+)\}'
+        
+        def replace_env_var(match):
+            var_expr = match.group(1)
+            
+            # Check if there's a default value (VAR_NAME:-default)
+            if ':-' in var_expr:
+                var_name, default_value = var_expr.split(':-', 1)
+                return os.getenv(var_name.strip(), default_value)
+            else:
+                # No default value, just get the environment variable
+                var_name = var_expr.strip()
+                env_value = os.getenv(var_name)
+                if env_value is None:
+                    logger.warning(f"Environment variable '{var_name}' not found, keeping original value")
+                    return match.group(0)  # Return original ${VAR_NAME} if not found
+                return env_value
+        
+        return re.sub(pattern, replace_env_var, config)
+    else:
+        return config
+
 
 def get_config_dir() -> str:
     """Locate the config directory relative to the PulsePipe binary"""
@@ -130,14 +173,16 @@ def load_config(path: str = "pulsepipe.yaml") -> dict:
     
     try:
         with open(config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
+            config = yaml.safe_load(f) or {}
+            return expand_environment_variables(config)
     except UnicodeDecodeError as e:
         logger.warning(f"Encoding issue when reading {config_path}: {str(e)}. Trying different encodings.")
         # Try with different encodings
         for encoding in ['utf-8-sig', 'latin-1', 'ascii', 'cp1252']:
             try:
                 with open(config_path, "r", encoding=encoding) as f:
-                    return yaml.safe_load(f) or {}
+                    config = yaml.safe_load(f) or {}
+                    return expand_environment_variables(config)
             except Exception:
                 continue
         

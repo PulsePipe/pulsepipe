@@ -34,5 +34,9 @@ from .tracking_repository import (
     TrackingRepository,
     PipelineRunSummary,
     IngestionStat,
+    ChunkingStat,
+    DeidStat,
+    EmbeddingStat,
+    VectorDbStat,
     QualityMetric
 )

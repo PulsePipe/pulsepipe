@@ -370,12 +370,39 @@ def list(show_all, clinical, operational):
 
 
 @model.command()
-@click.argument('model_path', required=True)
+@click.argument('model_path', required=True, metavar='MODEL_PATH')
 def example(model_path):
-    """Generate example JSON for a model.
+    """Generate example JSON data for a healthcare data model.
     
+    Creates sample JSON that conforms to the specified model schema, useful for
+    testing ingestion pipelines, understanding model structure, and prototyping
+    healthcare data transformations.
+    
+    MODEL_PATH should be the full dotted path to a Pydantic model class.
+    
+    \b
+    Healthcare Model Categories:
+    • Clinical Models: patient, allergy, medication, lab, vital_sign, etc.
+    • Operational Models: billing, claims, prior_authorization, etc.
+    • Content Models: clinical_content, operational_content
+    
+    \b
     Examples:
-        pulsepipe model example pulsepipe.models.clinical.Patient
+        # Generate example patient data
+        pulsepipe model example pulsepipe.models.patient.PatientInfo
+        
+        # Generate clinical content structure
+        pulsepipe model example pulsepipe.models.clinical_content.PulseClinicalContent
+        
+        # Generate medication record example
+        pulsepipe model example pulsepipe.models.medication.Medication
+        
+        # Generate billing/claims example
+        pulsepipe model example pulsepipe.models.billing.BillingInfo
+    
+    \b
+    Tip: Use 'pulsepipe model list --clinical' or 'pulsepipe model list --operational'
+         to discover available healthcare models.
     """
     try:
         from pulsepipe.utils.log_factory import LogFactory
@@ -400,13 +427,22 @@ def example(model_path):
             click.echo(json.dumps(example_data, indent=2))
             
     except Exception as e:
-        logger.error(f"Error generating example: {str(e)}", exc_info=True)
+        if logger:
+            logger.error(f"Error generating example: {str(e)}", exc_info=True)
         click.echo(f"❌ Error: {str(e)}", err=True)
 
 
 
-def generate_example_from_schema(schema):
-    """Generate a minimal example instance from a JSON schema."""
+def generate_example_from_schema(schema, field_name=""):
+    """Generate a realistic healthcare example instance from a JSON schema."""
+    # Handle anyOf first - common pattern in Pydantic schemas for optional fields
+    if 'anyOf' in schema:
+        non_null_types = [item for item in schema['anyOf'] if item.get('type') != 'null']
+        if non_null_types:
+            # Use the first non-null type for the example
+            return generate_example_from_schema(non_null_types[0], field_name)
+        return None
+    
     if 'type' not in schema:
         return None
     
@@ -415,33 +451,181 @@ def generate_example_from_schema(schema):
         properties = schema.get('properties', {})
         required = schema.get('required', [])
         
+        # Generate examples for all properties, not just required ones
         for prop_name, prop_schema in properties.items():
-            if prop_name in required:
-                result[prop_name] = generate_example_from_schema(prop_schema)
+            # Skip if the property allows only null
+            if prop_schema.get('type') == 'null':
+                continue
+            
+            result[prop_name] = generate_example_from_schema(prop_schema, prop_name)
         
         return result
     
     elif schema['type'] == 'array':
         items_schema = schema.get('items', {})
-        return [generate_example_from_schema(items_schema)]
+        return [generate_example_from_schema(items_schema, field_name)]
     
     elif schema['type'] == 'string':
         if 'enum' in schema:
             return schema['enum'][0]
         elif schema.get('format') == 'date-time':
-            return "2023-01-01T00:00:00Z"
+            return "2024-01-15T10:30:00Z"
         elif schema.get('format') == 'date':
-            return "2023-01-01"
+            return "1985-03-22"
         else:
-            return "example"
+            return _generate_realistic_string_value(field_name or schema.get('title', ''))
     
     elif schema['type'] == 'integer':
-        return 0
+        return _generate_realistic_integer_value(field_name or schema.get('title', ''))
     
     elif schema['type'] == 'number':
-        return 0.0
+        return _generate_realistic_number_value(field_name or schema.get('title', ''))
     
     elif schema['type'] == 'boolean':
-        return False
+        return True
     
     return None
+
+
+def _generate_realistic_string_value(field_name):
+    """Generate realistic string values based on field name patterns."""
+    field_lower = field_name.lower() if field_name else ""
+    
+    # Patient/Person identifiers
+    if any(x in field_lower for x in ['patient_id', 'patientid', 'mrn', 'medical_record']):
+        return "MRN123456789"
+    elif any(x in field_lower for x in ['id', 'identifier']):
+        return "12345-67890-ABCDE"
+    
+    # Names
+    elif any(x in field_lower for x in ['first_name', 'given', 'firstname']):
+        return "John"
+    elif any(x in field_lower for x in ['last_name', 'family', 'lastname', 'surname']):
+        return "Smith"
+    elif 'name' in field_lower:
+        return "John Smith"
+    
+    # Contact information
+    elif any(x in field_lower for x in ['phone', 'telephone']):
+        return "(555) 123-4567"
+    elif 'email' in field_lower:
+        return "john.smith@example.com"
+    elif any(x in field_lower for x in ['address', 'street']):
+        return "123 Main Street"
+    elif 'city' in field_lower:
+        return "Boston"
+    elif any(x in field_lower for x in ['state', 'province']):
+        return "MA"
+    elif any(x in field_lower for x in ['zip', 'postal']):
+        return "02101"
+    
+    # Healthcare-specific fields
+    elif any(x in field_lower for x in ['diagnosis', 'condition']):
+        return "Hypertension"
+    elif any(x in field_lower for x in ['medication', 'drug']):
+        return "Lisinopril 10mg"
+    elif any(x in field_lower for x in ['allergy', 'allergen']):
+        return "Penicillin"
+    elif any(x in field_lower for x in ['procedure', 'treatment']):
+        return "Blood pressure check"
+    elif any(x in field_lower for x in ['lab', 'test', 'result']):
+        return "Complete Blood Count"
+    elif any(x in field_lower for x in ['vital', 'sign']):
+        return "Blood Pressure"
+    elif any(x in field_lower for x in ['provider', 'physician', 'doctor']):
+        return "Dr. Jane Wilson, MD"
+    elif any(x in field_lower for x in ['facility', 'hospital']):
+        return "General Hospital"
+    elif any(x in field_lower for x in ['department', 'unit']):
+        return "Cardiology"
+    
+    # Social history specific fields
+    elif any(x in field_lower for x in ['smoking', 'tobacco']):
+        return "Former smoker, quit 5 years ago"
+    elif any(x in field_lower for x in ['alcohol', 'drinking']):
+        return "Social drinker, 1-2 drinks per week"
+    elif any(x in field_lower for x in ['exercise', 'activity']):
+        return "Moderate exercise 3 times per week"
+    elif any(x in field_lower for x in ['occupation', 'job', 'work']):
+        return "Software Engineer"
+    elif any(x in field_lower for x in ['marital', 'marriage']):
+        return "Married"
+    elif any(x in field_lower for x in ['education']):
+        return "College graduate"
+    elif any(x in field_lower for x in ['social', 'history']):
+        return "Non-smoker, occasional alcohol use, regular exercise"
+    
+    # Clinical codes
+    elif any(x in field_lower for x in ['icd', 'code']):
+        return "I10"
+    elif any(x in field_lower for x in ['snomed', 'sct']):
+        return "38341003"
+    elif any(x in field_lower for x in ['loinc']):
+        return "8480-6"
+    elif any(x in field_lower for x in ['cpt']):
+        return "99213"
+    
+    # Status/Category fields
+    elif any(x in field_lower for x in ['status', 'state']):
+        return "active"
+    elif any(x in field_lower for x in ['type', 'category']):
+        return "primary"
+    elif any(x in field_lower for x in ['gender', 'sex']):
+        return "male"
+    elif any(x in field_lower for x in ['race', 'ethnicity']):
+        return "White"
+    
+    # Notes and descriptions
+    elif any(x in field_lower for x in ['note', 'comment', 'description', 'narrative']):
+        return "Patient presents with elevated blood pressure. Recommend lifestyle modifications and medication adherence."
+    
+    # Default fallback
+    return "Sample Healthcare Data"
+
+
+def _generate_realistic_integer_value(field_name):
+    """Generate realistic integer values based on field name patterns."""
+    field_lower = field_name.lower() if field_name else ""
+    
+    if any(x in field_lower for x in ['age', 'years']):
+        return 45
+    elif any(x in field_lower for x in ['weight', 'kg']):
+        return 75
+    elif any(x in field_lower for x in ['height', 'cm']):
+        return 175
+    elif any(x in field_lower for x in ['systolic', 'sbp']):
+        return 120
+    elif any(x in field_lower for x in ['diastolic', 'dbp']):
+        return 80
+    elif any(x in field_lower for x in ['heart_rate', 'pulse', 'bpm']):
+        return 72
+    elif any(x in field_lower for x in ['glucose', 'sugar']):
+        return 95
+    elif any(x in field_lower for x in ['count', 'num', 'quantity']):
+        return 2
+    elif any(x in field_lower for x in ['dose', 'dosage']):
+        return 10
+    
+    return 123
+
+
+def _generate_realistic_number_value(field_name):
+    """Generate realistic number values based on field name patterns."""
+    field_lower = field_name.lower() if field_name else ""
+    
+    if any(x in field_lower for x in ['temperature', 'temp']):
+        return 98.6
+    elif any(x in field_lower for x in ['bmi']):
+        return 24.5
+    elif any(x in field_lower for x in ['cholesterol']):
+        return 185.5
+    elif any(x in field_lower for x in ['hemoglobin', 'hgb']):
+        return 14.2
+    elif any(x in field_lower for x in ['creatinine']):
+        return 1.1
+    elif any(x in field_lower for x in ['cost', 'amount', 'price']):
+        return 125.50
+    elif any(x in field_lower for x in ['percentage', 'percent']):
+        return 85.5
+    
+    return 42.5

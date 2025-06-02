@@ -505,6 +505,50 @@ class SQLiteDialect(DatabaseDialect):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
     
+    def get_chunking_stat_insert(self) -> str:
+        """Get SQL for inserting a chunking statistic."""
+        return """
+            INSERT INTO chunking_stats (
+                pipeline_run_id, stage_name, source_id, record_id, chunk_type,
+                status, error_category, error_message, error_details,
+                processing_time_ms, chunk_count, total_chars, avg_chunk_size,
+                overlap_chars, chunker_type, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+    
+    def get_deid_stat_insert(self) -> str:
+        """Get SQL for inserting a de-identification statistic."""
+        return """
+            INSERT INTO deid_stats (
+                pipeline_run_id, stage_name, source_id, record_id, content_type,
+                status, error_category, error_message, error_details,
+                processing_time_ms, phi_entities_detected, phi_entities_removed,
+                confidence_scores, deid_method, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+    
+    def get_embedding_stat_insert(self) -> str:
+        """Get SQL for inserting an embedding statistic."""
+        return """
+            INSERT INTO embedding_stats (
+                pipeline_run_id, stage_name, source_id, record_id, content_type,
+                status, error_category, error_message, error_details,
+                processing_time_ms, chunk_count, embedding_dimensions, model_name,
+                timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+    
+    def get_vector_db_stat_insert(self) -> str:
+        """Get SQL for inserting a vector database statistic."""
+        return """
+            INSERT INTO vector_db_stats (
+                pipeline_run_id, stage_name, source_id, record_id, content_type,
+                status, error_category, error_message, error_details,
+                processing_time_ms, vector_count, index_name, collection_name,
+                vector_store_type, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+    
     def get_ingestion_summary(self, pipeline_run_id: Optional[str] = None,
                                  start_date: Optional[datetime] = None,
                                  end_date: Optional[datetime] = None) -> Tuple[str, List[Any]]:

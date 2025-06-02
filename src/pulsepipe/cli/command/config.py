@@ -49,15 +49,6 @@ def _get_bookmark_factory():
     from pulsepipe.adapters.file_watcher_bookmarks.factory import create_bookmark_store
     return create_bookmark_store
 
-@click.group()
-@click.pass_context
-def config(ctx):
-    """Manage PulsePipe configuration.
-    
-    View, validate, and manage configuration profiles.
-    """
-    pass
-
 @click.group(invoke_without_command=True)
 @click.pass_context
 def config(ctx):
@@ -142,6 +133,58 @@ def validate(ctx, profile, validate_all):
     
     else:
         click.echo(ctx.get_help())
+
+
+@config.command(name='show')
+@click.option('--format', '-f', type=click.Choice(['yaml', 'table']), default='yaml',
+              help='Output format for configuration display')
+@click.pass_context
+def show(ctx, format):
+    """Show the current active configuration settings.
+    
+    Examples:
+        pulsepipe config show
+        pulsepipe config show --format table
+    """
+    logger = LogFactory.get_logger("config.show")
+    
+    # Get the current configuration from context
+    current_config = ctx.obj.get('config')
+    config_path = ctx.obj.get('config_path', 'Unknown')
+    
+    if current_config is None:
+        click.echo("❌ No configuration loaded.", err=True)
+        ctx.exit(1)
+    
+    # Display configuration location
+    click.echo(f"📁 Configuration Location: {config_path}")
+    click.echo()
+    
+    if format == 'table':
+        # Display configuration in table format
+        click.echo("🔧 Current Configuration:")
+        click.echo("-" * 50)
+        
+        def display_section(section_name, section_data, indent=0):
+            prefix = "  " * indent
+            if isinstance(section_data, dict):
+                click.echo(f"{prefix}{section_name}:")
+                for key, value in section_data.items():
+                    if isinstance(value, dict):
+                        display_section(key, value, indent + 1)
+                    else:
+                        click.echo(f"{prefix}  {key}: {value}")
+            else:
+                click.echo(f"{prefix}{section_name}: {section_data}")
+        
+        for section, data in current_config.items():
+            display_section(section, data)
+            click.echo()
+    else:
+        # Display configuration in YAML format
+        click.echo("🔧 Current Configuration:")
+        click.echo("-" * 50)
+        click.echo(yaml.dump(current_config, default_flow_style=False, sort_keys=False))
 
 
 @config.command()

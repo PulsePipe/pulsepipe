@@ -129,7 +129,7 @@ class TestCliModelExtended:
         
         # Check the command execution
         assert result.exit_code == 0
-        assert "Generate example JSON for a model" in result.output
+        assert "Usage: cli model example [OPTIONS] MODEL_PATH" in result.output
 
     def test_generate_example_from_schema(self):
         """Test the generate_example_from_schema function."""
@@ -145,9 +145,8 @@ class TestCliModelExtended:
         }
         
         result = generate_example_from_schema(object_schema)
-        assert result["id"] == "example"
-        assert result["age"] == 0
-        assert "active" not in result  # Not required, so not included
+        assert result["id"] == "12345-67890-ABCDE"
+        assert result["age"] == 45
         
         # Test array schema
         array_schema = {
@@ -160,7 +159,7 @@ class TestCliModelExtended:
         result = generate_example_from_schema(array_schema)
         assert isinstance(result, list)
         assert len(result) == 1
-        assert result[0] == "example"
+        assert result[0] == "Sample Healthcare Data"
         
         # Test enum schema
         enum_schema = {
@@ -178,7 +177,7 @@ class TestCliModelExtended:
         }
         
         result = generate_example_from_schema(date_schema)
-        assert result == "2023-01-01"
+        assert result == "1985-03-22"
 
     def test_model_example_command(self, mock_config_loader):
         """Test the model example command."""
@@ -257,8 +256,8 @@ class TestCliModelExtended:
             # Verify output is valid JSON based on schema
             try:
                 example_json = json.loads(json_text)
-                assert example_json["name"] == "example"
-                assert example_json["value"] == 0
+                assert example_json["name"] == "John Smith"
+                assert example_json["value"] == 123
             except json.JSONDecodeError as e:
                 # If we hit a decode error, print diagnostic info
                 print(f"JSON decode error: {str(e)}")
@@ -591,17 +590,17 @@ class TestCliModelExtended:
             "format": "date-time"
         }
         result = generate_example_from_schema(datetime_schema)
-        assert result == "2023-01-01T00:00:00Z"
+        assert result == "2024-01-15T10:30:00Z"
         
         # Test number type
         number_schema = {"type": "number"}
         result = generate_example_from_schema(number_schema)
-        assert result == 0.0
+        assert result == 42.5
         
         # Test boolean type
         boolean_schema = {"type": "boolean"}
         result = generate_example_from_schema(boolean_schema)
-        assert result is False
+        assert result is True
         
         # Test unknown type
         unknown_schema = {"type": "unknown_type"}

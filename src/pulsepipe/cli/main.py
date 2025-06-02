@@ -86,6 +86,82 @@ Commands:
   list     📋 List all processed files (successes and errors).
   reset    🧹 Reset (clear) the bookmark cache.""")
                 sys.exit(0)
+            elif len(sys.argv) >= 3 and sys.argv[2] == 'show':
+                print("""Usage: pulsepipe config show [OPTIONS]
+
+  Show the current active configuration settings.
+
+Options:
+  -f, --format [yaml|table]  Output format for configuration display
+                             [default: yaml]
+  --help                     Show this message and exit.
+
+Examples:
+  pulsepipe config show
+  pulsepipe config show --format table""")
+                sys.exit(0)
+            elif len(sys.argv) >= 3 and sys.argv[2] == 'list':
+                print("""Usage: pulsepipe config list [OPTIONS]
+
+  List available configuration profiles.
+
+Options:
+  --config-dir DIRECTORY  Configuration directory
+  --help                  Show this message and exit.
+
+Examples:
+  pulsepipe config list""")
+                sys.exit(0)
+            elif len(sys.argv) >= 3 and sys.argv[2] == 'validate':
+                print("""Usage: pulsepipe config validate [OPTIONS]
+
+  Validate configuration files.
+
+Options:
+  -p, --profile TEXT  Profile name to validate
+  --all               Validate all profiles in config directory
+  --help              Show this message and exit.
+
+Examples:
+  pulsepipe config validate --profile patient_fhir
+  pulsepipe config validate --all""")
+                sys.exit(0)
+            elif len(sys.argv) >= 3 and sys.argv[2] == 'create-profile':
+                print("""Usage: pulsepipe config create-profile [OPTIONS]
+
+  Create a unified profile from separate config files.
+
+Options:
+  -b, --base TEXT        Base config file (default: pulsepipe.yaml)
+  -a, --adapter TEXT     Adapter config file  [required]
+  -i, --ingester TEXT    Ingester config file  [required]
+  -c, --chunker TEXT     Chunker config file
+  -e, --embedding TEXT   Embedding config file
+  -vs, --vectorstore TEXT  Vectorstore config file
+  -n, --name TEXT        Profile name to create  [required]
+  -d, --description TEXT Profile description
+  -f, --force            Overwrite existing profile
+  --help                 Show this message and exit.
+
+Examples:
+  pulsepipe config create-profile --adapter fhir.yaml --ingester json.yaml --name patient_fhir
+  pulsepipe config create-profile --adapter fhir.yaml --ingester json.yaml --chunker chunker.yaml \\
+    --embedding embedding.yaml --vectorstore vectorstore.yaml --name complete_fhir""")
+                sys.exit(0)
+            elif len(sys.argv) >= 3 and sys.argv[2] == 'delete-profile':
+                print("""Usage: pulsepipe config delete-profile [OPTIONS]
+
+  Delete a configuration profile.
+
+Options:
+  -n, --name TEXT  Profile name to delete  [required]
+  -f, --force      Delete without confirmation
+  --help           Show this message and exit.
+
+Examples:
+  pulsepipe config delete-profile --name old_profile
+  pulsepipe config delete-profile --name unused_profile --force""")
+                sys.exit(0)
             else:
                 print("""Usage: pulsepipe config [OPTIONS] COMMAND [ARGS]...
 
@@ -100,6 +176,7 @@ Commands:
   list            List available configuration profiles.
   delete-profile  Delete a configuration profile.
   filewatcher     File Watcher bookmark and file management.
+  show            Show the current active configuration settings.
 
 Examples:
   pulsepipe config list
@@ -283,44 +360,202 @@ if len(sys.argv) > 1 and sys.argv[1] == 'model':
         except Exception as e:
             click.echo(f"❌ Validation failed: {str(e)}", err=True)
 
-    def generate_example_from_schema(schema):
-        """Generate a minimal example instance from a JSON schema."""
+    def _generate_realistic_string_value(field_name):
+        """Generate realistic string values based on field name patterns."""
+        field_lower = field_name.lower() if field_name else ""
+        
+        # Patient/Person identifiers
+        if any(x in field_lower for x in ['patient_id', 'patientid', 'mrn', 'medical_record']):
+            return "MRN123456789"
+        elif any(x in field_lower for x in ['id', 'identifier']):
+            return "12345-67890-ABCDE"
+        
+        # Names
+        elif any(x in field_lower for x in ['first_name', 'given', 'firstname']):
+            return "John"
+        elif any(x in field_lower for x in ['last_name', 'family', 'lastname', 'surname']):
+            return "Smith"
+        elif 'name' in field_lower:
+            return "John Smith"
+        
+        # Contact information
+        elif any(x in field_lower for x in ['phone', 'telephone']):
+            return "(555) 123-4567"
+        elif 'email' in field_lower:
+            return "john.smith@example.com"
+        elif any(x in field_lower for x in ['address', 'street']):
+            return "123 Main Street"
+        elif 'city' in field_lower:
+            return "Boston"
+        elif any(x in field_lower for x in ['state', 'province']):
+            return "MA"
+        elif any(x in field_lower for x in ['zip', 'postal']):
+            return "02101"
+        
+        # Healthcare-specific fields
+        elif any(x in field_lower for x in ['diagnosis', 'condition']):
+            return "Hypertension"
+        elif any(x in field_lower for x in ['medication', 'drug']):
+            return "Lisinopril 10mg"
+        elif any(x in field_lower for x in ['allergy', 'allergen', 'substance']):
+            return "Penicillin"
+        elif any(x in field_lower for x in ['procedure', 'treatment']):
+            return "Blood pressure check"
+        elif any(x in field_lower for x in ['lab', 'test', 'result']):
+            return "Complete Blood Count"
+        elif any(x in field_lower for x in ['vital', 'sign']):
+            return "Blood Pressure"
+        elif any(x in field_lower for x in ['provider', 'physician', 'doctor']):
+            return "Dr. Jane Wilson, MD"
+        elif any(x in field_lower for x in ['facility', 'hospital']):
+            return "General Hospital"
+        elif any(x in field_lower for x in ['department', 'unit']):
+            return "Cardiology"
+        
+        # Social history specific fields
+        elif any(x in field_lower for x in ['smoking', 'tobacco']):
+            return "Former smoker, quit 5 years ago"
+        elif any(x in field_lower for x in ['alcohol', 'drinking']):
+            return "Social drinker, 1-2 drinks per week"
+        elif any(x in field_lower for x in ['exercise', 'activity']):
+            return "Moderate exercise 3 times per week"
+        elif any(x in field_lower for x in ['occupation', 'job', 'work']):
+            return "Software Engineer"
+        elif any(x in field_lower for x in ['marital', 'marriage']):
+            return "Married"
+        elif any(x in field_lower for x in ['education']):
+            return "College graduate"
+        elif any(x in field_lower for x in ['social', 'history']):
+            return "Non-smoker, occasional alcohol use, regular exercise"
+        
+        # Clinical codes
+        elif any(x in field_lower for x in ['icd', 'code']):
+            return "I10"
+        elif any(x in field_lower for x in ['snomed', 'sct']):
+            return "38341003"
+        elif any(x in field_lower for x in ['loinc']):
+            return "8480-6"
+        elif any(x in field_lower for x in ['cpt']):
+            return "99213"
+        
+        # Status/Category fields
+        elif any(x in field_lower for x in ['status', 'state']):
+            return "active"
+        elif any(x in field_lower for x in ['type', 'category']):
+            return "primary"
+        elif any(x in field_lower for x in ['gender', 'sex']):
+            return "male"
+        elif any(x in field_lower for x in ['race', 'ethnicity']):
+            return "White"
+        elif any(x in field_lower for x in ['severity']):
+            return "moderate"
+        elif any(x in field_lower for x in ['reaction']):
+            return "skin rash"
+        elif any(x in field_lower for x in ['onset']):
+            return "2020-01-15"
+        
+        # Notes and descriptions
+        elif any(x in field_lower for x in ['note', 'comment', 'description', 'narrative']):
+            return "Patient presents with elevated blood pressure. Recommend lifestyle modifications and medication adherence."
+        
+        # Default fallback
+        return "Sample Healthcare Data"
+
+    def _generate_realistic_integer_value(field_name):
+        """Generate realistic integer values based on field name patterns."""
+        field_lower = field_name.lower() if field_name else ""
+        
+        if any(x in field_lower for x in ['age', 'years']):
+            return 45
+        elif any(x in field_lower for x in ['weight', 'kg']):
+            return 75
+        elif any(x in field_lower for x in ['height', 'cm']):
+            return 175
+        elif any(x in field_lower for x in ['systolic', 'sbp']):
+            return 120
+        elif any(x in field_lower for x in ['diastolic', 'dbp']):
+            return 80
+        elif any(x in field_lower for x in ['heart_rate', 'pulse', 'bpm']):
+            return 72
+        elif any(x in field_lower for x in ['glucose', 'sugar']):
+            return 95
+        elif any(x in field_lower for x in ['count', 'num', 'quantity']):
+            return 2
+        elif any(x in field_lower for x in ['dose', 'dosage']):
+            return 10
+        
+        return 123
+
+    def _generate_realistic_number_value(field_name):
+        """Generate realistic number values based on field name patterns."""
+        field_lower = field_name.lower() if field_name else ""
+        
+        if any(x in field_lower for x in ['temperature', 'temp']):
+            return 98.6
+        elif any(x in field_lower for x in ['bmi']):
+            return 24.5
+        elif any(x in field_lower for x in ['cholesterol']):
+            return 185.5
+        elif any(x in field_lower for x in ['hemoglobin', 'hgb']):
+            return 14.2
+        elif any(x in field_lower for x in ['creatinine']):
+            return 1.1
+        elif any(x in field_lower for x in ['cost', 'amount', 'price']):
+            return 125.50
+        elif any(x in field_lower for x in ['percentage', 'percent']):
+            return 85.5
+        
+        return 42.5
+
+    def generate_example_from_schema(schema, field_name=""):
+        """Generate a realistic healthcare example instance from a JSON schema."""
+        # Handle anyOf first - common pattern in Pydantic schemas for optional fields
+        if 'anyOf' in schema:
+            non_null_types = [item for item in schema['anyOf'] if item.get('type') != 'null']
+            if non_null_types:
+                # Use the first non-null type for the example
+                return generate_example_from_schema(non_null_types[0], field_name)
+            return None
+        
         if 'type' not in schema:
             return None
         
         if schema['type'] == 'object':
             result = {}
             properties = schema.get('properties', {})
-            required = schema.get('required', [])
             
+            # Generate examples for all properties, not just required ones
             for prop_name, prop_schema in properties.items():
-                if prop_name in required:
-                    result[prop_name] = generate_example_from_schema(prop_schema)
+                # Skip if the property allows only null
+                if prop_schema.get('type') == 'null':
+                    continue
+                
+                result[prop_name] = generate_example_from_schema(prop_schema, prop_name)
             
             return result
         
         elif schema['type'] == 'array':
             items_schema = schema.get('items', {})
-            return [generate_example_from_schema(items_schema)]
+            return [generate_example_from_schema(items_schema, field_name)]
         
         elif schema['type'] == 'string':
             if 'enum' in schema:
                 return schema['enum'][0]
             elif schema.get('format') == 'date-time':
-                return "2023-01-01T00:00:00Z"
+                return "2024-01-15T10:30:00Z"
             elif schema.get('format') == 'date':
-                return "2023-01-01"
+                return "1985-03-22"
             else:
-                return "example"
+                return _generate_realistic_string_value(field_name or schema.get('title', ''))
         
         elif schema['type'] == 'integer':
-            return 0
+            return _generate_realistic_integer_value(field_name or schema.get('title', ''))
         
         elif schema['type'] == 'number':
-            return 0.0
+            return _generate_realistic_number_value(field_name or schema.get('title', ''))
         
         elif schema['type'] == 'boolean':
-            return False
+            return True
         
         return None
 
@@ -660,6 +895,7 @@ def cli(ctx, config_path, profile, pipeline_id, log_level, json_logs, quiet):
         sys.exit(1)
 
     ctx.obj['config'] = config
+    ctx.obj['config_path'] = config_path
 
     if config.get("logging", {}).get("show_banner", True):
         click.secho(get_banner(), fg='blue')
@@ -700,6 +936,11 @@ def config():
     """Configuration management commands."""
     pass
 
+# Force load config commands immediately at module level
+from pulsepipe.cli.command.config import config as config_impl
+for name, command in config_impl.commands.items():
+    config.add_command(command, name)
+
 @cli.group()
 def model():
     """Model inspection and management commands."""
@@ -715,14 +956,6 @@ _config_invoke = config.invoke
 _model_invoke = model.invoke
 _metrics_invoke = metrics.invoke
 
-def lazy_config_invoke(ctx):
-    """Lazy load config commands only when needed."""
-    if not config.commands:
-        # Import config implementation without loading heavy pipeline imports
-        from pulsepipe.cli.command.config import config as config_impl
-        for name, command in config_impl.commands.items():
-            config.add_command(command, name)
-    return _config_invoke(ctx)
 
 def lazy_model_invoke(ctx):
     """Lazy load model commands only when needed."""
@@ -740,6 +973,7 @@ def lazy_metrics_invoke(ctx):
             metrics.add_command(command, name)
     return _metrics_invoke(ctx)
 
+
 def lazy_metrics_get_command(ctx, cmd_name):
     """Lazy load metrics commands for help and command resolution."""
     if not metrics.commands:
@@ -748,8 +982,7 @@ def lazy_metrics_get_command(ctx, cmd_name):
             metrics.add_command(command, name)
     return metrics.commands.get(cmd_name)
 
-# Replace invoke methods with lazy versions
-config.invoke = lazy_config_invoke
+# Replace invoke methods with lazy versions (config is loaded immediately now)
 model.invoke = lazy_model_invoke
 metrics.invoke = lazy_metrics_invoke
 

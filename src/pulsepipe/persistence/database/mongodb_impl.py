@@ -646,6 +646,38 @@ class MongoDBAdapter(DatabaseDialect):
             "document": {}
         })
     
+    def get_chunking_stat_insert(self) -> str:
+        """Get MongoDB operation for inserting a chunking statistic."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}chunking_stats",
+            "operation": "insert_one",
+            "document": {}
+        })
+    
+    def get_deid_stat_insert(self) -> str:
+        """Get MongoDB operation for inserting a de-identification statistic."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}deid_stats",
+            "operation": "insert_one",
+            "document": {}
+        })
+    
+    def get_embedding_stat_insert(self) -> str:
+        """Get MongoDB operation for inserting an embedding statistic."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}embedding_stats",
+            "operation": "insert_one",
+            "document": {}
+        })
+    
+    def get_vector_db_stat_insert(self) -> str:
+        """Get MongoDB operation for inserting a vector database statistic."""
+        return json.dumps({
+            "collection": f"{self.collection_prefix}vector_db_stats",
+            "operation": "insert_one",
+            "document": {}
+        })
+    
     def get_pipeline_run_count_update(self) -> str:
         """Get MongoDB operation for updating pipeline run counts."""
         return json.dumps({

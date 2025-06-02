@@ -42,6 +42,10 @@ from pulsepipe.config.data_intelligence_config import load_data_intelligence_con
 from pulsepipe.persistence.factory import get_tracking_repository
 from pulsepipe.audit.audit_logger import AuditLogger
 from pulsepipe.audit.ingestion_tracker import IngestionTracker
+from pulsepipe.audit.chunking_tracker import ChunkingTracker
+from pulsepipe.audit.deid_tracker import DeidTracker
+from pulsepipe.audit.embedding_tracker import EmbeddingTracker
+from pulsepipe.audit.vector_db_tracker import VectorDbTracker
 
 logger = LogFactory.get_logger(__name__)
 
@@ -191,19 +195,60 @@ class PipelineContext:
         if self.audit_logger:
             self.audit_logger.log_stage_started(stage_name)
         
-        # Create stage-specific ingestion tracker for ingestion stages
-        if stage_name == "ingestion" and self.data_intelligence_config and self.tracking_repository:
-            if self.data_intelligence_config.is_feature_enabled('ingestion_tracking'):
-                try:
-                    self.stage_trackers[stage_name] = IngestionTracker(
-                        pipeline_run_id=self.pipeline_id,
-                        stage_name=stage_name,
-                        config=self.data_intelligence_config,
-                        repository=self.tracking_repository
-                    )
-                    logger.debug(f"{self.log_prefix} Created ingestion tracker for stage: {stage_name}")
-                except Exception as e:
-                    logger.warning(f"{self.log_prefix} Failed to create ingestion tracker for {stage_name}: {e}")
+        # Create stage-specific trackers
+        if self.data_intelligence_config and self.tracking_repository:
+            self._create_stage_tracker(stage_name)
+    
+    def _create_stage_tracker(self, stage_name: str) -> None:
+        """Create the appropriate tracker for the given stage."""
+        try:
+            if stage_name == "ingestion" and self.data_intelligence_config.is_feature_enabled('ingestion_tracking'):
+                self.stage_trackers[stage_name] = IngestionTracker(
+                    pipeline_run_id=self.pipeline_id,
+                    stage_name=stage_name,
+                    config=self.data_intelligence_config,
+                    repository=self.tracking_repository
+                )
+                logger.debug(f"{self.log_prefix} Created ingestion tracker for stage: {stage_name}")
+            
+            elif stage_name == "chunking" and self.data_intelligence_config.is_feature_enabled('chunking_tracking'):
+                self.stage_trackers[stage_name] = ChunkingTracker(
+                    pipeline_run_id=self.pipeline_id,
+                    stage_name=stage_name,
+                    config=self.data_intelligence_config,
+                    repository=self.tracking_repository
+                )
+                logger.debug(f"{self.log_prefix} Created chunking tracker for stage: {stage_name}")
+            
+            elif stage_name == "deid" and self.data_intelligence_config.is_feature_enabled('deid_tracking'):
+                self.stage_trackers[stage_name] = DeidTracker(
+                    pipeline_run_id=self.pipeline_id,
+                    stage_name=stage_name,
+                    config=self.data_intelligence_config,
+                    repository=self.tracking_repository
+                )
+                logger.debug(f"{self.log_prefix} Created deid tracker for stage: {stage_name}")
+            
+            elif stage_name == "embedding" and self.data_intelligence_config.is_feature_enabled('embedding_tracking'):
+                self.stage_trackers[stage_name] = EmbeddingTracker(
+                    pipeline_run_id=self.pipeline_id,
+                    stage_name=stage_name,
+                    config=self.data_intelligence_config,
+                    repository=self.tracking_repository
+                )
+                logger.debug(f"{self.log_prefix} Created embedding tracker for stage: {stage_name}")
+            
+            elif stage_name == "vectorstore" and self.data_intelligence_config.is_feature_enabled('vector_db_tracking'):
+                self.stage_trackers[stage_name] = VectorDbTracker(
+                    pipeline_run_id=self.pipeline_id,
+                    stage_name=stage_name,
+                    config=self.data_intelligence_config,
+                    repository=self.tracking_repository
+                )
+                logger.debug(f"{self.log_prefix} Created vector database tracker for stage: {stage_name}")
+                
+        except Exception as e:
+            logger.warning(f"{self.log_prefix} Failed to create tracker for {stage_name}: {e}")
     
     def get_ingestion_tracker(self, stage_name: str) -> Optional[IngestionTracker]:
         """
@@ -214,6 +259,54 @@ class PipelineContext:
             
         Returns:
             IngestionTracker instance or None if not available
+        """
+        return self.stage_trackers.get(stage_name)
+    
+    def get_chunking_tracker(self, stage_name: str) -> Optional[ChunkingTracker]:
+        """
+        Get the chunking tracker for a specific stage.
+        
+        Args:
+            stage_name: Name of the stage
+            
+        Returns:
+            ChunkingTracker instance or None if not available
+        """
+        return self.stage_trackers.get(stage_name)
+    
+    def get_deid_tracker(self, stage_name: str) -> Optional[DeidTracker]:
+        """
+        Get the de-identification tracker for a specific stage.
+        
+        Args:
+            stage_name: Name of the stage
+            
+        Returns:
+            DeidTracker instance or None if not available
+        """
+        return self.stage_trackers.get(stage_name)
+    
+    def get_embedding_tracker(self, stage_name: str) -> Optional[EmbeddingTracker]:
+        """
+        Get the embedding tracker for a specific stage.
+        
+        Args:
+            stage_name: Name of the stage
+            
+        Returns:
+            EmbeddingTracker instance or None if not available
+        """
+        return self.stage_trackers.get(stage_name)
+    
+    def get_vector_db_tracker(self, stage_name: str) -> Optional[VectorDbTracker]:
+        """
+        Get the vector database tracker for a specific stage.
+        
+        Args:
+            stage_name: Name of the stage
+            
+        Returns:
+            VectorDbTracker instance or None if not available
         """
         return self.stage_trackers.get(stage_name)
     

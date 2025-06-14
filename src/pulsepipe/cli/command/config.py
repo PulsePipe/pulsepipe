@@ -37,6 +37,7 @@ from pathlib import Path
 # Import only lightweight modules at startup
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
+from pulsepipe.utils.database_diagnostics import raise_database_diagnostic_error, DatabaseDiagnosticError
 
 # Lazy import function for heavy modules
 def _get_sqlite_store():
@@ -384,37 +385,34 @@ def list_processed_files(config_path, profile):
         config = load_config(config_path)
 
     try:
-        # Try to use the unified bookmark store first
+        # Use configured database - no fallback allowed
         create_bookmark_store = _get_bookmark_factory()
         store = create_bookmark_store(config)
         bookmarks = store.get_all()
+        
+        if not bookmarks:
+            click.echo("📭 No processed files found.")
+        else:
+            click.echo("📌 Processed Files:")
+            for path in bookmarks:
+                click.echo(f" - {path}")
+                
+    except DatabaseDiagnosticError as e:
+        # Detailed diagnostic error with troubleshooting guidance
+        click.echo(str(e), err=True)
+        raise click.ClickException("Database connection failed - see details above")
     except Exception as e:
-        # Fall back to legacy SQLite store if unified store fails
-        click.echo(f"⚠️ Could not use unified bookmark store: {e}")
-        click.echo("📂 Using legacy SQLite bookmark store")
+        # Run diagnostics to provide actionable error information
+        try:
+            raise_database_diagnostic_error(config, timeout=5)
+        except DatabaseDiagnosticError as diag_error:
+            click.echo(str(diag_error), err=True)
+            raise click.ClickException("Database connection failed - see diagnostics above")
         
-        # Lazy load SQLiteBookmarkStore as fallback
-        SQLiteBookmarkStore = _get_sqlite_store()
-        
-        db_path = config.get("persistence", {}).get("sqlite", {}).get(
-            "db_path", ".pulsepipe/state/ingestion.sqlite3"
-        )
-        
-        # Ensure the directory exists before opening the database
-        db_dir = os.path.dirname(db_path)
-        # Only try to create directory if there is a directory component
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir, exist_ok=True)
-        
-        store = SQLiteBookmarkStore(db_path)
-        bookmarks = store.get_all()
-    
-    if not bookmarks:
-        click.echo("📭 No processed files found.")
-    else:
-        click.echo("📌 Processed Files:")
-        for path in bookmarks:
-            click.echo(f" - {path}")
+        # If diagnostics didn't catch it, show generic error
+        click.echo(f"❌ Failed to list processed files: {e}", err=True)
+        click.echo("\n💡 Try running 'pulsepipe database health-check' for detailed diagnostics", err=True)
+        raise click.ClickException("Bookmark store operation failed")
 
 @filewatcher.command("reset")
 @click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")
@@ -430,32 +428,28 @@ def reset_bookmarks(config_path, profile):
         config = load_config(config_path)
 
     try:
-        # Try to use the unified bookmark store first
+        # Use configured database - no fallback allowed
         create_bookmark_store = _get_bookmark_factory()
         store = create_bookmark_store(config)
         count = store.clear_all()
         click.echo(f"✅ Cleared {count} bookmarks.")
+        
+    except DatabaseDiagnosticError as e:
+        # Detailed diagnostic error with troubleshooting guidance
+        click.echo(str(e), err=True)
+        raise click.ClickException("Database connection failed - see details above")
     except Exception as e:
-        # Fall back to legacy SQLite store if unified store fails
-        click.echo(f"⚠️ Could not use unified bookmark store: {e}")
-        click.echo("📂 Falling back to legacy SQLite bookmark store")
+        # Run diagnostics to provide actionable error information
+        try:
+            raise_database_diagnostic_error(config, timeout=5)
+        except DatabaseDiagnosticError as diag_error:
+            click.echo(str(diag_error), err=True)
+            raise click.ClickException("Database connection failed - see diagnostics above")
         
-        # Lazy load SQLiteBookmarkStore as fallback
-        SQLiteBookmarkStore = _get_sqlite_store()
-        
-        db_path = config.get("persistence", {}).get("sqlite", {}).get(
-            "db_path", ".pulsepipe/state/ingestion.sqlite3"
-        )
-        
-        # Ensure the directory exists before opening the database
-        db_dir = os.path.dirname(db_path)
-        # Only try to create directory if there is a directory component
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir, exist_ok=True)
-        
-        store = SQLiteBookmarkStore(db_path)
-        count = store.clear_all()
-        click.echo(f"✅ Cleared {count} bookmarks from legacy store.")
+        # If diagnostics didn't catch it, show generic error
+        click.echo(f"❌ Failed to reset bookmarks: {e}", err=True)
+        click.echo("\n💡 Try running 'pulsepipe database health-check' for detailed diagnostics", err=True)
+        raise click.ClickException("Bookmark reset operation failed")
 
 @filewatcher.command("archive")
 @click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")

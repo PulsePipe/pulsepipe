@@ -787,8 +787,8 @@ class TestCliConfig:
                         assert "❌ Failed to delete /path/to/file2.txt: File not found" in result.output
                         assert "✅ Deleted 1 files." in result.output
     
-    def test_filewatcher_commands_create_db_directory(self):
-        """Test that filewatcher commands create database directory if needed."""
+    def test_filewatcher_commands_fail_fast_on_db_error(self):
+        """Test that filewatcher commands fail fast when database connection fails."""
         runner = CliRunner()
         
         with patch('pulsepipe.cli.main.load_config') as main_config:
@@ -797,29 +797,23 @@ class TestCliConfig:
             with patch('pulsepipe.cli.command.config.load_config') as config_load:
                 config_load.return_value = {
                     "persistence": {
-                        "sqlite": {
-                            "db_path": "/custom/path/db.sqlite3"
+                        "database": {
+                            "type": "postgresql",
+                            "host": "unreachable-host",
+                            "port": 5432
                         }
                     }
                 }
                 
-                # Force the unified bookmark store to fail so it falls back to legacy SQLite
+                # Force the unified bookmark store to fail
                 with patch('pulsepipe.cli.command.config._get_bookmark_factory') as mock_factory:
-                    mock_factory.side_effect = Exception("Unified store failed")
+                    mock_factory.side_effect = Exception("Connection failed")
                     
-                    # Mock the specific os imports in the config module
-                    with patch('pulsepipe.cli.command.config.os.path.exists', return_value=False):
-                        with patch('pulsepipe.cli.command.config.os.makedirs') as mock_makedirs:
-                            # Mock SQLiteBookmarkStore operations
-                            with patch('pulsepipe.adapters.file_watcher_bookmarks.sqlite_store.SQLiteBookmarkStore') as mock_store_class:
-                                mock_store_instance = MagicMock()
-                                mock_store_instance.get_all.return_value = []
-                                mock_store_class.return_value = mock_store_instance
-                                
-                                result = runner.invoke(cli, ["config", "filewatcher", "list"])
-                                
-                                assert result.exit_code == 0
-                                mock_makedirs.assert_called_once_with("/custom/path", exist_ok=True)
+                    result = runner.invoke(cli, ["config", "filewatcher", "list"])
+                    
+                    # Should fail fast instead of falling back to SQLite
+                    assert result.exit_code == 1
+                    assert "Failed to list processed files" in result.output or "Database connection failed" in result.output
     
 
     def test_delete_profile_not_found(self):

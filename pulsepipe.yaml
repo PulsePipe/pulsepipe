@@ -23,6 +23,7 @@
 
 persistence:
   type: mongodb  # sqlite | postgresql | mongodb
+  connection_timeout: 5  # seconds for database connection timeout
 
   sqlite:
     db_path: .pulsepipe/state/ingestion.sqlite3
@@ -35,6 +36,9 @@ persistence:
     password: ""
     replica_set: ""
     read_preference: primaryPreferred
+    connect_timeout_ms: 5000  # Connection timeout in milliseconds
+    server_selection_timeout_ms: 5000  # Server selection timeout in milliseconds
+    socket_timeout_ms: 5000  # Socket timeout in milliseconds
 
   postgresql:
     host: localhost

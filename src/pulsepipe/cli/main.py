@@ -1037,7 +1037,7 @@ def _load_database_commands():
             if issue_type in ["connection_working", "connection_slow_but_working"]:
                 click.echo("✅ Database connection is healthy!")
                 
-                db_type = diagnostic_info.get("config_type", "unknown")
+                db_type = diagnostic_info.get("config_type") or "unknown"
                 connection_time = diagnostic_info.get("connection_timeout", total_time)
                 
                 click.echo(f"Database type: {db_type}")

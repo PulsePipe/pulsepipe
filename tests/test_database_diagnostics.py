@@ -44,8 +44,8 @@ class TestDatabaseDiagnostics:
         """Test diagnosis when database type is missing"""
         config = {
             "persistence": {
-                "database": {
-                    # Missing 'type' field
+                # Missing 'type' field
+                "postgresql": {
                     "host": "localhost"
                 }
             }
@@ -54,7 +54,7 @@ class TestDatabaseDiagnostics:
         issue_type, suggested_fixes, diagnostic_info = diagnose_database_connection(config, timeout=5)
         
         assert issue_type == "missing_database_type"
-        assert "Set persistence.database.type" in suggested_fixes[0]
+        assert "Set persistence.type" in suggested_fixes[0]
         assert diagnostic_info["config_type"] is None
     
     @patch('pulsepipe.utils.database_diagnostics._test_network_connectivity')
@@ -64,8 +64,8 @@ class TestDatabaseDiagnostics:
         
         config = {
             "persistence": {
-                "database": {
-                    "type": "postgresql",
+                "type": "postgresql",
+                "postgresql": {
                     "host": "unreachable-host",
                     "port": 5432
                 }
@@ -79,27 +79,32 @@ class TestDatabaseDiagnostics:
         assert diagnostic_info["network_accessible"] is False
     
     @patch('pulsepipe.utils.database_diagnostics._test_network_connectivity')
-    @patch('pulsepipe.persistence.factory.get_database_connection')
+    @patch('pulsepipe.utils.database_diagnostics.get_database_connection')
     def test_diagnose_connection_working(self, mock_get_conn, mock_network_test):
         """Test diagnosis when connection is working"""
         mock_network_test.return_value = True
         
-        # Mock successful connection
+        # Mock successful connection that doesn't raise exceptions
         mock_connection = MagicMock()
         mock_connection.execute.return_value = None
+        # Ensure the mock doesn't raise any exceptions
         mock_get_conn.return_value = mock_connection
+        mock_get_conn.side_effect = None  # Clear any side effects
         
         config = {
             "persistence": {
-                "database": {
-                    "type": "postgresql",
+                "type": "postgresql",
+                "postgresql": {
                     "host": "localhost",
-                    "port": 5432
+                    "port": 5432,
+                    "database": "test_db",
+                    "username": "test_user",
+                    "password": "test_pass"
                 }
             }
         }
         
-        with patch('pulsepipe.persistence.factory.get_sql_dialect') as mock_dialect:
+        with patch('pulsepipe.utils.database_diagnostics.get_sql_dialect') as mock_dialect:
             mock_dialect.return_value = MagicMock()
             
             issue_type, suggested_fixes, diagnostic_info = diagnose_database_connection(config, timeout=5)
@@ -118,8 +123,8 @@ class TestDatabaseDiagnostics:
         ]
         config = {
             "persistence": {
-                "database": {
-                    "type": "postgresql",
+                "type": "postgresql",
+                "postgresql": {
                     "host": "slow-host"
                 }
             }
@@ -137,6 +142,26 @@ class TestDatabaseDiagnostics:
         assert "Network connection timed out after 5.0s" in error_msg
         assert "Fix the database connection using the suggested steps above" in error_msg
     
+    def test_create_detailed_error_message_none_config_type(self):
+        """Test error message formatting when config_type is None"""
+        issue_type = "missing_database_type"
+        suggested_fixes = [
+            "Set persistence.database.type in configuration",
+            "Supported types: postgresql, mongodb, sqlite"
+        ]
+        config = {}
+        diagnostic_info = {
+            "config_type": None,  # This should be handled gracefully
+            "connection_timeout": None
+        }
+        
+        error_msg = create_detailed_error_message(issue_type, suggested_fixes, config, diagnostic_info)
+        
+        assert "🔴 Database Connection Failed: Missing Database Type" in error_msg
+        assert "unknown database" in error_msg
+        assert "None database" not in error_msg  # Should not show None
+        assert "1. Set persistence.database.type in configuration" in error_msg
+    
     @patch('pulsepipe.utils.database_diagnostics.diagnose_database_connection')
     def test_raise_database_diagnostic_error(self, mock_diagnose):
         """Test raise_database_diagnostic_error function"""
@@ -146,7 +171,7 @@ class TestDatabaseDiagnostics:
             {"config_type": "postgresql", "connection_timeout": 2.1}
         )
         
-        config = {"persistence": {"database": {"type": "postgresql"}}}
+        config = {"persistence": {"type": "postgresql"}}
         
         with pytest.raises(DatabaseDiagnosticError) as excinfo:
             raise_database_diagnostic_error(config, timeout=5)
@@ -165,7 +190,7 @@ class TestDatabaseDiagnostics:
             {"config_type": "postgresql"}
         )
         
-        config = {"persistence": {"database": {"type": "postgresql"}}}
+        config = {"persistence": {"type": "postgresql"}}
         
         # Should not raise an error for working connections
         raise_database_diagnostic_error(config, timeout=5)
@@ -173,25 +198,23 @@ class TestDatabaseDiagnostics:
     def test_network_connectivity_postgresql(self):
         """Test network connectivity test for PostgreSQL"""
         db_config = {
-            "type": "postgresql",
             "host": "127.0.0.1",
             "port": 5432
         }
         
         # This will test actual network connectivity (may fail if PostgreSQL not running)
         # but we're mainly testing the function doesn't crash
-        result = _test_network_connectivity(db_config, timeout=1)
+        result = _test_network_connectivity("postgresql", db_config, timeout=1)
         assert isinstance(result, bool)
     
     def test_network_connectivity_sqlite(self):
         """Test network connectivity test for SQLite"""
         db_config = {
-            "type": "sqlite",
             "path": "/tmp/test.db"
         }
         
         # SQLite is always "accessible" since it's file-based
-        result = _test_network_connectivity(db_config, timeout=1)
+        result = _test_network_connectivity("sqlite", db_config, timeout=1)
         assert result is True
 
 

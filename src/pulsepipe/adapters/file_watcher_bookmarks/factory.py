@@ -53,11 +53,15 @@ def create_bookmark_store(config: dict):
             return CommonBookmarkStore(connection, dialect)
         except Exception as e:
             elapsed = time.time() - start_time
-            db_type = persistence_config.get("database", {}).get("type", "unknown")
+            # Get database type from either persistence.type or persistence.database.type
+            db_type = (
+                persistence_config.get("type") or 
+                persistence_config.get("database", {}).get("type", "unknown")
+            )
             
             # Use comprehensive diagnostics for better error reporting
             try:
-                raise_database_diagnostic_error(config, timeout=5)
+                raise_database_diagnostic_error(config)
             except DatabaseDiagnosticError as diag_error:
                 # Re-raise with bookmark store context
                 enhanced_message = (
@@ -114,7 +118,7 @@ def create_bookmark_store(config: dict):
             
             # Use comprehensive diagnostics 
             try:
-                raise_database_diagnostic_error(config, timeout=5)
+                raise_database_diagnostic_error(config)
             except DatabaseDiagnosticError as diag_error:
                 enhanced_message = (
                     f"🔒 PostgreSQL bookmark store initialization failed\n"
@@ -158,7 +162,7 @@ def create_bookmark_store(config: dict):
             
             # Use comprehensive diagnostics
             try:
-                raise_database_diagnostic_error(config, timeout=5)
+                raise_database_diagnostic_error(config)
             except DatabaseDiagnosticError as diag_error:
                 enhanced_message = (
                     f"🔒 MongoDB bookmark store initialization failed\n"

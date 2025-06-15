@@ -36,7 +36,7 @@ class DatabaseDiagnosticError(Exception):
         self.config_info = config_info or {}
 
 
-def diagnose_database_connection(config: dict, timeout: int = 5) -> Tuple[str, List[str], Dict]:
+def diagnose_database_connection(config: dict, timeout: int = None) -> Tuple[str, List[str], Dict]:
     """
     Systematic diagnosis of database connection issues.
     
@@ -58,6 +58,10 @@ def diagnose_database_connection(config: dict, timeout: int = 5) -> Tuple[str, L
     try:
         # 1. Validate configuration structure
         persistence_config = config.get("persistence", {})
+        
+        # Use timeout from config if not provided
+        if timeout is None:
+            timeout = persistence_config.get("connection_timeout", 5)
         if not persistence_config:
             return "missing_persistence_config", [
                 "Add persistence configuration to your pulsepipe.yaml",
@@ -65,20 +69,23 @@ def diagnose_database_connection(config: dict, timeout: int = 5) -> Tuple[str, L
                 "Run 'pulsepipe config init --database postgresql' to generate template"
             ], diagnostic_info
         
-        db_config = persistence_config.get("database", {})
-        db_type = db_config.get("type")
+        # Check for database type in the correct location
+        db_type = persistence_config.get("type")
         diagnostic_info["config_type"] = db_type
         
         if not db_type:
             return "missing_database_type", [
-                "Set persistence.database.type in configuration",
+                "Set persistence.type in configuration",
                 "Supported types: postgresql, mongodb, sqlite",
-                "Example: persistence: { database: { type: postgresql } }"
+                "Example: persistence: { type: postgresql }"
             ], diagnostic_info
+        
+        # Get database-specific config section
+        db_config = persistence_config.get(db_type, {})
         
         # 2. Test network connectivity with timeout tracking
         network_start = time.time()
-        is_network_accessible = _test_network_connectivity(db_config, timeout)
+        is_network_accessible = _test_network_connectivity(db_type, db_config, timeout)
         network_elapsed = time.time() - network_start
         diagnostic_info["network_accessible"] = is_network_accessible
         
@@ -199,18 +206,32 @@ def diagnose_database_connection(config: dict, timeout: int = 5) -> Tuple[str, L
         ], diagnostic_info
 
 
-def _test_network_connectivity(db_config: dict, timeout: int) -> bool:
+def _test_network_connectivity(db_type: str, db_config: dict, timeout: int) -> bool:
     """Test basic network connectivity to database server"""
     try:
-        db_type = db_config.get("type", "").lower()
+        db_type_lower = db_type.lower()
         
-        if db_type in ["postgresql", "postgres"]:
+        if db_type_lower in ["postgresql", "postgres"]:
             host = db_config.get("host", "localhost")
             port = db_config.get("port", 5432)
-        elif db_type == "mongodb":
-            host = db_config.get("host", "localhost")
-            port = db_config.get("port", 27017)
-        elif db_type == "sqlite":
+        elif db_type_lower == "mongodb":
+            # For MongoDB, try to extract host/port from connection_string if available
+            connection_string = db_config.get("connection_string", "")
+            if connection_string:
+                # Parse mongodb://host:port/ format
+                import re
+                match = re.search(r'mongodb://([^:]+):(\d+)/', connection_string)
+                if match:
+                    host = match.group(1)
+                    port = int(match.group(2))
+                else:
+                    # Fallback to default
+                    host = "localhost"
+                    port = 27017
+            else:
+                host = db_config.get("host", "localhost")
+                port = db_config.get("port", 27017)
+        elif db_type_lower == "sqlite":
             # SQLite is file-based, always "accessible"
             return True
         else:
@@ -232,7 +253,7 @@ def _test_network_connectivity(db_config: dict, timeout: int) -> bool:
 def create_detailed_error_message(issue_type: str, suggested_fixes: List[str], config: dict, diagnostic_info: Dict) -> str:
     """Create a comprehensive error message with troubleshooting guidance"""
     
-    db_type = diagnostic_info.get("config_type", "unknown")
+    db_type = diagnostic_info.get("config_type") or "unknown"
     connection_timeout = diagnostic_info.get("connection_timeout")
     
     error_msg = f"""
@@ -252,16 +273,21 @@ Suggested fixes:
     
     # Add database-specific troubleshooting
     if db_type == "postgresql":
+        pg_config = config.get('persistence', {}).get('postgresql', {})
+        host = pg_config.get('host', 'localhost')
+        username = pg_config.get('username', 'username')
         error_msg += f"""
 PostgreSQL Troubleshooting:
-  • Test manually: psql -h {config.get('persistence', {}).get('database', {}).get('host', 'localhost')} -U {config.get('persistence', {}).get('database', {}).get('user', 'username')}
+  • Test manually: psql -h {host} -U {username}
   • Check server: pg_isready -h <host> -p <port>
   • Review logs: tail -f /var/log/postgresql/postgresql-*.log
 """
     elif db_type == "mongodb":
+        mongo_config = config.get('persistence', {}).get('mongodb', {})
+        connection_string = mongo_config.get('connection_string', 'mongodb://localhost:27017/')
         error_msg += f"""
 MongoDB Troubleshooting:
-  • Test manually: mongosh "mongodb://<host>:<port>/<database>"
+  • Test manually: mongosh "{connection_string}"
   • Check server: nc -zv <host> <port>
   • Review logs: tail -f /var/log/mongodb/mongod.log
 """
@@ -276,7 +302,7 @@ To resolve this issue:
     return error_msg
 
 
-def raise_database_diagnostic_error(config: dict, timeout: int = 5):
+def raise_database_diagnostic_error(config: dict, timeout: int = None):
     """
     Diagnose database connection and raise appropriate error.
     This replaces silent SQLite fallback behavior.

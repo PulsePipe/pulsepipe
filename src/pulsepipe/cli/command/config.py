@@ -38,6 +38,7 @@ from pathlib import Path
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.config_loader import load_config
 from pulsepipe.utils.database_diagnostics import raise_database_diagnostic_error, DatabaseDiagnosticError
+from pulsepipe.persistence.database.exceptions import ConfigurationError
 
 # Lazy import function for heavy modules
 def _get_sqlite_store():
@@ -397,19 +398,16 @@ def list_processed_files(config_path, profile):
             for path in bookmarks:
                 click.echo(f" - {path}")
                 
+    except ConfigurationError as e:
+        # ConfigurationError already contains diagnostic information from the bookmark factory
+        click.echo(str(e), err=True)
+        raise click.ClickException("Database connection failed - see details above")
     except DatabaseDiagnosticError as e:
         # Detailed diagnostic error with troubleshooting guidance
         click.echo(str(e), err=True)
         raise click.ClickException("Database connection failed - see details above")
     except Exception as e:
-        # Run diagnostics to provide actionable error information
-        try:
-            raise_database_diagnostic_error(config, timeout=5)
-        except DatabaseDiagnosticError as diag_error:
-            click.echo(str(diag_error), err=True)
-            raise click.ClickException("Database connection failed - see diagnostics above")
-        
-        # If diagnostics didn't catch it, show generic error
+        # For unexpected errors, show a simple message and suggest health-check
         click.echo(f"❌ Failed to list processed files: {e}", err=True)
         click.echo("\n💡 Try running 'pulsepipe database health-check' for detailed diagnostics", err=True)
         raise click.ClickException("Bookmark store operation failed")
@@ -434,19 +432,16 @@ def reset_bookmarks(config_path, profile):
         count = store.clear_all()
         click.echo(f"✅ Cleared {count} bookmarks.")
         
+    except ConfigurationError as e:
+        # ConfigurationError already contains diagnostic information from the bookmark factory
+        click.echo(str(e), err=True)
+        raise click.ClickException("Database connection failed - see details above")
     except DatabaseDiagnosticError as e:
         # Detailed diagnostic error with troubleshooting guidance
         click.echo(str(e), err=True)
         raise click.ClickException("Database connection failed - see details above")
     except Exception as e:
-        # Run diagnostics to provide actionable error information
-        try:
-            raise_database_diagnostic_error(config, timeout=5)
-        except DatabaseDiagnosticError as diag_error:
-            click.echo(str(diag_error), err=True)
-            raise click.ClickException("Database connection failed - see diagnostics above")
-        
-        # If diagnostics didn't catch it, show generic error
+        # For unexpected errors, show a simple message and suggest health-check
         click.echo(f"❌ Failed to reset bookmarks: {e}", err=True)
         click.echo("\n💡 Try running 'pulsepipe database health-check' for detailed diagnostics", err=True)
         raise click.ClickException("Bookmark reset operation failed")

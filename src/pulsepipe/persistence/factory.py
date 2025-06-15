@@ -110,6 +110,20 @@ def get_database_connection(config: dict) -> DatabaseConnection:
         if read_preference:
             connection_options["readPreference"] = read_preference
         
+        # Handle timeout settings - use specific MongoDB timeouts or derive from global timeout
+        global_timeout_ms = persistence_config.get("connection_timeout", 5) * 1000  # Convert to milliseconds
+        
+        timeout_settings = [
+            ("connect_timeout_ms", "connectTimeoutMS", global_timeout_ms),
+            ("server_selection_timeout_ms", "serverSelectionTimeoutMS", global_timeout_ms),
+            ("socket_timeout_ms", "socketTimeoutMS", global_timeout_ms)
+        ]
+        
+        for config_key, pymongo_key, default_value in timeout_settings:
+            timeout_value = mongo_config.get(config_key, default_value)
+            if timeout_value is not None:
+                connection_options[pymongo_key] = timeout_value
+        
         return MongoDBConnection(
             connection_string=connection_string,
             database=database,

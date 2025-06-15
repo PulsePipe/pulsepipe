@@ -36,14 +36,21 @@ class TestFactory:
             "type": "file_watcher", 
             "watch_path": "./incoming/test", 
             "extensions": [".txt", ".json"],
-            "continuous": True
+            "continuous": True,
+            "persistence": {
+                "database": {
+                    "type": "sqlite",
+                    "path": "/tmp/test_bookmarks.db"
+                }
+            }
         }
     
     @patch('pulsepipe.utils.factory.load_config')
-    @patch('pulsepipe.adapters.file_watcher.SQLiteBookmarkStore')
-    def test_create_adapter_file_watcher(self, mock_bookmark_store, mock_load_config, file_watcher_config):
+    @patch('pulsepipe.adapters.file_watcher_bookmarks.factory.create_bookmark_store')
+    def test_create_adapter_file_watcher(self, mock_bookmark_factory, mock_load_config, file_watcher_config):
         mock_load_config.return_value = {"logging": {"level": "INFO"}}
-        mock_bookmark_store.return_value = MagicMock()
+        mock_bookmark_store = MagicMock()
+        mock_bookmark_factory.return_value = mock_bookmark_store
         
         adapter = create_adapter(file_watcher_config)
         

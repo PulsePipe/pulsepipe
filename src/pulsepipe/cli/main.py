@@ -59,6 +59,7 @@ Options:
 
 Commands:
   config        Configuration management commands.
+  database      Database connectivity and health check commands.
   metrics       Manage and export ingestion metrics.
   model         Model inspection and management commands.
   run           Run a data processing pipeline.""")
@@ -951,10 +952,16 @@ def metrics():
     """Manage and export ingestion metrics."""
     pass
 
+@cli.group()
+def database():
+    """Database connectivity and health check commands."""
+    pass
+
 # Store original invoke methods
 _config_invoke = config.invoke
 _model_invoke = model.invoke
 _metrics_invoke = metrics.invoke
+_database_invoke = database.invoke
 
 
 def lazy_model_invoke(ctx):
@@ -982,9 +989,93 @@ def lazy_metrics_get_command(ctx, cmd_name):
             metrics.add_command(command, name)
     return metrics.commands.get(cmd_name)
 
+def lazy_database_invoke(ctx):
+    """Lazy load database commands only when needed."""
+    if not database.commands:
+        _load_database_commands()
+    return _database_invoke(ctx)
+
+def _load_database_commands():
+    """Load database commands."""
+    from pulsepipe.utils.database_diagnostics import diagnose_database_connection, create_detailed_error_message
+    from pulsepipe.utils.config_loader import load_config
+    import click
+    import time
+    
+    @click.command()
+    @click.option("--config-path", default="pulsepipe.yaml", help="Path to the configuration file.")
+    @click.option("--profile", default=None, help="Optional config profile to load.")
+    @click.option("--timeout", default=10, help="Connection timeout in seconds.")
+    @click.option("--verbose", "-v", is_flag=True, help="Show detailed diagnostic information.")
+    def health_check(config_path, profile, timeout, verbose):
+        """🔍 Comprehensive database connectivity health check."""
+        
+        try:
+            # Load configuration
+            if profile:
+                import os
+                config_dir = os.path.dirname(config_path)
+                profile_path = os.path.join(config_dir, f"{profile}.yaml")
+                config = load_config(profile_path)
+            else:
+                config = load_config(config_path)
+            
+            click.echo("🔍 Running database connectivity health check...")
+            if verbose:
+                click.echo(f"Configuration file: {config_path}")
+                if profile:
+                    click.echo(f"Profile: {profile}")
+                click.echo(f"Timeout: {timeout}s")
+                click.echo()
+            
+            # Run diagnostics
+            start_time = time.time()
+            issue_type, suggested_fixes, diagnostic_info = diagnose_database_connection(config, timeout)
+            total_time = time.time() - start_time
+            
+            # Display results
+            if issue_type in ["connection_working", "connection_slow_but_working"]:
+                click.echo("✅ Database connection is healthy!")
+                
+                db_type = diagnostic_info.get("config_type", "unknown")
+                connection_time = diagnostic_info.get("connection_timeout", total_time)
+                
+                click.echo(f"Database type: {db_type}")
+                click.echo(f"Connection time: {connection_time:.2f}s")
+                
+                if issue_type == "connection_slow_but_working":
+                    click.echo("⚠️ Connection is slow but functional")
+                    click.echo("Consider optimizing database performance")
+                
+                if verbose:
+                    click.echo("\nDiagnostic details:")
+                    for key, value in diagnostic_info.items():
+                        click.echo(f"  {key}: {value}")
+            else:
+                click.echo("❌ Database connection failed")
+                error_message = create_detailed_error_message(issue_type, suggested_fixes, config, diagnostic_info)
+                click.echo(error_message)
+                
+                if verbose:
+                    click.echo("\nDiagnostic details:")
+                    for key, value in diagnostic_info.items():
+                        click.echo(f"  {key}: {value}")
+                
+                # Exit with error code
+                raise click.ClickException("Database health check failed")
+                
+        except Exception as e:
+            if isinstance(e, click.ClickException):
+                raise
+            click.echo(f"❌ Health check failed: {e}", err=True)
+            raise click.ClickException("Health check encountered an error")
+    
+    database.add_command(health_check, "health-check")
+
 # Replace invoke methods with lazy versions (config is loaded immediately now)
 model.invoke = lazy_model_invoke
 metrics.invoke = lazy_metrics_invoke
+database.invoke = lazy_database_invoke
 
 # Also replace get_command method for help support
 _metrics_get_command = metrics.get_command

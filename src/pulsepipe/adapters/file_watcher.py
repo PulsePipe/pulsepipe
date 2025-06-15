@@ -34,6 +34,7 @@ from .file_watcher_bookmarks.sqlite_store import SQLiteBookmarkStore
 from .file_watcher_bookmarks.factory import create_bookmark_store
 from pulsepipe.utils.log_factory import LogFactory
 from pulsepipe.utils.errors import FileWatcherError, FileSystemError
+from pulsepipe.utils.database_diagnostics import raise_database_diagnostic_error, DatabaseDiagnosticError
 
 
 class FileWatcherAdapter(Adapter):
@@ -81,22 +82,64 @@ class FileWatcherAdapter(Adapter):
                 })()
                 self.logger.info(f"Using simple bookmark store for testing with {self.bookmark_file}")
             else:
-                # Normal operation mode - try to use unified bookmark store if persistence config exists
+                # Normal operation mode - use configured database or fail fast
                 try:
                     # Check if we have persistence configuration in the config (passed from pipeline)
                     if "persistence" in config:
                         self.bookmarks = create_bookmark_store(config)
                         self.logger.info("Using unified bookmark store with persistence configuration")
                     else:
-                        # Fall back to legacy SQLite bookmark store
-                        bookmark_db_path = ".pulsepipe/state/bookmarks.sqlite3"
-                        self.bookmarks = SQLiteBookmarkStore(bookmark_db_path)
-                        self.logger.info("Using legacy SQLite bookmark store (no persistence config found)")
+                        # No persistence config - this is a configuration error
+                        error_msg = (
+                            "🔴 No persistence configuration found\n"
+                            "File watcher requires database configuration to track processed files.\n\n"
+                            "Add persistence configuration to your pulsepipe.yaml:\n"
+                            "persistence:\n"
+                            "  database:\n"
+                            "    type: postgresql  # or mongodb, sqlite\n"
+                            "    host: localhost\n"
+                            "    # ... other database settings\n\n"
+                            "Fix the database connection to continue."
+                        )
+                        self.logger.error(error_msg)
+                        raise DatabaseDiagnosticError(
+                            error_msg,
+                            "missing_persistence_config",
+                            [
+                                "Add persistence configuration to pulsepipe.yaml",
+                                "Run 'pulsepipe config init --database <type>' to generate template",
+                                "See documentation for database setup instructions"
+                            ]
+                        )
+                except DatabaseDiagnosticError:
+                    # Re-raise diagnostic errors as-is
+                    raise
                 except Exception as e:
-                    # Fall back to legacy SQLite store if unified store fails
-                    self.logger.warning(f"Failed to create unified bookmark store, falling back to SQLite: {e}")
-                    bookmark_db_path = ".pulsepipe/state/bookmarks.sqlite3"
-                    self.bookmarks = SQLiteBookmarkStore(bookmark_db_path)
+                    # Run comprehensive diagnostics for other errors
+                    self.logger.error(f"Failed to create bookmark store: {e}")
+                    try:
+                        raise_database_diagnostic_error(config, timeout=5)
+                    except DatabaseDiagnosticError as diag_error:
+                        self.logger.error(f"Database diagnostic error: {diag_error}")
+                        raise
+                    
+                    # If diagnostics didn't catch it, create a generic diagnostic error
+                    error_msg = (
+                        f"🔴 File watcher bookmark store initialization failed: {e}\n\n"
+                        "The file watcher requires a functional database connection to track processed files.\n"
+                        "This prevents duplicate processing and maintains ingestion state.\n\n"
+                        "Fix the database connection to continue."
+                    )
+                    raise DatabaseDiagnosticError(
+                        error_msg,
+                        "bookmark_store_init_failed",
+                        [
+                            "Verify database server is running and accessible",
+                            "Check database configuration in pulsepipe.yaml",
+                            "Run 'pulsepipe database health-check' for detailed diagnostics",
+                            "Review application logs for connection errors"
+                        ]
+                    )
             
             # Track existing files to detect new ones
             self._known_files: Set[str] = set()
